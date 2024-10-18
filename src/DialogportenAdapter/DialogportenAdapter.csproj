@@ -9,6 +9,7 @@
 
     <ItemGroup>
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.10"/>
+        <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.1" />
         <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2"/>
     </ItemGroup>
 
@@ -20,15 +21,6 @@
 
     <ItemGroup>
       <ProjectReference Include="..\DialogportenAdapter.Interface\DialogportenAdapter.Interface.csproj" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <Folder Include="Clients\" />
-      <Folder Include="Controllers\" />
-      <Folder Include="Migrations\" />
-      <Folder Include="Models\" />
-      <Folder Include="Repositories\" />
-      <Folder Include="Services\" />
     </ItemGroup>
 
 </Project>
