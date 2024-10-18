@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <OutputType>Library</OutputType>
+        <PackageId>Altinn.Platform.DialogportenAdapter.Interface</PackageId>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+
+
+        <PackageTags>Altinn;Platform;Dialogporten;Models</PackageTags>
+        <Description>
+            This class library holds the models exposed by the external endpoints of the Altinn 3 Dialogporten adapter component.
+        </Description>
+        <Authors>Altinn Platform Contributors</Authors>
+        <RepositoryType>git</RepositoryType>
+        <RepositoryUrl>https://github.com/Altinn/altinn-dialogporten-adapter</RepositoryUrl>
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+        <IsPackable>true</IsPackable>
+        <MinVerTagPrefix>DialogportenAdapter.Interface-</MinVerTagPrefix>
+
+    </PropertyGroup>
+
+    <ItemGroup>
+      <Folder Include="Enums\" />
+      <Folder Include="Models\" />
+    </ItemGroup>
+
+</Project>
