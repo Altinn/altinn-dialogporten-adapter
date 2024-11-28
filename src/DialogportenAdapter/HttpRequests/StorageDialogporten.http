@@ -1,0 +1,44 @@
+### Authenticate
+GET https://altinn-testtools-token-generator.azurewebsites.net/api/GetEnterpriseToken
+    ?scopes=digdir:dialogporten.serviceprovider digdir:dialogporten.serviceprovider.search digdir:dialogporten digdir:dialogporten.developer.test
+    &org=digdir
+    &orgNo=991825827
+    &env=tt02
+    &ttl=86400
+Authorization: Basic dpoctest mkbFXl3hyElANVpgbako
+
+> {%
+    client.global.set("BearerToken", response.body);
+ %}
+
+### Search for dialogs
+GET https://altinn-dev-api.azure-api.net/dialogporten/api/v1/serviceowner/dialogs/
+Authorization: Bearer {{BearerToken}}
+
+### Get application metadata from storage
+GET https://platform.tt02.altinn.no/storage/api/v1/applications/{{org}}/{{app}}
+
+### Get application text resources from storage
+GET https://platform.tt02.altinn.no/storage/api/v1/applications/{{org}}/{{app}}/texts/{{language}}
+Authorization: Bearer {{BearerToken}}
+
+### Create dialog from storage data
+POST https://altinn-dev-api.azure-api.net/dialogporten/api/v1/serviceowner/dialogs/
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+    "serviceResource": "urn:altinn:resource:super-simple-service", 
+    "party": "1",
+    "status": "new"
+}
+
+
+#### GET request to example server
+#POST https://altinn-dev-api.azure-api.net/dialogporten/api/v1/serviceowner/dialogs
+#Content-Type: application/json
+#
+#{
+#  
+#}
+###

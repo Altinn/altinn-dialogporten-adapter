@@ -1,0 +1,245 @@
+{
+  "id": "skd/mva-melding-innsending-sitsynt",
+  "versionId": "e17ea8282123876db448545575d4984218eb5f42",
+  "org": "skd",
+  "title": {
+    "en": "mva-melding-innsending-sitsynt",
+    "nb": "mva-melding-innsending-sitsynt",
+    "nn": "mva-melding-innsending-sitsynt"
+  },
+  "dataTypes": [
+    {
+      "id": "ref-data-as-pdf",
+      "allowedContentTypes": [
+        "application/pdf"
+      ],
+      "maxCount": 0,
+      "minCount": 0,
+      "grouping": "EKSTERN-UT",
+      "enablePdfCreation": true,
+      "enableFileScan": false,
+      "validationErrorOnPendingFileScan": false,
+      "enabledFileAnalysers": [],
+      "enabledFileValidators": []
+    },
+    {
+      "id": "no.skatteetaten.fastsetting.avgift.mva.mvameldinginnsending.v1.0",
+      "allowedContentTypes": [
+        "application/xml"
+      ],
+      "appLogic": {
+        "autoCreate": true,
+        "classRef": "Altinn.App.Models.MvaMeldingInnsending",
+        "allowAnonymousOnStateless": false,
+        "autoDeleteOnProcessEnd": false,
+        "disallowUserCreate": false,
+        "disallowUserDelete": false,
+        "allowInSubform": false
+      },
+      "taskId": "Task_1",
+      "maxCount": 1,
+      "minCount": 1,
+      "grouping": "EKSTERN-INN",
+      "enablePdfCreation": false,
+      "enableFileScan": false,
+      "validationErrorOnPendingFileScan": false,
+      "enabledFileAnalysers": [],
+      "enabledFileValidators": []
+    },
+    {
+      "id": "mvamelding",
+      "allowedContentTypes": [
+        "text/xml"
+      ],
+      "taskId": "Task_1",
+      "maxSize": 25,
+      "maxCount": 1,
+      "minCount": 1,
+      "grouping": "EKSTERN-INN",
+      "enablePdfCreation": false,
+      "enableFileScan": false,
+      "validationErrorOnPendingFileScan": false,
+      "enabledFileAnalysers": [],
+      "enabledFileValidators": []
+    },
+    {
+      "id": "binaerVedlegg",
+      "allowedContentTypes": [
+        "text/xml",
+        "application/pdf",
+        "image/jpeg",
+        "image/png",
+        "application/vnd.oasis.opendocument.formula",
+        "application/vnd.oasis.opendocument.text",
+        "application/vnd.oasis.opendocument.spreadsheet",
+        "application/vnd.oasis.opendocument.presentation",
+        "application/vnd.oasis.opendocument.graphics",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "application/msword",
+        "application/vnd.ms-excel",
+        "application/vnd.ms-powerpoint"
+      ],
+      "taskId": "Task_1",
+      "maxSize": 25,
+      "maxCount": 57,
+      "minCount": 0,
+      "grouping": "EKSTERN-INN",
+      "enablePdfCreation": false,
+      "enableFileScan": false,
+      "validationErrorOnPendingFileScan": false,
+      "enabledFileAnalysers": [],
+      "enabledFileValidators": []
+    },
+    {
+      "id": "tidligereinnsendtvedlegg",
+      "allowedContentTypes": [
+        "text/xml"
+      ],
+      "taskId": "Task_1",
+      "maxSize": 25,
+      "maxCount": 57,
+      "minCount": 0,
+      "grouping": "EKSTERN-INN",
+      "enablePdfCreation": false,
+      "enableFileScan": false,
+      "validationErrorOnPendingFileScan": false,
+      "enabledFileAnalysers": [],
+      "enabledFileValidators": []
+    },
+    {
+      "id": "miljo",
+      "allowedContentTypes": [
+        "application/json"
+      ],
+      "taskId": "Task_1",
+      "maxSize": 25,
+      "maxCount": 1,
+      "minCount": 0,
+      "grouping": "INTERN-INN",
+      "enablePdfCreation": false,
+      "enableFileScan": false,
+      "validationErrorOnPendingFileScan": false,
+      "enabledFileAnalysers": [],
+      "enabledFileValidators": []
+    },
+    {
+      "id": "kvittering",
+      "allowedContentTypes": [
+        "text/plain",
+        "text/xml",
+        "application/pdf"
+      ],
+      "taskId": "Task_3",
+      "maxSize": 25,
+      "maxCount": 1,
+      "minCount": 1,
+      "grouping": "EKSTERN-UT",
+      "enablePdfCreation": false,
+      "enableFileScan": false,
+      "validationErrorOnPendingFileScan": false,
+      "enabledFileAnalysers": [],
+      "enabledFileValidators": []
+    },
+    {
+      "id": "valideringsresultat",
+      "allowedContentTypes": [
+        "text/plain",
+        "text/xml"
+      ],
+      "taskId": "Task_3",
+      "maxSize": 25,
+      "maxCount": 1,
+      "minCount": 0,
+      "grouping": "EKSTERN-UT",
+      "enablePdfCreation": false,
+      "enableFileScan": false,
+      "validationErrorOnPendingFileScan": false,
+      "enabledFileAnalysers": [],
+      "enabledFileValidators": []
+    },
+    {
+      "id": "betalingsinformasjon",
+      "allowedContentTypes": [
+        "text/plain",
+        "text/xml",
+        "application/xml"
+      ],
+      "taskId": "Task_2",
+      "maxSize": 25,
+      "maxCount": 1,
+      "minCount": 0,
+      "grouping": "EKSTERN-UT",
+      "enablePdfCreation": false,
+      "enableFileScan": false,
+      "validationErrorOnPendingFileScan": false,
+      "enabledFileAnalysers": [],
+      "enabledFileValidators": []
+    },
+    {
+      "id": "utfyllingslogg",
+      "allowedContentTypes": [
+        "text/plain",
+        "application/json",
+        "application/xml"
+      ],
+      "taskId": "Task_1",
+      "maxSize": 25,
+      "maxCount": 1,
+      "minCount": 0,
+      "grouping": "INTERN-INN",
+      "enablePdfCreation": false,
+      "enableFileScan": false,
+      "validationErrorOnPendingFileScan": false,
+      "enabledFileAnalysers": [],
+      "enabledFileValidators": []
+    },
+    {
+      "id": "godkjenningslogg",
+      "allowedContentTypes": [
+        "text/plain",
+        "application/json",
+        "application/xml"
+      ],
+      "taskId": "Task_2",
+      "maxSize": 25,
+      "maxCount": 1,
+      "minCount": 0,
+      "grouping": "INTERN-INN",
+      "enablePdfCreation": false,
+      "enableFileScan": false,
+      "validationErrorOnPendingFileScan": false,
+      "enabledFileAnalysers": [],
+      "enabledFileValidators": []
+    },
+    {
+      "id": "attesteringslogg",
+      "allowedContentTypes": [
+        "text/plain",
+        "application/json",
+        "application/xml"
+      ],
+      "taskId": "Task_4",
+      "maxSize": 25,
+      "maxCount": 1,
+      "minCount": 1,
+      "grouping": "INTERN-INN",
+      "enablePdfCreation": false,
+      "enableFileScan": false,
+      "validationErrorOnPendingFileScan": false,
+      "enabledFileAnalysers": [],
+      "enabledFileValidators": []
+    }
+  ],
+  "partyTypesAllowed": {
+    "bankruptcyEstate": true,
+    "organisation": true,
+    "person": false,
+    "subUnit": true
+  },
+  "autoDeleteOnProcessEnd": false,
+  "disallowUserInstantiation": false,
+  "created": "2023-06-15T11:01:09.7914246Z",
+  "lastChanged": "2023-06-15T13:11:37.985793Z"
+}
