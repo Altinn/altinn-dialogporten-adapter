@@ -11,7 +11,7 @@ internal static class GuidExtensions
         // Get the timestamp in milliseconds since Unix epoch
         var unixTimestampMillis = timestamp.ToUnixTimeMilliseconds();
 
-        // Write the timestamp (48 bits) into the UUID buffer
+        // Write the timestamp (48 bits) into the UUID buffer 
         uuidBytes[0] = (byte)((unixTimestampMillis >> 40) & 0xFF);
         uuidBytes[1] = (byte)((unixTimestampMillis >> 32) & 0xFF);
         uuidBytes[2] = (byte)((unixTimestampMillis >> 24) & 0xFF);

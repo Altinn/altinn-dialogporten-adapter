@@ -20,6 +20,7 @@ var maskinportenSettings = builder.Configuration
 builder.Services.RegisterMaskinportenClientDefinition<SettingsJwkClientDefinition>(defaultMaskinportenClientDefinitionKey, maskinportenSettings);
 
 builder.Services.AddOpenApi()
+    .AddTransient<SyncInstanceToDialogService>()
     
     // Http clients
     .AddRefitClient<IStorageApi>()
@@ -45,6 +46,6 @@ app.MapPost("/syncDialog", async (
     CancellationToken cancellationToken) =>
 {
     var result = await syncService.Sync(request, cancellationToken);
-    return Results.Ok(dialog);
+    return Results.Ok(result);
 });
 app.Run();
