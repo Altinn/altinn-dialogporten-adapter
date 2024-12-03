@@ -20,6 +20,7 @@ internal class SyncInstanceToDialogService
     public async Task<DialogDto> Sync(SyncInstanceToDialogDto dto, CancellationToken cancellationToken = default)
     {
         var instance = await _storageApi.GetInstance(dto.PartyId, dto.InstanceId, cancellationToken);
+        var events = await _storageApi.GetInstanceEvents(dto.PartyId, dto.InstanceId, cancellationToken);
         var application = await _storageApi.GetApplication(instance.AppId, cancellationToken);
         var dialogId = dto.InstanceId.ToVersion7(instance.Created.Value);
         
