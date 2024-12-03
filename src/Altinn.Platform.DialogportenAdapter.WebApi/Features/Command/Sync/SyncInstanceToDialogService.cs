@@ -2,6 +2,7 @@ using System.Net;
 using Altinn.Platform.DialogportenAdapter.WebApi.Common;
 using Altinn.Platform.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.Platform.DialogportenAdapter.WebApi.Infrastructure.Storage;
+using Altinn.Platform.Storage.Interface.Models;
 
 namespace Altinn.Platform.DialogportenAdapter.WebApi.Features.Command.Sync;
 
@@ -20,18 +21,13 @@ internal class SyncInstanceToDialogService
     {
         var instance = await _storageApi.GetInstance(dto.PartyId, dto.InstanceId, cancellationToken);
         var application = await _storageApi.GetApplication(instance.AppId, cancellationToken);
-        
         var dialogId = dto.InstanceId.ToVersion7(instance.Created.Value);
+        
         var existingDialog = await GetDialog(dialogId, cancellationToken);
         var updatedDialog = existingDialog.CreateOrUpdate(dialogId, instance, application);
-
-        if (existingDialog is not null)
-        {
-            await _dialogportenApi.Update(updatedDialog, updatedDialog.Revision!.Value, cancellationToken);
-            return updatedDialog;
-        }
-
-        await _dialogportenApi.Create(updatedDialog, cancellationToken);
+        
+        await UpsertDialog(updatedDialog, cancellationToken);
+        await UpdateInstanceWithDialogId(dto, dialogId, cancellationToken);
         return updatedDialog;
     }
 
@@ -47,5 +43,20 @@ internal class SyncInstanceToDialogService
         return getDialogResult.IsSuccessful
             ? getDialogResult.Content
             : throw getDialogResult.Error;
+    }
+
+    private Task UpsertDialog(DialogDto dialog, CancellationToken cancellationToken) =>
+        !dialog.Revision.HasValue
+            ? _dialogportenApi.Create(dialog, cancellationToken)
+            : _dialogportenApi.Update(dialog, dialog.Revision!.Value, cancellationToken);
+
+    private Task UpdateInstanceWithDialogId(SyncInstanceToDialogDto dto, Guid dialogId,
+        CancellationToken cancellationToken)
+    {
+        var dataValues = new DataValues
+        {
+            Values = new() { { "dialogId", dialogId.ToString() } }
+        };
+        return _storageApi.UpdateDataValues(dto.PartyId, dto.InstanceId, dataValues, cancellationToken);
     }
 }

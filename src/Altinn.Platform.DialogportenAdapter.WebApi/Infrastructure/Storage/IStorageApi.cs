@@ -10,4 +10,7 @@ public interface IStorageApi
     
     [Get("/storage/api/v1/applications/{**appId}")]
     Task<Application> GetApplication(string appId, CancellationToken cancellationToken = default);
+    
+    [Put("/storage/api/v1/instances/{partyId}/{instanceId}/datavalues")]
+    Task UpdateDataValues(int partyId, Guid instanceId, [Body] DataValues dataValues, CancellationToken cancellationToken = default);
 }
