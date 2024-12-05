@@ -17,19 +17,28 @@ internal class SyncInstanceToDialogService
         _dialogportenApi = dialogportenApi ?? throw new ArgumentNullException(nameof(dialogportenApi));
     }
     
-    public async Task<DialogDto> Sync(SyncInstanceToDialogDto dto, CancellationToken cancellationToken = default)
+    public async Task<Guid> Sync(SyncInstanceToDialogDto dto, CancellationToken cancellationToken = default)
     {
+        // Get the instance from storage
         var instance = await _storageApi.GetInstance(dto.PartyId, dto.InstanceId, cancellationToken);
-        var events = await _storageApi.GetInstanceEvents(dto.PartyId, dto.InstanceId, cancellationToken);
-        var application = await _storageApi.GetApplication(instance.AppId, cancellationToken);
+        
+        // Create a uuid7 from the instance id and created timestamp to use as dialog id
         var dialogId = dto.InstanceId.ToVersion7(instance.Created.Value);
+
+        // Fetch events, application and existing dialog in parallel
+        var (existingDialog, application, events) = await (
+            GetDialog(dialogId, cancellationToken),
+            _storageApi.GetApplication(instance.AppId, cancellationToken),
+            _storageApi.GetInstanceEvents(dto.PartyId, dto.InstanceId, cancellationToken)
+        );
+
+        // Create or update the dialog with the fetched data
+        var updatedDialog = existingDialog.CreateOrUpdate(dialogId, application, instance, events);
         
-        var existingDialog = await GetDialog(dialogId, cancellationToken);
-        var updatedDialog = existingDialog.CreateOrUpdate(dialogId, instance, application);
-        
+        // Upsert the dialog and update the instance with the dialog id
         await UpsertDialog(updatedDialog, cancellationToken);
-        await UpdateInstanceWithDialogId(dto, dialogId, cancellationToken);
-        return updatedDialog;
+        //await UpdateInstanceWithDialogId(dto, dialogId, cancellationToken);
+        return dialogId;
     }
 
     private async Task<DialogDto?> GetDialog(Guid dialogId, CancellationToken cancellationToken)

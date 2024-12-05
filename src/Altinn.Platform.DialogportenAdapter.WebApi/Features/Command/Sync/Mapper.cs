@@ -9,8 +9,9 @@ internal static class Mapper
     public static DialogDto CreateOrUpdate(
         this DialogDto? existing, 
         Guid dialogId, 
+        Application application,
         Instance instance,
-        Application application)
+        InstanceEventList events)
     {
         var storageDialog = instance.ToDialogDto(dialogId, application);
         if (existing is null)
@@ -25,11 +26,15 @@ internal static class Mapper
     
     private  static DialogDto ToDialogDto(this Instance instance, Guid dialogId, Application application)
     {
+        // TODO: Flytt til konfigurasjon. Denne burde kanskje ikke lenger være statisk - begynner å bli mye mer enn en mapper.
+        const string appBaseUri = "https://digdir.apps.tt02.altinn.no";
         return new DialogDto
         {
             Id = dialogId,
             Party = instance.InstanceOwner.ToParty(),
             ServiceResource = ToServiceResource(instance.AppId),
+            VisibleFrom = instance.VisibleAfter > DateTime.UtcNow ? instance.VisibleAfter : null,
+            CreatedAt = instance.Created,
             Status = instance.Process.CurrentTask.AltinnTaskType switch
             {
                 _ when instance.Status.IsArchived => DialogStatus.Completed,
@@ -52,9 +57,29 @@ internal static class Mapper
                 Summary = new ContentValueDto
                 {
                     MediaType = MediaTypes.PlainText,
-                    Value = [new() { LanguageCode = "nb", Value = "Påkrevd, men vi har ikke noe fra Storage..." }]
+                    // TODO: Dette er en midlertidig løsning for å få med all nødvendig informasjon.
+                    Value = [new() { LanguageCode = "nb", Value = "Konvertert med DialogportenAdapter..." }]
                 }
-            }
+            },
+            GuiActions = [
+                new()
+                {
+                    Action = "Open",
+                    Priority = DialogGuiActionPriority.Primary,
+                    Title = [new(){LanguageCode = "nb", Value = "Gå til skjemautfylling"}],
+                    Url = new($"{appBaseUri}/{instance.AppId}/#/instance/{instance.Id}")
+                },
+                // TODO: Skal vi ha slett her?
+                new()
+                {
+                    Action = "Delete",
+                    Priority = DialogGuiActionPriority.Secondary,
+                    IsDeleteDialogAction = true,
+                    Title = [new(){LanguageCode = "nb", Value = "Slett skjema"}],
+                    Prompt = [new(){LanguageCode = "nb", Value = "Skjemaet blir permanent slettet"}],
+                    Url = new($"{appBaseUri}/{instance.AppId}/#/instance/{instance.Id}") // TODO: Endre til delete-url
+                }
+            ]
         };
     }
     

@@ -30,7 +30,7 @@ builder.Services.AddOpenApi()
         .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(defaultMaskinportenClientDefinitionKey)
         .Services
     .AddRefitClient<IDialogportenApi>()
-        .ConfigureHttpClient(x => x.BaseAddress = new Uri("https://altinn-dev-api.azure-api.net/dialogporten"))
+        .ConfigureHttpClient(x => x.BaseAddress = settings.Infrastructure.Dialogporten.BaseUri)
         .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(defaultMaskinportenClientDefinitionKey);
 
 var app = builder.Build();
@@ -48,6 +48,6 @@ app.MapPost("/syncDialog", async (
     CancellationToken cancellationToken) =>
 {
     var result = await syncService.Sync(request, cancellationToken);
-    return Results.Ok(result);
+    return Results.Created($"{settings.Infrastructure.Dialogporten.BaseUri}/api/v1/serviceOwner/dialogs/{result}", result);
 });
 app.Run();

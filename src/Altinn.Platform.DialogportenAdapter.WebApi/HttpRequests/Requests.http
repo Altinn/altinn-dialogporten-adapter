@@ -27,7 +27,7 @@ POST {{AdapterHost}}/syncDialog
 Content-Type: application/json
 
 {
-   "PartyId": "50126876",
-   "InstanceId": "7eac5837-ce4c-42fc-a1d8-3bb85540b14e"
+   "PartyId": "50892513",
+   "InstanceId": "434fe9b5-0605-4b27-a9a7-1c0750e78e02"
 }
 
