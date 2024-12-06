@@ -23,4 +23,8 @@
       <ProjectReference Include="..\DialogportenAdapter.Interface\DialogportenAdapter.Interface.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <_ContentIncludedByDefault Remove="HttpRequests\http-client.private.env.json" />
+    </ItemGroup>
+
 </Project>
