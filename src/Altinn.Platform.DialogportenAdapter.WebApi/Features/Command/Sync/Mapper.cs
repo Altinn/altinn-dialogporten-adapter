@@ -28,13 +28,15 @@ internal static class Mapper
     {
         // TODO: Flytt til konfigurasjon. Denne burde kanskje ikke lenger være statisk - begynner å bli mye mer enn en mapper.
         const string appBaseUri = "https://digdir.apps.tt02.altinn.no";
+        
         return new DialogDto
         {
             Id = dialogId,
             Party = instance.InstanceOwner.ToParty(),
             ServiceResource = ToServiceResource(instance.AppId),
-            VisibleFrom = instance.VisibleAfter > DateTime.UtcNow ? instance.VisibleAfter : null,
             CreatedAt = instance.Created,
+            VisibleFrom = instance.VisibleAfter > DateTimeOffset.UtcNow ? instance.VisibleAfter : null,
+            DueAt = instance.DueBefore < DateTimeOffset.UtcNow ? instance.DueBefore : null,
             Status = instance.Process.CurrentTask.AltinnTaskType switch
             {
                 _ when instance.Status.IsArchived => DialogStatus.Completed,
@@ -77,9 +79,24 @@ internal static class Mapper
                     IsDeleteDialogAction = true,
                     Title = [new(){LanguageCode = "nb", Value = "Slett skjema"}],
                     Prompt = [new(){LanguageCode = "nb", Value = "Skjemaet blir permanent slettet"}],
-                    Url = new($"{appBaseUri}/{instance.AppId}/#/instance/{instance.Id}") // TODO: Endre til delete-url
+                    // TODO: Endre til delete-url
+                    Url = new($"{appBaseUri}/{instance.AppId}/#/instance/{instance.Id}") 
                 }
-            ]
+            ],
+            Attachments = instance.Data
+                .Where(x => x.Filename is not null)
+                .Select(x => new AttachmentDto
+                {
+                    DisplayName = [new() {LanguageCode = "nb", Value = x.Filename!}],
+                    Urls = [new()
+                    {
+                        ConsumerType = AttachmentUrlConsumerType.Gui, 
+                        MediaType = x.ContentType, 
+                        // TODO: Endre til riktig url
+                        Url = new($"{appBaseUri}/storage/api/v1/instances/{instance.Id}/data/{x.Id}")
+                    }],
+                })
+                .ToList()
         };
     }
     
@@ -111,27 +128,57 @@ internal static class Mapper
         return span.ToString();
     }
 
-    private static string ToTitle(ReadOnlySpan<char> title, IReadOnlyCollection<string>? presentationTexts)
+    public static string ToTitle(ReadOnlySpan<char> title, IReadOnlyCollection<string>? presentationTexts)
     {
         const string separator = ", ";
-        if (presentationTexts is null)
+        
+        var offset = 0;
+        presentationTexts ??= Array.Empty<string>();
+        var titleLength = Math.Min(Constants.DefaultMaxStringLength,
+            title.Length
+            + presentationTexts.Sum(x => x.Length) 
+            + presentationTexts.Count * separator.Length);
+        Span<char> titleSpan = stackalloc char[titleLength];
+        
+        if (!title.TryCopyTo(titleSpan, ref offset))
         {
-            return title.ToString();
+            return titleSpan.ToString();
         }
         
-        var presentationTextLength = presentationTexts.Sum(x => x.Length) + presentationTexts.Count * separator.Length;
-        Span<char> titleSpan = stackalloc char[title.Length + presentationTextLength];
-        title.CopyTo(titleSpan);
-    
-        var offset = title.Length;
         foreach (var text in presentationTexts)
         {
-            separator.CopyTo(titleSpan[offset..]);
-            offset += separator.Length;
-            text.CopyTo(titleSpan[offset..]);
-            offset += text.Length;
+            if (!separator.AsSpan().TryCopyTo(titleSpan, ref offset)
+                || !text.AsSpan().TryCopyTo(titleSpan, ref offset))
+            {
+                break;
+            }
         }
     
         return titleSpan.ToString();
+    }
+    
+    /// <summary>
+    /// Will try to copy the source span to the destination span from offset, and return true if the entire source span was copied.
+    /// If the destination span reminder is too small, the source span will be truncated and "..." will be appended to the destination span.
+    /// </summary>
+    /// <param name="source">The span to copy from.</param>
+    /// <param name="destination">The span to copy to.</param>
+    /// <param name="offset">The offset in the destination span to start copying to. Will be updated with the new offset after copying.</param>
+    /// <returns>True if the entire source span was copied, false otherwise.</returns>
+    private static bool TryCopyTo(this ReadOnlySpan<char> source, Span<char> destination, ref int offset)
+    {
+        const string andMore = "...";
+        var remaining = destination.Length - offset;
+        if (remaining <= source.Length)
+        {
+            source[..Math.Max(remaining - andMore.Length, 0)].CopyTo(destination[offset..]);
+            andMore.CopyTo(destination[^andMore.Length..]);
+            offset = destination.Length;
+            return false;
+        }
+        
+        source.CopyTo(destination[offset..]);
+        offset += source.Length;
+        return true;
     }
 }

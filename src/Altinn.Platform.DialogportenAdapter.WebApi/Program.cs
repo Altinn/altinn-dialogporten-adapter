@@ -48,6 +48,6 @@ app.MapPost("/syncDialog", async (
     CancellationToken cancellationToken) =>
 {
     var result = await syncService.Sync(request, cancellationToken);
-    return Results.Created($"{settings.Infrastructure.Dialogporten.BaseUri}/api/v1/serviceOwner/dialogs/{result}", result);
+    return Results.Created($"{settings.Infrastructure.Dialogporten.BaseUri}api/v1/serviceOwner/dialogs/{result}", result);
 });
 app.Run();
