@@ -18,13 +18,15 @@ builder.Services.RegisterMaskinportenClientDefinition<SettingsJwkClientDefinitio
     settings.Infrastructure.Maskinporten);
 
 builder.Services.AddOpenApi()
+    .AddSingleton(settings)
     .AddTransient<SyncInstanceToDialogService>()
+    .AddTransient<StorageDialogportenDataMerger>()
     
     // Http clients
     .AddRefitClient<IStorageApi>()
         .ConfigureHttpClient(x =>
         {
-            x.BaseAddress = settings.Infrastructure.Altinn.BaseUri;
+            x.BaseAddress = settings.Infrastructure.Altinn.PlatformBaseUri;
             x.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", settings.Infrastructure.Altinn.SubscriptionKey);
         })
         .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(defaultMaskinportenClientDefinitionKey)

@@ -8,4 +8,8 @@ public sealed record InfrastructureSettings(MaskinportenSettings Maskinporten, A
 
 public sealed record DialogportenSettings(Uri BaseUri);
 
-public sealed record AltinnPlatformSettings(Uri BaseUri, string SubscriptionKey);
+public sealed record AltinnPlatformSettings(Uri BaseUri, string SubscriptionKey)
+{
+    public Uri PlatformBaseUri => new Uri($"{BaseUri.Scheme}://platform.{BaseUri.Host}");
+    public Uri GetAppUriForOrg(string org) => new Uri($"{BaseUri.Scheme}://{org}.apps.{BaseUri.Host}");
+}
