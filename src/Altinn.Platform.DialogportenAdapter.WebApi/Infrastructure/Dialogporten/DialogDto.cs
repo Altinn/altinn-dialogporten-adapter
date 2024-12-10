@@ -136,6 +136,8 @@ public class DialogDto
     /// An immutable list of activities associated with the dialog.
     /// </summary>
     public List<ActivityDto> Activities { get; set; } = [];
+
+    public bool Deleted { get; set; }
 }
 
 public enum SystemLabel
@@ -523,6 +525,8 @@ public enum HttpVerb
 
 public sealed class GuiActionDto
 {
+    public Guid? Id { get; set; }
+
     /// <summary>
     /// The action identifier for the action, corresponding to the "action" attributeId used in the XACML service policy.
     /// </summary>
@@ -592,6 +596,8 @@ public enum DialogGuiActionPriority
 
 public sealed class AttachmentDto
 {
+    public Guid? Id { get; set; }
+
     /// <summary>
     /// The display name of the attachment that should be used in GUIs.
     /// </summary>

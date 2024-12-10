@@ -1,6 +1,7 @@
 using Altinn.ApiClients.Maskinporten.Extensions;
 using Altinn.ApiClients.Maskinporten.Services;
 using Altinn.Platform.DialogportenAdapter.WebApi;
+using Altinn.Platform.DialogportenAdapter.WebApi.Features.Command.Delete;
 using Altinn.Platform.DialogportenAdapter.WebApi.Features.Command.Sync;
 using Altinn.Platform.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.Platform.DialogportenAdapter.WebApi.Infrastructure.Storage;
@@ -44,12 +45,22 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.MapPost("/syncDialog", async (
+
+app.MapPost("/api/v1/syncDialog", async (
     [FromBody] SyncInstanceToDialogDto request,
     [FromServices] SyncInstanceToDialogService syncService,
     CancellationToken cancellationToken) =>
 {
-    var result = await syncService.Sync(request, cancellationToken);
-    return Results.Created($"{settings.Infrastructure.Dialogporten.BaseUri}api/v1/serviceOwner/dialogs/{result}", result);
+    await syncService.Sync(request, cancellationToken);
+    return Results.NoContent();
+});
+
+app.MapDelete("/api/v1/deletedialog", async (
+    [FromBody] DeleteDialogDto request,
+    [FromServices] DeleteDialogService deleteService,
+    CancellationToken cancellationToken) =>
+{
+    await deleteService.DeleteDialog(request, cancellationToken);
+    return Results.NoContent();
 });
 app.Run();

@@ -28,10 +28,18 @@ internal sealed class StorageDialogportenDataMerger
         
         // TODO: Merge the existing dialog with the storage dialog
         storageDialog.Revision = existing.Revision;
-        
         storageDialog.Activities = storageDialog.Activities
             .ExceptBy(existing.Activities.Select(x => x.Id), x => x.Id)
             .ToList();
+        
+        foreach (var guiAction in storageDialog.GuiActions)
+        {
+            guiAction.Id = existing.GuiActions
+                .Where(x => x.HttpMethod == guiAction.HttpMethod && x.Url == guiAction.Url)
+                .Select(x => x.Id)
+                .FirstOrDefault();
+        }
+        
         return storageDialog;
     }
     
@@ -39,6 +47,14 @@ internal sealed class StorageDialogportenDataMerger
     {
         var platformBaseUri = _settings.Infrastructure.Altinn.PlatformBaseUri;
         var appBaseUri = _settings.Infrastructure.Altinn.GetAppUriForOrg(instance.Org);
+        // Opprettet
+        // Rising edge saved activity
+        // Sent to signing (information)
+        // Signed (information)
+        // 
+        // Get nationalIdentityNumber from userId api request from storage 
+        
+        
         var dialog = new DialogDto
         {
             Id = dialogId,
@@ -47,6 +63,7 @@ internal sealed class StorageDialogportenDataMerger
             CreatedAt = instance.Created,
             VisibleFrom = instance.VisibleAfter > DateTimeOffset.UtcNow ? instance.VisibleAfter : null,
             DueAt = instance.DueBefore < DateTimeOffset.UtcNow ? instance.DueBefore : null,
+            ExternalReference = $"{instance.Id}",
             Status = instance.Process.CurrentTask.AltinnTaskType switch
             {
                 _ when instance.Status.IsArchived => DialogStatus.Completed,
@@ -74,20 +91,20 @@ internal sealed class StorageDialogportenDataMerger
                 }
             },
             GuiActions = [
-                !instance.Status.IsArchived 
+                instance.Status.IsArchived 
                     ? new()
-                    {
-                        Action = "write",
-                        Priority = DialogGuiActionPriority.Primary,
-                        Title = [new(){LanguageCode = "nb", Value = "Gå til skjemautfylling"}],
-                        Url = new($"{appBaseUri}/{instance.AppId}/#/instance/{instance.Id}") // Bruk dette som merge key
-                    }
-                    : new()
                     {
                         Action = "read",
                         Priority = DialogGuiActionPriority.Primary,
                         Title = [new(){LanguageCode = "nb", Value = "Se innsendt skjema"}],
                         Url = new($"{platformBaseUri}/receipt/{instance.Id}")
+                    }
+                    : new()
+                    {
+                        Action = "write",
+                        Priority = DialogGuiActionPriority.Primary,
+                        Title = [new(){LanguageCode = "nb", Value = "Gå til skjemautfylling"}],
+                        Url = new($"{appBaseUri}/{instance.AppId}/#/instance/{instance.Id}")
                     },
                 // TODO: Eksponer slette api i adapter som tar i mot dialog token og sletter dialogen
                 new()
@@ -106,7 +123,8 @@ internal sealed class StorageDialogportenDataMerger
             Attachments = instance.Data
                 .Select(x => new AttachmentDto
                 {
-                    // Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value), // Bruk dette som merge key
+                    // TODO: Add Id to Attachment in dialogporten
+                    Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
                     DisplayName = [new() {LanguageCode = "nb", Value = x.Filename ?? x.DataType}],
                     Urls = [new()
                     {
@@ -130,15 +148,21 @@ internal sealed class StorageDialogportenDataMerger
 
     private static bool TryGetCreatedActivity(InstanceEventList events, [NotNullWhen(true)] out ActivityDto? createdActivity)
     {
+        var nationalIdentityNumberByUserId = events.InstanceEvents
+            .Where(x => !string.IsNullOrWhiteSpace(x.User.NationalIdentityNumber))
+            .GroupBy(x => x.User.UserId)
+            .ToDictionary(x => x.Key, x => x.Select(xx => xx.User.NationalIdentityNumber).Single());
+        
         createdActivity = events
             .InstanceEvents
             .OrderBy(x => x.Created)
-            .Where(x => // Service owner initiated dialog
-                (StringComparer.OrdinalIgnoreCase.Equals(x.EventType, "created") && !string.IsNullOrWhiteSpace(x.User.OrgId))
-                // End user initiated dialog
-                // For some reason the created event does not have the user's national identity number,
-                // therefore we need to use the first process_StartEvent when the instance is user initiated
-                || (StringComparer.OrdinalIgnoreCase.Equals(x.EventType, "process_StartEvent") && !string.IsNullOrWhiteSpace(x.User.NationalIdentityNumber)))
+            // .Where(x => // Service owner initiated dialog
+            //     (StringComparer.OrdinalIgnoreCase.Equals(x.EventType, "created") && !string.IsNullOrWhiteSpace(x.User.OrgId))
+            //     // End user initiated dialog
+            //     // For some reason the created event does not have the user's national identity number,
+            //     // therefore we need to use the first process_StartEvent when the instance is user initiated
+            //     || (StringComparer.OrdinalIgnoreCase.Equals(x.EventType, "process_StartEvent") && !string.IsNullOrWhiteSpace(x.User.NationalIdentityNumber)))
+            .Where(x => StringComparer.OrdinalIgnoreCase.Equals(x.EventType, "created"))
             .Select(x => new ActivityDto
             {
                 Id = x.Id.Value.ToVersion7(x.Created.Value),
@@ -146,7 +170,10 @@ internal sealed class StorageDialogportenDataMerger
                 CreatedAt = x.Created,
                 PerformedBy = new()
                     {
-                        ActorId = ToOrgIdentifier(x.User.OrgId) ?? ToPersonIdentifier(x.User.NationalIdentityNumber),
+                        ActorId = string.IsNullOrWhiteSpace(x.User.OrgId) 
+                                  && nationalIdentityNumberByUserId.TryGetValue(x.User.UserId, out var nationalId) 
+                                    ? ToPersonIdentifier(nationalId)
+                                    : throw new InvalidOperationException(), // TODO: Fallback userId to national identity number api in storage
                         ActorType = !string.IsNullOrWhiteSpace(x.User.OrgId)
                             ? ActorType.ServiceOwner
                             : ActorType.PartyRepresentative
@@ -156,6 +183,11 @@ internal sealed class StorageDialogportenDataMerger
 
         return createdActivity is not null;
     }
+
+    // private string ToPersonIdentifier(User user, Dictionary<string, string> cachedValuesFromEvent)
+    // {
+    //     
+    // }
 
     private static string ToParty(InstanceOwner instanceOwner)
     {
