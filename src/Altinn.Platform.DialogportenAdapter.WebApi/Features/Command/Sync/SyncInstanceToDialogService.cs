@@ -1,7 +1,9 @@
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using Altinn.Platform.DialogportenAdapter.WebApi.Common;
 using Altinn.Platform.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.Platform.DialogportenAdapter.WebApi.Infrastructure.Storage;
+using Altinn.Platform.Storage.Interface.Models;
 
 namespace Altinn.Platform.DialogportenAdapter.WebApi.Features.Command.Sync;
 
@@ -36,54 +38,77 @@ internal class SyncInstanceToDialogService
         var dialogId = dto.InstanceId.ToVersion7(dto.InstanceCreatedAt);
 
         // Fetch events, application, instance and existing dialog in parallel
-        var (application, existingDialog, instance, events) = await (
-            _storageApi.GetApplication(dto.AppId, cancellationToken),
+        var (existingDialog, application, instance, events) = await (
             _dialogportenApi.Get(dialogId, cancellationToken).ContentOrDefault(),
+            _storageApi.GetApplication(dto.AppId, cancellationToken).ContentOrDefault(),
             _storageApi.GetInstance(dto.PartyId, dto.InstanceId, cancellationToken).ContentOrDefault(),
             _storageApi.GetInstanceEvents(dto.PartyId, dto.InstanceId, Constants.SupportedEventTypes, cancellationToken).ContentOrDefault()
         );
-
-        switch (instance)
+        
+        if (instance is null && existingDialog is null)
         {
-            case null or { Status.IsHardDeleted: true } when existingDialog is not null:
-                await _dialogportenApi.Purge(existingDialog.Id!.Value, existingDialog.Revision!.Value, cancellationToken);
-                return;
-            case { Status.IsSoftDeleted: true } when existingDialog is { Deleted: true }:
-                // Dialogporten does not allow updating a soft deleted
-                // dialog so there is nothing to do and we can return
-                return;
-            case { Status.IsSoftDeleted: false } when existingDialog is { Deleted: true }:
-                // TODO: Restore dialog
-                // TODO: Her hadde det vært gunstig å få ny revisjon fra dialogporten response headers slik at vi ikke trenger å hente ny dialog for hver gang vi gjær noe mot apiet.
-                break;
-            case null:
-                _logger.LogWarning("No dialog or instance found for request {@Request}.", dto);
-                return;
-            case not null when events is null:
-                throw new UnreachableException("Events should always exist when instance exists.");
+            _logger.LogWarning("No dialog or instance found for request {@Request}.", dto);
+            return;
         }
 
-        // instance && !dialog => create dialog
-        // instance && dialog => update dialog (restore/merge/delete)
-        // instance.Status.IsSoftDeleted && !dialog.Deleted => soft delete dialog
-        // instance.Status.IsSoftDeleted && !dialog.Deleted => soft delete dialog
-        // 1. Soft delete dialog
-        // 2. Restore dialog
-        // 3. Merge dialog
-        // 4. Purge dialog
+        if (BothIsSoftDeleted(instance, existingDialog))
+        {
+            return;
+        }
+
+        if (ShouldPurgeDialog(instance, existingDialog))
+        {
+            await _dialogportenApi.Purge(dialogId, existingDialog.Revision!.Value, cancellationToken);
+            return;
+        }
+
+        if (ShouldRestoreDialog(instance, existingDialog))
+        {
+            // TODO: Restore dialog
+            // TODO: Her hadde det vært gunstig å få ny revisjon fra dialogporten response headers slik at vi ikke trenger å hente ny dialog for hver gang vi gjær noe mot apiet.
+            throw new NotSupportedException();
+        }
+
+        EnsureNotNull(application, instance, events);
 
         // Create or update the dialog with the fetched data
         var updatedDialog = _dataMerger.Merge(dialogId, existingDialog, application, instance, events);
-
-        await Task.WhenAll(
-            UpsertDialog(updatedDialog, cancellationToken),
-            UpdateInstanceWithDialogId(dto, dialogId, cancellationToken)
-        ).WithAggregatedExceptions();
-        
+        await UpsertDialog(updatedDialog, cancellationToken);
+        await UpdateInstanceWithDialogId(dto, dialogId, cancellationToken);
         if (instance.Status.IsSoftDeleted)
         {
-            await _dialogportenApi.Delete(existingDialog!.Id!.Value, existingDialog.Revision!.Value, cancellationToken);
+            await _dialogportenApi.Delete(dialogId, updatedDialog.Revision!.Value, cancellationToken);
         }
+    }
+
+    private static void EnsureNotNull(
+        [NotNull] Application? application, 
+        [NotNull] Instance? instance, 
+        [NotNull] InstanceEventList? events)
+    {
+        if (application is null || instance is null || events is null)
+        {
+            throw new UnreachableException(
+                $"Application ({application is not null}), " +
+                $"instance ({instance is not null}) " +
+                $"and events ({events is not null}) " +
+                $"should exist at this point.");
+        }
+    }
+
+    private static bool BothIsSoftDeleted([NotNullWhen(true)] Instance? instance, [NotNullWhen(true)] DialogDto? existingDialog)
+    {
+        return instance is { Status.IsSoftDeleted: true } && existingDialog is { Deleted: true };
+    }
+
+    private static bool ShouldRestoreDialog([NotNullWhen(true)] Instance? instance, [NotNullWhen(true)] DialogDto? existingDialog)
+    {
+        return instance is { Status.IsSoftDeleted: false } && existingDialog is { Deleted: true };
+    }
+
+    private static bool ShouldPurgeDialog(Instance? instance, [NotNullWhen(true)] DialogDto? existingDialog)
+    {
+        return instance is null or { Status.IsSoftDeleted: true } && existingDialog is not null;
     }
 
     private Task UpsertDialog(DialogDto dialog, CancellationToken cancellationToken)

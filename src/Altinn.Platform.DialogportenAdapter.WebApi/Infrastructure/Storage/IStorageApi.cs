@@ -6,7 +6,7 @@ namespace Altinn.Platform.DialogportenAdapter.WebApi.Infrastructure.Storage;
 public interface IStorageApi
 {
     [Get("/storage/api/v1/applications/{**appId}")]
-    Task<Application> GetApplication(string appId, CancellationToken cancellationToken = default);
+    Task<IApiResponse<Application>> GetApplication(string appId, CancellationToken cancellationToken = default);
 
     [Get("/storage/api/v1/instances/{partyId}/{instanceId}")]
     Task<IApiResponse<Instance>> GetInstance(int partyId, Guid instanceId, CancellationToken cancellationToken = default);
@@ -19,6 +19,6 @@ public interface IStorageApi
         [Query(CollectionFormat.Multi)] IEnumerable<string> eventTypes, 
         CancellationToken cancellationToken = default);
     
-    [Delete("/storage/api/v1/sbl/instances/{partyId}/{instanceId}")]
-    Task DeleteInstance(int partyId, Guid instanceId, [Query] bool hard = false, CancellationToken cancellationToken = default);
+    [Delete("/storage/api/v1/sbl/instances/{**instanceId}")]
+    Task DeleteInstance(string instanceId, [Query] bool hard = false, CancellationToken cancellationToken = default);
 }

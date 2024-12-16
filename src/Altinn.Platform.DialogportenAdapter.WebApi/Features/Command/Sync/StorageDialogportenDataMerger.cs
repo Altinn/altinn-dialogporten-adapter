@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Altinn.Platform.DialogportenAdapter.WebApi.Common;
 using Altinn.Platform.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
+using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 
 namespace Altinn.Platform.DialogportenAdapter.WebApi.Features.Command.Sync;
@@ -45,15 +46,64 @@ internal sealed class StorageDialogportenDataMerger
     
     private DialogDto ToDialogDto(Guid dialogId, Instance instance, Application application, InstanceEventList events)
     {
-        var platformBaseUri = _settings.Infrastructure.Altinn.PlatformBaseUri;
-        var appBaseUri = _settings.Infrastructure.Altinn.GetAppUriForOrg(instance.Org);
-        // Opprettet
-        // Rising edge saved activity
-        // Sent to signing (information)
-        // Signed (information)
-        // 
-        // Get nationalIdentityNumber from userId api request from storage 
-        
+        var lala = events.InstanceEvents
+            .OrderBy(x => x.Created)
+            .Select(x =>
+            {
+                if (!Enum.TryParse<InstanceEventType>(x.EventType, ignoreCase: true, out var eventType))
+                {
+                    return null;
+                }
+                
+                var activityType = eventType switch
+                {
+                    InstanceEventType.Created when x.DataId is null => (DialogActivityType?) DialogActivityType.DialogCreated,
+                    InstanceEventType.Saved => DialogActivityType.Information, // TODO: Ta eldste - her må mer massering til
+                    InstanceEventType.Submited => DialogActivityType.Information,
+                    InstanceEventType.Deleted => DialogActivityType.DialogDeleted,
+                    InstanceEventType.Undeleted => DialogActivityType.DialogRestored,
+                    InstanceEventType.Signed => DialogActivityType.SignatureProvided,
+                    InstanceEventType.SentToSign => DialogActivityType.Information,
+                    InstanceEventType.SentToPayment => DialogActivityType.Information,
+                    InstanceEventType.SentToSendIn => DialogActivityType.Information,
+                    InstanceEventType.SentToFormFill => DialogActivityType.Information,
+                    InstanceEventType.InstanceForwarded => DialogActivityType.Information,
+                    InstanceEventType.InstanceRightRevoked => DialogActivityType.Information,
+                    InstanceEventType.MessageArchived => DialogActivityType.DialogClosed,
+                    InstanceEventType.MessageRead => DialogActivityType.DialogOpened,
+                    _ => null
+                    // InstanceEventType.None => expr,
+                    // InstanceEventType.ConfirmedComplete => DialogActivityType.DialogDeleted,
+                    // InstanceEventType.SubstatusUpdated => expr,
+                    // InstanceEventType.NotificationSentSms => expr,
+                };
+                
+                return !activityType.HasValue ? null
+                    : new ActivityDto
+                    {
+                        Id = x.Id.Value.ToVersion7(x.Created.Value),
+                        Type = activityType.Value,
+                        CreatedAt = x.Created,
+                        PerformedBy = string.IsNullOrWhiteSpace(x.User.OrgId) 
+                            ? new() { ActorType = ActorType.ServiceOwner }
+                            : new()
+                            {
+                                ActorType = ActorType.PartyRepresentative, 
+                                ActorId = ToPersonIdentifier(x.User.NationalIdentityNumber) 
+                                          ?? throw new InvalidOperationException()  
+                            }
+                    };
+            })
+            .Where(x => x is not null)
+            .Cast<ActivityDto>()
+            .ToList();
+
+        var status = instance.Process.CurrentTask.AltinnTaskType switch
+        {
+            _ when instance.Status.IsArchived => DialogStatus.Completed,
+            "Reject" => DialogStatus.RequiresAttention,
+            _ => DialogStatus.Draft
+        };
         
         var dialog = new DialogDto
         {
@@ -64,12 +114,7 @@ internal sealed class StorageDialogportenDataMerger
             VisibleFrom = instance.VisibleAfter > DateTimeOffset.UtcNow ? instance.VisibleAfter : null,
             DueAt = instance.DueBefore < DateTimeOffset.UtcNow ? instance.DueBefore : null,
             ExternalReference = $"{instance.Id}",
-            Status = instance.Process.CurrentTask.AltinnTaskType switch
-            {
-                _ when instance.Status.IsArchived => DialogStatus.Completed,
-                "Reject" => DialogStatus.RequiresAttention,
-                _ => DialogStatus.Draft
-            },
+            Status = status,
             Content = new ContentDto
             {
                 Title = new ContentValueDto
@@ -90,36 +135,7 @@ internal sealed class StorageDialogportenDataMerger
                     Value = [new() { LanguageCode = "nb", Value = "Konvertert med DialogportenAdapter..." }]
                 }
             },
-            GuiActions = [
-                instance.Status.IsArchived 
-                    ? new()
-                    {
-                        Action = "read",
-                        Priority = DialogGuiActionPriority.Primary,
-                        Title = [new(){LanguageCode = "nb", Value = "Se innsendt skjema"}],
-                        Url = new($"{platformBaseUri}/receipt/{instance.Id}")
-                    }
-                    : new()
-                    {
-                        Action = "write",
-                        Priority = DialogGuiActionPriority.Primary,
-                        Title = [new(){LanguageCode = "nb", Value = "Gå til skjemautfylling"}],
-                        Url = new($"{appBaseUri}/{instance.AppId}/#/instance/{instance.Id}")
-                    },
-                // TODO: Eksponer slette api i adapter som tar i mot dialog token og sletter dialogen
-                new()
-                {
-                    // TODO: Verifiser XACML action for å slette dialogen
-                    Action = "write",
-                    Priority = DialogGuiActionPriority.Secondary,
-                    IsDeleteDialogAction = true,
-                    Title = [new(){LanguageCode = "nb", Value = "Slett skjema"}],
-                    // TODO: Ikke sett prompt dersom det er en draft (ikke arkivert?)
-                    Prompt = [new(){LanguageCode = "nb", Value = "Skjemaet blir permanent slettet"}], 
-                    // TODO: Endre til delete-url (bruk /sbl/instances/:instanceOwnerPartyId/:instanceGuid?hard=<boolean>)
-                    Url = new($"{platformBaseUri}/{instance.AppId}/#/instance/{instance.Id}") 
-                }
-            ],
+            GuiActions = [CreateGoToAction(instance), CreateDeleteAction(status, instance)],
             Attachments = instance.Data
                 .Select(x => new AttachmentDto
                 {
@@ -132,7 +148,7 @@ internal sealed class StorageDialogportenDataMerger
                             ? AttachmentUrlConsumerType.Gui
                             : AttachmentUrlConsumerType.Api,
                         MediaType = x.ContentType, 
-                        Url = new(x.SelfLinks.Platform)
+                        Url = x.SelfLinks.Platform
                     }]
                 })
                 .ToList()
@@ -145,49 +161,81 @@ internal sealed class StorageDialogportenDataMerger
 
         return dialog;
     }
+    
+    private GuiActionDto CreateGoToAction(Instance instance)
+    {
+        if (instance.Status.IsArchived)
+        {
+            var platformBaseUri = _settings.Infrastructure.Altinn.PlatformBaseUri;
+            return new GuiActionDto
+            {
+                Action = "read",
+                Priority = DialogGuiActionPriority.Primary,
+                Title = [new() { LanguageCode = "nb", Value = "Se innsendt skjema" }],
+                Url = $"{platformBaseUri}/receipt/{instance.Id}"
+            };
+        }
+
+        var appBaseUri = _settings.Infrastructure.Altinn.GetAppUriForOrg(instance.Org);
+        return new GuiActionDto
+        {
+            Action = "write",
+            Priority = DialogGuiActionPriority.Primary,
+            Title = [new() { LanguageCode = "nb", Value = "Gå til skjemautfylling" }],
+            Url = $"{appBaseUri}/{instance.AppId}/#/instance/{instance.Id}"
+        };
+    }
+
+    private GuiActionDto CreateDeleteAction(DialogStatus status, Instance instance)
+    {
+        var adapterBaseUri = _settings.Infrastructure.Adapter.BaseUri;
+        var hardDelete = instance.Status.IsSoftDeleted || status is DialogStatus.Draft;
+        return new GuiActionDto
+        {
+            Action = "delete",
+            Priority = DialogGuiActionPriority.Secondary,
+            IsDeleteDialogAction = true,
+            Title = [new() { LanguageCode = "nb", Value = "Slett skjema" }],
+            Prompt = hardDelete
+                ? [new() { LanguageCode = "nb", Value = "Skjemaet blir permanent slettet" }]
+                : null,
+            Url = $"{adapterBaseUri}/api/v1/instance/{Uri.EscapeDataString(instance.Id)}?hard={hardDelete}",
+            HttpMethod = HttpVerb.DELETE
+        };
+    }
 
     private static bool TryGetCreatedActivity(InstanceEventList events, [NotNullWhen(true)] out ActivityDto? createdActivity)
     {
         var nationalIdentityNumberByUserId = events.InstanceEvents
             .Where(x => !string.IsNullOrWhiteSpace(x.User.NationalIdentityNumber))
             .GroupBy(x => x.User.UserId)
-            .ToDictionary(x => x.Key, x => x.Select(xx => xx.User.NationalIdentityNumber).Single());
+            .ToDictionary(x => x.Key, x => x.Select(xx => xx.User.NationalIdentityNumber).First());
         
         createdActivity = events
             .InstanceEvents
             .OrderBy(x => x.Created)
-            // .Where(x => // Service owner initiated dialog
-            //     (StringComparer.OrdinalIgnoreCase.Equals(x.EventType, "created") && !string.IsNullOrWhiteSpace(x.User.OrgId))
-            //     // End user initiated dialog
-            //     // For some reason the created event does not have the user's national identity number,
-            //     // therefore we need to use the first process_StartEvent when the instance is user initiated
-            //     || (StringComparer.OrdinalIgnoreCase.Equals(x.EventType, "process_StartEvent") && !string.IsNullOrWhiteSpace(x.User.NationalIdentityNumber)))
+            .Where(x => x.DataId is null) // The created event is not associated with a data element
             .Where(x => StringComparer.OrdinalIgnoreCase.Equals(x.EventType, "created"))
             .Select(x => new ActivityDto
             {
                 Id = x.Id.Value.ToVersion7(x.Created.Value),
                 Type = DialogActivityType.DialogCreated,
                 CreatedAt = x.Created,
-                PerformedBy = new()
+                PerformedBy = string.IsNullOrWhiteSpace(x.User.OrgId) 
+                    ? new() { ActorType = ActorType.ServiceOwner }
+                    : new()
                     {
-                        ActorId = string.IsNullOrWhiteSpace(x.User.OrgId) 
-                                  && nationalIdentityNumberByUserId.TryGetValue(x.User.UserId, out var nationalId) 
-                                    ? ToPersonIdentifier(nationalId)
-                                    : throw new InvalidOperationException(), // TODO: Fallback userId to national identity number api in storage
-                        ActorType = !string.IsNullOrWhiteSpace(x.User.OrgId)
-                            ? ActorType.ServiceOwner
-                            : ActorType.PartyRepresentative
+                        ActorType = ActorType.PartyRepresentative, 
+                        ActorId = nationalIdentityNumberByUserId.TryGetValue(x.User.UserId, out var nationalId) 
+                            ? ToPersonIdentifier(nationalId)
+                            // TODO: Fallback userId to national identity number api in storage
+                            : throw new InvalidOperationException()  
                     }
             })
-            .FirstOrDefault(x => x.PerformedBy.ActorId is not null);
+            .FirstOrDefault();
 
         return createdActivity is not null;
     }
-
-    // private string ToPersonIdentifier(User user, Dictionary<string, string> cachedValuesFromEvent)
-    // {
-    //     
-    // }
 
     private static string ToParty(InstanceOwner instanceOwner)
     {

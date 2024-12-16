@@ -2,7 +2,7 @@ using Altinn.Platform.DialogportenAdapter.WebApi.Infrastructure.Storage;
 
 namespace Altinn.Platform.DialogportenAdapter.WebApi.Features.Command.Delete;
 
-public record DeleteDialogDto(int PartyId, Guid InstanceId, bool Hard);
+public record DeleteDialogDto(string InstanceId, bool Hard);
 
 internal sealed class DeleteDialogService
 {
@@ -16,7 +16,7 @@ internal sealed class DeleteDialogService
     public async Task DeleteDialog(DeleteDialogDto request, CancellationToken cancellationToken)
     {
         // TODO: Verifiser dialog token
-        await _storageApi.DeleteInstance(request.PartyId, request.InstanceId, request.Hard, cancellationToken);
+        await _storageApi.DeleteInstance(request.InstanceId, request.Hard, cancellationToken);
     }
 }
 

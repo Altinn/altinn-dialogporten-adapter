@@ -55,11 +55,13 @@ app.MapPost("/api/v1/syncDialog", async (
     return Results.NoContent();
 });
 
-app.MapDelete("/api/v1/deletedialog", async (
-    [FromBody] DeleteDialogDto request,
+app.MapDelete("/api/v1/instance/{instanceId}", async (
+    [FromRoute] string instanceId,
+    [FromQuery] bool hard,
     [FromServices] DeleteDialogService deleteService,
     CancellationToken cancellationToken) =>
 {
+    var request = new DeleteDialogDto(instanceId, hard);
     await deleteService.DeleteDialog(request, cancellationToken);
     return Results.NoContent();
 });

@@ -216,7 +216,7 @@ public sealed class TransmissionDto
     ///
     /// Refer to the service-specific documentation provided by the service owner for details (if in use).
     /// </summary>
-    public Uri? ExtendedType { get; set; }
+    public string? ExtendedType { get; set; }
 
     /// <summary>
     /// Reference to any other transmission that this transmission is related to.
@@ -370,7 +370,7 @@ public sealed class ActivityDto
     /// <summary>
     /// Arbitrary URI/URN describing a service-specific transmission type.
     /// </summary>
-    public Uri? ExtendedType { get; set; }
+    public string? ExtendedType { get; set; }
 
     /// <summary>
     /// The type of transmission.
@@ -430,6 +430,8 @@ public enum DialogActivityType
     /// Refers to a dialog that has been opened.
     /// </summary>
     DialogOpened = 7,
+    DialogDeleted,
+    DialogRestored
 }
 
 public sealed class ApiActionDto
@@ -473,7 +475,7 @@ public sealed class ApiActionEndpointDto
     /// <summary>
     /// The fully qualified URL of the API endpoint.
     /// </summary>
-    public Uri Url { get; set; } = null!;
+    public string Url { get; set; } = null!;
 
     /// <summary>
     /// The HTTP method that the endpoint expects for this action.
@@ -484,19 +486,19 @@ public sealed class ApiActionEndpointDto
     /// Link to documentation for the endpoint, providing documentation for integrators. Should be a URL to a
     /// human-readable page.
     /// </summary>
-    public Uri? DocumentationUrl { get; set; }
+    public string? DocumentationUrl { get; set; }
 
     /// <summary>
     /// Link to the request schema for the endpoint. Used to provide documentation for integrators.
     /// Dialogporten will not validate information on this endpoint.
     /// </summary>
-    public Uri? RequestSchema { get; set; }
+    public string? RequestSchema { get; set; }
 
     /// <summary>
     /// Link to the response schema for the endpoint. Used to provide documentation for integrators.
     /// Dialogporten will not validate information on this endpoint.
     /// </summary>
-    public Uri? ResponseSchema { get; set; }
+    public string? ResponseSchema { get; set; }
 
     /// <summary>
     /// Boolean indicating if the endpoint is deprecated.
@@ -540,7 +542,7 @@ public sealed class GuiActionDto
     /// urn:dialogporten:unauthorized
     /// https://someendpoint.com/gui/some-service-instance-id
     /// </example>
-    public Uri Url { get; set; } = null!;
+    public string Url { get; set; } = null!;
 
     /// <summary>
     /// Contains an authorization resource attributeId, that can used in custom authorization rules in the XACML service
@@ -614,7 +616,7 @@ public sealed class AttachmentUrlDto
     /// <summary>
     /// The fully qualified URL of the attachment.
     /// </summary>
-    public Uri Url { get; set; } = null!;
+    public string Url { get; set; } = null!;
 
     /// <summary>
     /// The media type of the attachment.
@@ -661,7 +663,7 @@ public sealed class TransmissionAttachmentUrlDto
     /// <summary>
     /// The fully qualified URL of the attachment.
     /// </summary>
-    public Uri Url { get; set; } = null!;
+    public string Url { get; set; } = null!;
 
     /// <summary>
     /// The media type of the attachment.
