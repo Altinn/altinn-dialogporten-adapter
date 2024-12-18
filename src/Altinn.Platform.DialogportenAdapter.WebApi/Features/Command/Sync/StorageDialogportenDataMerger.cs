@@ -98,10 +98,15 @@ internal sealed class StorageDialogportenDataMerger
             .Cast<ActivityDto>()
             .ToList();
 
-        var status = instance.Process.CurrentTask.AltinnTaskType switch
+        var status = instance.Process?.CurrentTask?.AltinnTaskType?.ToLower() switch
         {
             _ when instance.Status.IsArchived => DialogStatus.Completed,
-            "Reject" => DialogStatus.RequiresAttention,
+            "reject" => DialogStatus.RequiresAttention,
+            "feedback" => DialogStatus.Sent,
+            _ when events.InstanceEvents.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x
+                .ProcessInfo?
+                .CurrentTask?
+                .AltinnTaskType, "Feedback")) => DialogStatus.InProgress,
             _ => DialogStatus.Draft
         };
         

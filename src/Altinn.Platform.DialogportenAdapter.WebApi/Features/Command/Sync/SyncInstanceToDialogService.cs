@@ -51,14 +51,29 @@ internal class SyncInstanceToDialogService
             return;
         }
 
-        if (BothIsSoftDeleted(instance, existingDialog))
+        if (BothIsDeleted(instance, existingDialog))
         {
             return;
+        }
+
+        if (instance is not null)
+        {
+            // Update the instance with the dialogId before we start to modify the dialog
+            // This way we can keep track of which instances that have been synced to dialogporten
+            // even if the dialogporten api is down or we have a bug in the sync process.
+            // TODO: Si til team core (storage) at de ikke skal sende event dersom datavalues endres
+            await UpdateInstanceWithDialogId(dto, dialogId, cancellationToken);
         }
 
         if (ShouldPurgeDialog(instance, existingDialog))
         {
             await _dialogportenApi.Purge(dialogId, existingDialog.Revision!.Value, cancellationToken);
+            return;
+        }
+
+        if (ShouldSoftDeleteDialog(instance, existingDialog))
+        {
+            await _dialogportenApi.Delete(dialogId, existingDialog.Revision!.Value, cancellationToken);
             return;
         }
 
@@ -74,11 +89,6 @@ internal class SyncInstanceToDialogService
         // Create or update the dialog with the fetched data
         var updatedDialog = _dataMerger.Merge(dialogId, existingDialog, application, instance, events);
         await UpsertDialog(updatedDialog, cancellationToken);
-        await UpdateInstanceWithDialogId(dto, dialogId, cancellationToken);
-        if (instance.Status.IsSoftDeleted)
-        {
-            await _dialogportenApi.Delete(dialogId, updatedDialog.Revision!.Value, cancellationToken);
-        }
     }
 
     private static void EnsureNotNull(
@@ -96,6 +106,21 @@ internal class SyncInstanceToDialogService
         }
     }
 
+    private static bool ShouldSoftDeleteDialog([NotNullWhen(true)] Instance? instance, [NotNullWhen(true)] DialogDto? existingDialog)
+    {
+        return instance is { Status.IsSoftDeleted: true } && existingDialog is not null;
+    }
+
+    private static bool BothIsDeleted(Instance? instance, DialogDto? existingDialog)
+    {
+        return BothIsHardDeleted(instance, existingDialog) || BothIsSoftDeleted(instance, existingDialog);
+    }
+    
+    private static bool BothIsHardDeleted(Instance? instance, [NotNullWhen(false)] DialogDto? existingDialog)
+    {
+        return instance is null or { Status.IsHardDeleted: true } && existingDialog is null;
+    }
+    
     private static bool BothIsSoftDeleted([NotNullWhen(true)] Instance? instance, [NotNullWhen(true)] DialogDto? existingDialog)
     {
         return instance is { Status.IsSoftDeleted: true } && existingDialog is { Deleted: true };
@@ -108,7 +133,7 @@ internal class SyncInstanceToDialogService
 
     private static bool ShouldPurgeDialog(Instance? instance, [NotNullWhen(true)] DialogDto? existingDialog)
     {
-        return instance is null or { Status.IsSoftDeleted: true } && existingDialog is not null;
+        return instance is null or { Status.IsHardDeleted: true } && existingDialog is not null;
     }
 
     private Task UpsertDialog(DialogDto dialog, CancellationToken cancellationToken)
@@ -125,8 +150,7 @@ internal class SyncInstanceToDialogService
         {
             Values = new()
             {
-                { "dialog.id", dialogId.ToString() },
-                { "dialog.syncedAt", DateTimeOffset.UtcNow.ToString("O") }
+                { "dialog.id", dialogId.ToString() }
             }
         }, cancellationToken);
     }
