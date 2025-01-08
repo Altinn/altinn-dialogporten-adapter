@@ -54,30 +54,32 @@ internal sealed class StorageDialogportenDataMerger
                 {
                     return null;
                 }
-                
+
                 var activityType = eventType switch
                 {
                     InstanceEventType.Created when x.DataId is null => (DialogActivityType?) DialogActivityType.DialogCreated,
                     InstanceEventType.Saved => DialogActivityType.Information, // TODO: Ta eldste - her må mer massering til
                     InstanceEventType.Submited => DialogActivityType.Information,
                     InstanceEventType.Deleted => DialogActivityType.DialogDeleted,
-                    InstanceEventType.Undeleted => DialogActivityType.DialogRestored,
+                    InstanceEventType.Undeleted => DialogActivityType.DialogRestored, // TODO: Må implementeres i dialogporten
                     InstanceEventType.Signed => DialogActivityType.SignatureProvided,
+                    InstanceEventType.MessageArchived => DialogActivityType.DialogClosed,
+                    InstanceEventType.MessageRead => DialogActivityType.DialogOpened,
+                    
+                    // Får typer for disse i diaogporten
                     InstanceEventType.SentToSign => DialogActivityType.Information,
                     InstanceEventType.SentToPayment => DialogActivityType.Information,
                     InstanceEventType.SentToSendIn => DialogActivityType.Information,
                     InstanceEventType.SentToFormFill => DialogActivityType.Information,
-                    InstanceEventType.InstanceForwarded => DialogActivityType.Information,
-                    InstanceEventType.InstanceRightRevoked => DialogActivityType.Information,
-                    InstanceEventType.MessageArchived => DialogActivityType.DialogClosed,
-                    InstanceEventType.MessageRead => DialogActivityType.DialogOpened,
                     _ => null
+                    
+                    // InstanceEventType.InstanceForwarded => DialogActivityType.Information,
+                    // InstanceEventType.InstanceRightRevoked => DialogActivityType.Information,
                     // InstanceEventType.None => expr,
                     // InstanceEventType.ConfirmedComplete => DialogActivityType.DialogDeleted,
                     // InstanceEventType.SubstatusUpdated => expr,
                     // InstanceEventType.NotificationSentSms => expr,
                 };
-                
                 return !activityType.HasValue ? null
                     : new ActivityDto
                     {
@@ -109,12 +111,20 @@ internal sealed class StorageDialogportenDataMerger
                 .AltinnTaskType, "Feedback")) => DialogStatus.InProgress,
             _ => DialogStatus.Draft
         };
+
+        var systemLabel = instance.Status switch
+        {
+            // { IsSoftDeleted: true } => SystemLabel.Bin,
+            { IsArchived: true } => SystemLabel.Archive,
+            _ => SystemLabel.Default
+        };
         
         var dialog = new DialogDto
         {
             Id = dialogId,
             Party = ToParty(instance.InstanceOwner),
             ServiceResource = ToServiceResource(instance.AppId),
+            SystemLabel = systemLabel,
             CreatedAt = instance.Created,
             VisibleFrom = instance.VisibleAfter > DateTimeOffset.UtcNow ? instance.VisibleAfter : null,
             DueAt = instance.DueBefore < DateTimeOffset.UtcNow ? instance.DueBefore : null,
