@@ -11,7 +11,8 @@ public record SyncInstanceToDialogDto(
     string AppId,
     int PartyId, 
     Guid InstanceId,
-    DateTimeOffset InstanceCreatedAt);
+    DateTimeOffset InstanceCreatedAt,
+    bool IsMigration);
 
 internal class SyncInstanceToDialogService
 {
@@ -67,28 +68,38 @@ internal class SyncInstanceToDialogService
 
         if (ShouldPurgeDialog(instance, existingDialog))
         {
-            await _dialogportenApi.Purge(dialogId, existingDialog.Revision!.Value, cancellationToken);
+            await _dialogportenApi.Purge(
+                dialogId, 
+                existingDialog.Revision!.Value, 
+                disableAltinnEvents: dto.IsMigration, 
+                cancellationToken: cancellationToken);
             return;
         }
 
         if (ShouldSoftDeleteDialog(instance, existingDialog))
         {
-            await _dialogportenApi.Delete(dialogId, existingDialog.Revision!.Value, cancellationToken);
+            await _dialogportenApi.Delete(
+                dialogId, 
+                existingDialog.Revision!.Value,
+                disableAltinnEvents: dto.IsMigration,
+                cancellationToken: cancellationToken);
             return;
         }
 
         if (ShouldRestoreDialog(instance, existingDialog))
         {
-            // TODO: Restore dialog
-            // TODO: Her hadde det vært gunstig å få ny revisjon fra dialogporten response headers slik at vi ikke trenger å hente ny dialog for hver gang vi gjær noe mot apiet.
-            throw new NotSupportedException();
+            existingDialog.Revision = await RestoreDialog(dialogId, 
+                existingDialog.Revision!.Value,
+                disableAltinnEvents: dto.IsMigration,
+                cancellationToken);
+            existingDialog.Deleted = false;
         }
 
         EnsureNotNull(application, instance, events);
 
         // Create or update the dialog with the fetched data
         var updatedDialog = _dataMerger.Merge(dialogId, existingDialog, application, instance, events);
-        await UpsertDialog(updatedDialog, cancellationToken);
+        await UpsertDialog(updatedDialog, disableAltinnEvents: dto.IsMigration, cancellationToken);
     }
 
     private static void EnsureNotNull(
@@ -115,12 +126,12 @@ internal class SyncInstanceToDialogService
     {
         return BothIsHardDeleted(instance, existingDialog) || BothIsSoftDeleted(instance, existingDialog);
     }
-    
+
     private static bool BothIsHardDeleted(Instance? instance, [NotNullWhen(false)] DialogDto? existingDialog)
     {
         return instance is null or { Status.IsHardDeleted: true } && existingDialog is null;
     }
-    
+
     private static bool BothIsSoftDeleted([NotNullWhen(true)] Instance? instance, [NotNullWhen(true)] DialogDto? existingDialog)
     {
         return instance is { Status.IsSoftDeleted: true } && existingDialog is { Deleted: true };
@@ -136,11 +147,33 @@ internal class SyncInstanceToDialogService
         return instance is null or { Status.IsHardDeleted: true } && existingDialog is not null;
     }
 
-    private Task UpsertDialog(DialogDto dialog, CancellationToken cancellationToken)
+    private Task UpsertDialog(DialogDto dialog, bool disableAltinnEvents, CancellationToken cancellationToken)
     {
         return !dialog.Revision.HasValue
-            ? _dialogportenApi.Create(dialog, cancellationToken)
-            : _dialogportenApi.Update(dialog, dialog.Revision!.Value, cancellationToken);
+            ? _dialogportenApi.Create(dialog, disableAltinnEvents, cancellationToken: cancellationToken)
+            : _dialogportenApi.Update(dialog, dialog.Revision!.Value, disableAltinnEvents, cancellationToken: cancellationToken);
+    }
+
+    private async Task<Guid> RestoreDialog(Guid dialogId,
+        Guid revision,
+        bool disableAltinnEvents,
+        CancellationToken cancellationToken)
+    {
+        var response = await _dialogportenApi
+            .Restore(dialogId, revision, disableAltinnEvents, cancellationToken)
+            .EnsureSuccess();
+
+        if (!response.Headers.TryGetValues(IDialogportenApi.ETagHeader, out var etags))
+        {
+            throw new UnreachableException("ETag header was not found.");
+        }
+        
+        if (!Guid.TryParse(etags.FirstOrDefault(), out var etag))
+        {
+            throw new UnreachableException("ETag header could not be parsed.");
+        }
+        
+        return etag;
     }
 
     private Task UpdateInstanceWithDialogId(SyncInstanceToDialogDto dto, Guid dialogId,

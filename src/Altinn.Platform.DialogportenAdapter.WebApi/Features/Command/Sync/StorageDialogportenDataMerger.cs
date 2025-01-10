@@ -1,7 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Altinn.Platform.DialogportenAdapter.WebApi.Common;
 using Altinn.Platform.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
-using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 
 namespace Altinn.Platform.DialogportenAdapter.WebApi.Features.Command.Sync;
@@ -46,59 +45,59 @@ internal sealed class StorageDialogportenDataMerger
     
     private DialogDto ToDialogDto(Guid dialogId, Instance instance, Application application, InstanceEventList events)
     {
-        var lala = events.InstanceEvents
-            .OrderBy(x => x.Created)
-            .Select(x =>
-            {
-                if (!Enum.TryParse<InstanceEventType>(x.EventType, ignoreCase: true, out var eventType))
-                {
-                    return null;
-                }
-
-                var activityType = eventType switch
-                {
-                    InstanceEventType.Created when x.DataId is null => (DialogActivityType?) DialogActivityType.DialogCreated,
-                    InstanceEventType.Saved => DialogActivityType.Information, // TODO: Ta eldste - her må mer massering til
-                    InstanceEventType.Submited => DialogActivityType.Information,
-                    InstanceEventType.Deleted => DialogActivityType.DialogDeleted,
-                    InstanceEventType.Undeleted => DialogActivityType.DialogRestored, // TODO: Må implementeres i dialogporten
-                    InstanceEventType.Signed => DialogActivityType.SignatureProvided,
-                    InstanceEventType.MessageArchived => DialogActivityType.DialogClosed,
-                    InstanceEventType.MessageRead => DialogActivityType.DialogOpened,
-                    
-                    // Får typer for disse i diaogporten
-                    InstanceEventType.SentToSign => DialogActivityType.Information,
-                    InstanceEventType.SentToPayment => DialogActivityType.Information,
-                    InstanceEventType.SentToSendIn => DialogActivityType.Information,
-                    InstanceEventType.SentToFormFill => DialogActivityType.Information,
-                    _ => null
-                    
-                    // InstanceEventType.InstanceForwarded => DialogActivityType.Information,
-                    // InstanceEventType.InstanceRightRevoked => DialogActivityType.Information,
-                    // InstanceEventType.None => expr,
-                    // InstanceEventType.ConfirmedComplete => DialogActivityType.DialogDeleted,
-                    // InstanceEventType.SubstatusUpdated => expr,
-                    // InstanceEventType.NotificationSentSms => expr,
-                };
-                return !activityType.HasValue ? null
-                    : new ActivityDto
-                    {
-                        Id = x.Id.Value.ToVersion7(x.Created.Value),
-                        Type = activityType.Value,
-                        CreatedAt = x.Created,
-                        PerformedBy = string.IsNullOrWhiteSpace(x.User.OrgId) 
-                            ? new() { ActorType = ActorType.ServiceOwner }
-                            : new()
-                            {
-                                ActorType = ActorType.PartyRepresentative, 
-                                ActorId = ToPersonIdentifier(x.User.NationalIdentityNumber) 
-                                          ?? throw new InvalidOperationException()  
-                            }
-                    };
-            })
-            .Where(x => x is not null)
-            .Cast<ActivityDto>()
-            .ToList();
+        // var lala = events.InstanceEvents
+        //     .OrderBy(x => x.Created)
+        //     .Select(x =>
+        //     {
+        //         if (!Enum.TryParse<InstanceEventType>(x.EventType, ignoreCase: true, out var eventType))
+        //         {
+        //             return null;
+        //         }
+        //
+        //         var activityType = eventType switch
+        //         {
+        //             InstanceEventType.Created when x.DataId is null => (DialogActivityType?) DialogActivityType.DialogCreated,
+        //             InstanceEventType.Saved => DialogActivityType.Information, // TODO: Ta eldste - her må mer massering til
+        //             InstanceEventType.Submited => DialogActivityType.Information,
+        //             InstanceEventType.Deleted => DialogActivityType.DialogDeleted,
+        //             InstanceEventType.Undeleted => DialogActivityType.DialogRestored, // TODO: Må implementeres i dialogporten
+        //             InstanceEventType.Signed => DialogActivityType.SignatureProvided,
+        //             InstanceEventType.MessageArchived => DialogActivityType.DialogClosed,
+        //             InstanceEventType.MessageRead => DialogActivityType.DialogOpened,
+        //             
+        //             // Får typer for disse i diaogporten
+        //             InstanceEventType.SentToSign => DialogActivityType.Information,
+        //             InstanceEventType.SentToPayment => DialogActivityType.Information,
+        //             InstanceEventType.SentToSendIn => DialogActivityType.Information,
+        //             InstanceEventType.SentToFormFill => DialogActivityType.Information,
+        //             _ => null
+        //             
+        //             // InstanceEventType.InstanceForwarded => DialogActivityType.Information,
+        //             // InstanceEventType.InstanceRightRevoked => DialogActivityType.Information,
+        //             // InstanceEventType.None => expr,
+        //             // InstanceEventType.ConfirmedComplete => DialogActivityType.DialogDeleted,
+        //             // InstanceEventType.SubstatusUpdated => expr,
+        //             // InstanceEventType.NotificationSentSms => expr,
+        //         };
+        //         return !activityType.HasValue ? null
+        //             : new ActivityDto
+        //             {
+        //                 Id = x.Id.Value.ToVersion7(x.Created.Value),
+        //                 Type = activityType.Value,
+        //                 CreatedAt = x.Created,
+        //                 PerformedBy = string.IsNullOrWhiteSpace(x.User.OrgId) 
+        //                     ? new() { ActorType = ActorType.ServiceOwner }
+        //                     : new()
+        //                     {
+        //                         ActorType = ActorType.PartyRepresentative, 
+        //                         ActorId = ToPersonIdentifier(x.User.NationalIdentityNumber) 
+        //                                   ?? throw new InvalidOperationException()  
+        //                     }
+        //             };
+        //     })
+        //     .Where(x => x is not null)
+        //     .Cast<ActivityDto>()
+        //     .ToList();
 
         var status = instance.Process?.CurrentTask?.AltinnTaskType?.ToLower() switch
         {
@@ -281,7 +280,7 @@ internal sealed class StorageDialogportenDataMerger
         return span.ToString();
     }
 
-    public static string ToTitle(ReadOnlySpan<char> title, IReadOnlyCollection<string>? presentationTexts)
+    private static string ToTitle(ReadOnlySpan<char> title, IReadOnlyCollection<string>? presentationTexts)
     {
         const string separator = ", ";
         

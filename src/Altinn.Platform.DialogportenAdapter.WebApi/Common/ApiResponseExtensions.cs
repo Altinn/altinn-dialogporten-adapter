@@ -17,4 +17,13 @@ internal static class ApiResponseExtensions
             ? response.Content
             : throw response.Error;
     }
+    
+    public static async Task<T> EnsureSuccess<T>(this Task<T> responseTask)
+        where T : IApiResponse
+    {
+        var response = await responseTask;
+        return response.IsSuccessful 
+            ? response 
+            : throw response.Error;
+    }
 }
