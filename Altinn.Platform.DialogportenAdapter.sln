@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DialogportenAdapter.Interfa
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Altinn.Platform.DialogportenAdapter.UnitTest", "test\UnitTest\Altinn.Platform.DialogportenAdapter.UnitTest.csproj", "{097FDDA8-CBDE-4C68-92C1-DBD9A36FD6D8}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Altinn.Platform.DialogportenAdapter.WebApi", "src\Altinn.Platform.DialogportenAdapter.WebApi\Altinn.Platform.DialogportenAdapter.WebApi.csproj", "{3FB848BE-8FD5-4DA2-BC83-EE7CBA8359E3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -29,6 +31,10 @@ Global
 		{097FDDA8-CBDE-4C68-92C1-DBD9A36FD6D8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{097FDDA8-CBDE-4C68-92C1-DBD9A36FD6D8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{097FDDA8-CBDE-4C68-92C1-DBD9A36FD6D8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3FB848BE-8FD5-4DA2-BC83-EE7CBA8359E3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3FB848BE-8FD5-4DA2-BC83-EE7CBA8359E3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3FB848BE-8FD5-4DA2-BC83-EE7CBA8359E3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3FB848BE-8FD5-4DA2-BC83-EE7CBA8359E3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 	EndGlobalSection
