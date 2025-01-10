@@ -48,7 +48,11 @@ internal class SyncInstanceToDialogService
         
         if (instance is null && existingDialog is null)
         {
-            _logger.LogWarning("No dialog or instance found for request {@Request}.", dto);
+            _logger.LogWarning("No dialog or instance found for request. {PartyId},{InstanceId},{InstanceCreatedAt},{IsMigration}.", 
+                dto.PartyId,
+                dto.InstanceId,
+                dto.InstanceCreatedAt,
+                dto.IsMigration);
             return;
         }
 
