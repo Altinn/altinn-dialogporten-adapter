@@ -12,6 +12,7 @@
         <PackageReference Include="Altinn.Platform.Storage.Interface" Version="4.0.4" />
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.0"/>
         <PackageReference Include="Refit.HttpClientFactory" Version="8.0.0" />
+        <PackageReference Include="UUIDNext" Version="4.0.0" />
     </ItemGroup>
 
 </Project>

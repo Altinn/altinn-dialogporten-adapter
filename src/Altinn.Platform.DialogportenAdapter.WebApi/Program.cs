@@ -18,10 +18,12 @@ builder.Services.RegisterMaskinportenClientDefinition<SettingsJwkClientDefinitio
     defaultMaskinportenClientDefinitionKey, 
     settings.Infrastructure.Maskinporten);
 
-builder.Services.AddOpenApi()
+builder.Services
+    .AddOpenApi()
     .AddSingleton(settings)
     .AddTransient<SyncInstanceToDialogService>()
     .AddTransient<StorageDialogportenDataMerger>()
+    .AddTransient<ActivityDtoTransformer>()
     
     // Http clients
     .AddRefitClient<IStorageApi>()

@@ -397,12 +397,12 @@ public sealed class ActivityDto
 public enum DialogActivityType
 {
     /// <summary>
-    /// Refers to a dialog that has been created.
+    /// Indicates that a dialog has been created.
     /// </summary>
     DialogCreated = 1,
 
     /// <summary>
-    /// Refers to a dialog that has been closed.
+    /// Indicates that a dialog has been closed.
     /// </summary>
     DialogClosed = 2,
 
@@ -412,7 +412,7 @@ public enum DialogActivityType
     Information = 3,
 
     /// <summary>
-    /// Refers to a transmission that has been opened.
+    /// Indicates that a transmission has been opened.
     /// </summary>
     TransmissionOpened = 4,
 
@@ -427,11 +427,39 @@ public enum DialogActivityType
     SignatureProvided = 6,
 
     /// <summary>
-    /// Refers to a dialog that has been opened.
+    /// Indicates that a dialog has been opened.
     /// </summary>
     DialogOpened = 7,
-    DialogDeleted,
-    DialogRestored
+
+    /// <summary>
+    /// Indicates that a dialog has been deleted.
+    /// </summary>
+    DialogDeleted = 8,
+
+    /// <summary>
+    /// Indicates that a dialog has been restored.
+    /// </summary>
+    DialogRestored = 9,
+
+    /// <summary>
+    /// Indicates that a dialog has been sent to signing.
+    /// </summary>
+    SentToSigning = 10,
+
+    /// <summary>
+    /// Indicates that a dialog has been sent to form fill.
+    /// </summary>
+    SentToFormFill = 11,
+
+    /// <summary>
+    /// Indicates that a dialog has been sent to send in.
+    /// </summary>
+    SentToSendIn = 12,
+
+    /// <summary>
+    /// Indicates that a dialog has been sent to payment.
+    /// </summary>
+    SentToPayment = 13,
 }
 
 public sealed class ApiActionDto

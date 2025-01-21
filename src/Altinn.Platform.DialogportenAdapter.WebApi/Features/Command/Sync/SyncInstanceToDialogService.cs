@@ -14,7 +14,7 @@ public record SyncInstanceToDialogDto(
     DateTimeOffset InstanceCreatedAt,
     bool IsMigration);
 
-internal class SyncInstanceToDialogService
+internal sealed class SyncInstanceToDialogService
 {
     private readonly IStorageApi _storageApi;
     private readonly IDialogportenApi _dialogportenApi;

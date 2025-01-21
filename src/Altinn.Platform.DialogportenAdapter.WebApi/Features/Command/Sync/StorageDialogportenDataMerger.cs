@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using Altinn.Platform.DialogportenAdapter.WebApi.Common;
 using Altinn.Platform.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.Platform.Storage.Interface.Models;
@@ -8,10 +7,12 @@ namespace Altinn.Platform.DialogportenAdapter.WebApi.Features.Command.Sync;
 internal sealed class StorageDialogportenDataMerger
 {
     private readonly Settings _settings;
+    private readonly ActivityDtoTransformer _activityDtoTransformer;
 
-    public StorageDialogportenDataMerger(Settings settings)
+    public StorageDialogportenDataMerger(Settings settings, ActivityDtoTransformer activityDtoTransformer)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _activityDtoTransformer = activityDtoTransformer ?? throw new ArgumentNullException(nameof(activityDtoTransformer));
     }
 
     public DialogDto Merge(Guid dialogId,
@@ -26,79 +27,16 @@ internal sealed class StorageDialogportenDataMerger
             return storageDialog;
         }
         
-        // TODO: Merge the existing dialog with the storage dialog
         storageDialog.Revision = existing.Revision;
         storageDialog.Activities = storageDialog.Activities
             .ExceptBy(existing.Activities.Select(x => x.Id), x => x.Id)
             .ToList();
-        
-        foreach (var guiAction in storageDialog.GuiActions)
-        {
-            guiAction.Id = existing.GuiActions
-                .Where(x => x.HttpMethod == guiAction.HttpMethod && x.Url == guiAction.Url)
-                .Select(x => x.Id)
-                .FirstOrDefault();
-        }
         
         return storageDialog;
     }
     
     private DialogDto ToDialogDto(Guid dialogId, Instance instance, Application application, InstanceEventList events)
     {
-        // var lala = events.InstanceEvents
-        //     .OrderBy(x => x.Created)
-        //     .Select(x =>
-        //     {
-        //         if (!Enum.TryParse<InstanceEventType>(x.EventType, ignoreCase: true, out var eventType))
-        //         {
-        //             return null;
-        //         }
-        //
-        //         var activityType = eventType switch
-        //         {
-        //             InstanceEventType.Created when x.DataId is null => (DialogActivityType?) DialogActivityType.DialogCreated,
-        //             InstanceEventType.Saved => DialogActivityType.Information, // TODO: Ta eldste - her må mer massering til
-        //             InstanceEventType.Submited => DialogActivityType.Information,
-        //             InstanceEventType.Deleted => DialogActivityType.DialogDeleted,
-        //             InstanceEventType.Undeleted => DialogActivityType.DialogRestored, // TODO: Må implementeres i dialogporten
-        //             InstanceEventType.Signed => DialogActivityType.SignatureProvided,
-        //             InstanceEventType.MessageArchived => DialogActivityType.DialogClosed,
-        //             InstanceEventType.MessageRead => DialogActivityType.DialogOpened,
-        //             
-        //             // Får typer for disse i diaogporten
-        //             InstanceEventType.SentToSign => DialogActivityType.Information,
-        //             InstanceEventType.SentToPayment => DialogActivityType.Information,
-        //             InstanceEventType.SentToSendIn => DialogActivityType.Information,
-        //             InstanceEventType.SentToFormFill => DialogActivityType.Information,
-        //             _ => null
-        //             
-        //             // InstanceEventType.InstanceForwarded => DialogActivityType.Information,
-        //             // InstanceEventType.InstanceRightRevoked => DialogActivityType.Information,
-        //             // InstanceEventType.None => expr,
-        //             // InstanceEventType.ConfirmedComplete => DialogActivityType.DialogDeleted,
-        //             // InstanceEventType.SubstatusUpdated => expr,
-        //             // InstanceEventType.NotificationSentSms => expr,
-        //         };
-        //         return !activityType.HasValue ? null
-        //             : new ActivityDto
-        //             {
-        //                 Id = x.Id.Value.ToVersion7(x.Created.Value),
-        //                 Type = activityType.Value,
-        //                 CreatedAt = x.Created,
-        //                 PerformedBy = string.IsNullOrWhiteSpace(x.User.OrgId) 
-        //                     ? new() { ActorType = ActorType.ServiceOwner }
-        //                     : new()
-        //                     {
-        //                         ActorType = ActorType.PartyRepresentative, 
-        //                         ActorId = ToPersonIdentifier(x.User.NationalIdentityNumber) 
-        //                                   ?? throw new InvalidOperationException()  
-        //                     }
-        //             };
-        //     })
-        //     .Where(x => x is not null)
-        //     .Cast<ActivityDto>()
-        //     .ToList();
-
         var status = instance.Process?.CurrentTask?.AltinnTaskType?.ToLower() switch
         {
             _ when instance.Status.IsArchived => DialogStatus.Completed,
@@ -113,12 +51,11 @@ internal sealed class StorageDialogportenDataMerger
 
         var systemLabel = instance.Status switch
         {
-            // { IsSoftDeleted: true } => SystemLabel.Bin,
             { IsArchived: true } => SystemLabel.Archive,
             _ => SystemLabel.Default
         };
         
-        var dialog = new DialogDto
+        return new DialogDto
         {
             Id = dialogId,
             Party = ToParty(instance.InstanceOwner),
@@ -149,7 +86,7 @@ internal sealed class StorageDialogportenDataMerger
                     Value = [new() { LanguageCode = "nb", Value = "Konvertert med DialogportenAdapter..." }]
                 }
             },
-            GuiActions = [CreateGoToAction(instance), CreateDeleteAction(status, instance)],
+            GuiActions = [CreateGoToAction(instance, dialogId), CreateDeleteAction(status, instance, dialogId)],
             Attachments = instance.Data
                 .Select(x => new AttachmentDto
                 {
@@ -165,24 +102,19 @@ internal sealed class StorageDialogportenDataMerger
                         Url = x.SelfLinks.Platform
                     }]
                 })
-                .ToList()
+                .ToList(),
+            Activities = _activityDtoTransformer.GetActivities(events)
         };
-
-        if (TryGetCreatedActivity(events, out var createdActivity))
-        {
-            dialog.Activities.Add(createdActivity);
-        }
-
-        return dialog;
     }
-    
-    private GuiActionDto CreateGoToAction(Instance instance)
+
+    private GuiActionDto CreateGoToAction(Instance instance, Guid dialogId)
     {
         if (instance.Status.IsArchived)
         {
             var platformBaseUri = _settings.Infrastructure.Altinn.PlatformBaseUri;
             return new GuiActionDto
             {
+                Id = dialogId.CreateDeterministicSubUuidV7("DialogGuiActionGoTo"),
                 Action = "read",
                 Priority = DialogGuiActionPriority.Primary,
                 Title = [new() { LanguageCode = "nb", Value = "Se innsendt skjema" }],
@@ -193,6 +125,7 @@ internal sealed class StorageDialogportenDataMerger
         var appBaseUri = _settings.Infrastructure.Altinn.GetAppUriForOrg(instance.Org);
         return new GuiActionDto
         {
+            Id = dialogId.CreateDeterministicSubUuidV7("DialogGuiActionGoTo"),
             Action = "write",
             Priority = DialogGuiActionPriority.Primary,
             Title = [new() { LanguageCode = "nb", Value = "Gå til skjemautfylling" }],
@@ -200,12 +133,13 @@ internal sealed class StorageDialogportenDataMerger
         };
     }
 
-    private GuiActionDto CreateDeleteAction(DialogStatus status, Instance instance)
+    private GuiActionDto CreateDeleteAction(DialogStatus status, Instance instance, Guid dialogId)
     {
         var adapterBaseUri = _settings.Infrastructure.Adapter.BaseUri;
         var hardDelete = instance.Status.IsSoftDeleted || status is DialogStatus.Draft;
         return new GuiActionDto
         {
+            Id = dialogId.CreateDeterministicSubUuidV7("DialogGuiActionDelete"),
             Action = "delete",
             Priority = DialogGuiActionPriority.Secondary,
             IsDeleteDialogAction = true,
@@ -216,39 +150,6 @@ internal sealed class StorageDialogportenDataMerger
             Url = $"{adapterBaseUri}/api/v1/instance/{Uri.EscapeDataString(instance.Id)}?hard={hardDelete}",
             HttpMethod = HttpVerb.DELETE
         };
-    }
-
-    private static bool TryGetCreatedActivity(InstanceEventList events, [NotNullWhen(true)] out ActivityDto? createdActivity)
-    {
-        var nationalIdentityNumberByUserId = events.InstanceEvents
-            .Where(x => !string.IsNullOrWhiteSpace(x.User.NationalIdentityNumber))
-            .GroupBy(x => x.User.UserId)
-            .ToDictionary(x => x.Key, x => x.Select(xx => xx.User.NationalIdentityNumber).First());
-        
-        createdActivity = events
-            .InstanceEvents
-            .OrderBy(x => x.Created)
-            .Where(x => x.DataId is null) // The created event is not associated with a data element
-            .Where(x => StringComparer.OrdinalIgnoreCase.Equals(x.EventType, "created"))
-            .Select(x => new ActivityDto
-            {
-                Id = x.Id.Value.ToVersion7(x.Created.Value),
-                Type = DialogActivityType.DialogCreated,
-                CreatedAt = x.Created,
-                PerformedBy = string.IsNullOrWhiteSpace(x.User.OrgId) 
-                    ? new() { ActorType = ActorType.ServiceOwner }
-                    : new()
-                    {
-                        ActorType = ActorType.PartyRepresentative, 
-                        ActorId = nationalIdentityNumberByUserId.TryGetValue(x.User.UserId, out var nationalId) 
-                            ? ToPersonIdentifier(nationalId)
-                            // TODO: Fallback userId to national identity number api in storage
-                            : throw new InvalidOperationException()  
-                    }
-            })
-            .FirstOrDefault();
-
-        return createdActivity is not null;
     }
 
     private static string ToParty(InstanceOwner instanceOwner)
