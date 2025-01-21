@@ -88,6 +88,8 @@ internal sealed class EventStreamer
         var orgNoByName = orgsResponse.Orgs
             .ToDictionary(x => x.Key, x => x.Value.Orgnr);
         var distinctApplication = applications.Applications
+            // TODO: Remove this when scope 'altinn:storage/instances.syncadapter' is implemented in storage
+            // https://digdir.slack.com/archives/C0785747G6M/p1737459622842289
             .Where(x => StringComparer.OrdinalIgnoreCase.Equals(x.Org, "digdir"))
             .Distinct()
             .ToList();
