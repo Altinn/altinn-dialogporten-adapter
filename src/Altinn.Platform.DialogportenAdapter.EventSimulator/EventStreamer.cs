@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Threading.Channels;
 using Altinn.Platform.DialogportenAdapter.EventSimulator.Infrastructure;
+using Microsoft.Extensions.Logging;
 
 namespace Altinn.Platform.DialogportenAdapter.EventSimulator;
 
@@ -11,52 +12,50 @@ internal sealed class EventStreamer
     private readonly ITestTokenApi _testTokenApi;
     private readonly InstanceStreamHttpClient _instanceStreamHttpClient;
     private readonly IStorageAdapterApi _storageAdapterApi;
+    private readonly ILogger<EventStreamer> _logger;
 
     public EventStreamer(IStorageApi storageApi,
         IAltinnCdnApi altinnCdnApi,
         ITestTokenApi testTokenApi,
         InstanceStreamHttpClient instanceStreamHttpClient,
-        IStorageAdapterApi storageAdapterApi)
+        IStorageAdapterApi storageAdapterApi, 
+        ILogger<EventStreamer> logger)
     {
         _storageApi = storageApi ?? throw new ArgumentNullException(nameof(storageApi));
         _altinnCdnApi = altinnCdnApi ?? throw new ArgumentNullException(nameof(altinnCdnApi));
         _testTokenApi = testTokenApi ?? throw new ArgumentNullException(nameof(testTokenApi));
         _instanceStreamHttpClient = instanceStreamHttpClient ?? throw new ArgumentNullException(nameof(instanceStreamHttpClient));
         _storageAdapterApi = storageAdapterApi ?? throw new ArgumentNullException(nameof(storageAdapterApi));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public async Task StreamEvents(CancellationToken cancellationToken)
+    public async Task StreamEvents(
+        int numberOfProducers, 
+        int numberOfConsumers, 
+        int cacheCapacity, 
+        CancellationToken cancellationToken)
     {
-        const int producers = 1;
-        const int consumers = 1;
-        const int cacheSize = 5;
-        var instanceEventChannel = Channel.CreateBounded<InstanceEvent>(cacheSize);
-        var producerTask = ProduceEvents(producers, instanceEventChannel, cancellationToken);
-        var consumerTask = ConsumeEvents(consumers, instanceEventChannel, cancellationToken);
+        var instanceEventChannel = Channel.CreateBounded<InstanceEvent>(cacheCapacity);
+        var producerTask = ProduceEvents(numberOfProducers, instanceEventChannel, cancellationToken);
+        var consumerTask = ConsumeEvents(numberOfConsumers, instanceEventChannel, cancellationToken);
         await Task.WhenAll(producerTask, consumerTask);
     }
     
     private async Task ProduceEvents(int producers, ChannelWriter<InstanceEvent> writer, CancellationToken cancellationToken)
     {
         var appQueue = new ConcurrentQueue<AppInfo>(await GetApplicationInfo(cancellationToken));
-        await Task.WhenAll(Enumerable.Range(1, producers).Select(ProduceEventsForApp));
+        await Task.WhenAll(Enumerable.Range(1, producers).Select(Produce));
         writer.Complete();
         return;
 
-        async Task ProduceEventsForApp(int _)
+        async Task Produce(int _)
         {
-            while (!cancellationToken.IsCancellationRequested && appQueue.TryDequeue(out var appInfo))
+            while (appQueue.TryDequeue(out var appInfo))
             {
-                await foreach (var instance in _instanceStreamHttpClient.GetInstanceStream(appInfo.AppId, appInfo.OrgToken, cancellationToken))
+                await foreach (var instanceEvent in _instanceStreamHttpClient.GetInstanceStream(appInfo.AppId, appInfo.OrgToken, cancellationToken))
                 {
-                    var (partyId, instanceId) = instance.Id.Split("/") switch
-                    {
-                        [var pId, var iId] when int.TryParse(pId, out var x) && Guid.TryParse(iId, out var y) => (x, y),
-                        _ => throw new InvalidOperationException("Invalid instance id")
-                    };
-                    var instanceEvent = new InstanceEvent(instance.AppId, partyId, instanceId, instance.Created);
-                    Console.WriteLine($"Producing event for {instanceId}");
-                    await writer.WriteAsync(instanceEvent,cancellationToken);
+                    _logger.LogInformation("Producing event for {instanceId}", instanceEvent.InstanceId);
+                    await writer.WriteAsync(instanceEvent, cancellationToken);
                 }
             }
         }
@@ -69,13 +68,10 @@ internal sealed class EventStreamer
         
         async Task Consume(int _)
         {
-            while (await reader.WaitToReadAsync(cancellationToken))
+            await foreach (var instanceEvent in reader.ReadAllAsync(cancellationToken))
             {
-                while (reader.TryRead(out var instanceEvent))
-                {
-                    Console.WriteLine($"Consuming event for {instanceEvent.InstanceId}");
-                    await _storageAdapterApi.Sync(instanceEvent, cancellationToken);
-                }
+                _logger.LogInformation("Consuming event for {instanceId}", instanceEvent.InstanceId);
+                await _storageAdapterApi.Sync(instanceEvent, cancellationToken);
             }
         }
     }

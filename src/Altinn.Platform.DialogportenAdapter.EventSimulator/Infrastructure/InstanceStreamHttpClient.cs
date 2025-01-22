@@ -16,7 +16,7 @@ internal sealed class InstanceStreamHttpClient
         _logger = logger;
     }
     
-    public async IAsyncEnumerable<Instance> GetInstanceStream(string appId, string token,
+    public async IAsyncEnumerable<InstanceEvent> GetInstanceStream(string appId, string token,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var next = (string?)$"/storage/api/v1/instances?pageSize=1000&appId={appId}";
@@ -40,18 +40,35 @@ internal sealed class InstanceStreamHttpClient
             next = result?.Next;
             foreach (var instance in result?.Instances ?? [])
             {
-                yield return instance;
+                var (partyId, instanceId) = ParseInstanceId(instance.Id);
+                yield return new InstanceEvent(instance.AppId, partyId, instanceId, instance.Created);
             }
         }
     }
     
+    private static (int PartyId, Guid InstanceId) ParseInstanceId(ReadOnlySpan<char> id)
+    {
+        var partsEnumerator = id.Split("/");
+        if (!partsEnumerator.MoveNext() || !int.TryParse(id[partsEnumerator.Current], out var party))
+        {
+            throw new InvalidOperationException("Invalid instance id");
+        }
+
+        if (!partsEnumerator.MoveNext() || !Guid.TryParse(id[partsEnumerator.Current], out var instance))
+        {
+            throw new InvalidOperationException("Invalid instance id");
+        }
+
+        return (party, instance);
+    }
+    
     private sealed class InstanceQueryResponse
     {
-        public List<Instance> Instances { get; set; } = null!;
+        public List<InstanceResponse> Instances { get; set; } = null!;
         public string? Next { get; set; }
     }
 
-    internal sealed class Instance
+    private sealed class InstanceResponse
     {
         public string AppId { get; set; } = null!;
         public string Id { get; set; } = null!;

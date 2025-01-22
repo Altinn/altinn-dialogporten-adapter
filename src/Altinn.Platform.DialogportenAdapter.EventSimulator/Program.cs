@@ -5,6 +5,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Refit;
 
+const int producers = 1;
+const int consumers = 1;
+const int cacheSize = 5;
+
 var builder = CoconaApp.CreateBuilder(args);
 
 builder.Logging.SetMinimumLevel(LogLevel.Warning);
@@ -32,6 +36,6 @@ builder.Services.AddRefitClient<IStorageAdapterApi>()
 var app = builder.Build();
 
 app.AddCommand(async (CoconaAppContext ctx, EventStreamer eventStreamer) 
-    => await eventStreamer.StreamEvents(ctx.CancellationToken));
+    => await eventStreamer.StreamEvents(producers, consumers, cacheSize, ctx.CancellationToken));
 
-app.Run();
+await app.RunAsync();
