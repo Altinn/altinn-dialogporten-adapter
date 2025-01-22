@@ -6,6 +6,9 @@ internal interface IStorageApi
 {
     [Get("/storage/api/v1/applications")]
     Task<ApplicationResponse> GetApplications(CancellationToken cancellationToken);
+    
+    [Get("/storage/api/v1/applications/{org}")]
+    Task<ApplicationResponse> GetApplicationsForOrg(string org, CancellationToken cancellationToken);
 }
 
 internal sealed class ApplicationResponse
