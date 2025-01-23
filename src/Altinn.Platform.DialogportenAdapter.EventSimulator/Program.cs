@@ -5,13 +5,14 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Refit;
 
-const int producers = 1;
+const int producers = 2;
 const int consumers = 1;
 const int cacheSize = 5;
 
 var builder = CoconaApp.CreateBuilder(args);
 
 builder.Logging.SetMinimumLevel(LogLevel.Warning);
+// builder.Logging.AddFilter("Altinn.Platform.DialogportenAdapter.EventSimulator.EventStreamer", LogLevel.Information);
 
 // TODO: Change from DigdirApplicationService to ApplicationService when scope 'altinn:storage/instances.syncadapter' is implemented in storage
 // https://digdir.slack.com/archives/C0785747G6M/p1737459622842289

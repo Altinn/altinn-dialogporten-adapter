@@ -15,13 +15,13 @@ internal sealed class StorageDialogportenDataMerger
         _activityDtoTransformer = activityDtoTransformer ?? throw new ArgumentNullException(nameof(activityDtoTransformer));
     }
 
-    public DialogDto Merge(Guid dialogId,
+    public async Task<DialogDto> Merge(Guid dialogId,
         DialogDto? existing,
         Application application,
         Instance instance,
         InstanceEventList events)
     {
-        var storageDialog = ToDialogDto(dialogId, instance, application, events);
+        var storageDialog = await ToDialogDto(dialogId, instance, application, events);
         if (existing is null)
         {
             return storageDialog;
@@ -35,7 +35,7 @@ internal sealed class StorageDialogportenDataMerger
         return storageDialog;
     }
     
-    private DialogDto ToDialogDto(Guid dialogId, Instance instance, Application application, InstanceEventList events)
+    private async Task<DialogDto> ToDialogDto(Guid dialogId, Instance instance, Application application, InstanceEventList events)
     {
         var status = instance.Process?.CurrentTask?.AltinnTaskType?.ToLower() switch
         {
@@ -58,7 +58,7 @@ internal sealed class StorageDialogportenDataMerger
         return new DialogDto
         {
             Id = dialogId,
-            Party = ToParty(instance.InstanceOwner),
+            Party = await ToParty(instance.InstanceOwner),
             ServiceResource = ToServiceResource(instance.AppId),
             SystemLabel = systemLabel,
             CreatedAt = instance.Created,
@@ -152,10 +152,11 @@ internal sealed class StorageDialogportenDataMerger
         };
     }
 
-    private static string ToParty(InstanceOwner instanceOwner)
+    private static async Task<string> ToParty(InstanceOwner instanceOwner)
     {
         return ToPersonIdentifier(instanceOwner.PersonNumber)
             ?? ToOrgIdentifier(instanceOwner.OrganisationNumber)
+            ?? await ToFallbackIdentifier(instanceOwner.PartyId)
             ?? throw new ArgumentException("Instance owner must have either a person number or an organisation number");
     }
     
@@ -169,6 +170,13 @@ internal sealed class StorageDialogportenDataMerger
     {
         const string orgPrefix = "urn:altinn:organization:identifier-no:";
         return string.IsNullOrWhiteSpace(organisationNumber) ? null : $"{orgPrefix}{organisationNumber}";
+    }
+    
+    private static Task<string> ToFallbackIdentifier(string? partyId)
+    {
+        // TODO: we need to lookup the party here
+        const string digdir = "urn:altinn:organization:identifier-no:991825827";
+        return Task.FromResult(digdir);
     }
 
     private static string ToServiceResource(ReadOnlySpan<char> appId)

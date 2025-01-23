@@ -42,14 +42,14 @@ internal sealed class EventStreamer
         writer.Complete();
         return;
 
-        async Task Produce(int _)
+        async Task Produce(int taskNumber)
         {
             while (appQueue.TryDequeue(out var appContext))
             {
                 var token = await appContext.GetToken(cancellationToken);
                 await foreach (var instanceEvent in _instanceStreamHttpClient.GetInstanceStream(appContext.AppId, token, cancellationToken))
                 {
-                    _logger.LogInformation("Producing event for {instanceId}", instanceEvent.InstanceId);
+                    _logger.LogInformation("{TaskNumber}: Producing event for {instanceId}", taskNumber, instanceEvent.InstanceId);
                     await writer.WriteAsync(instanceEvent, cancellationToken);
                 }
             }
@@ -61,11 +61,11 @@ internal sealed class EventStreamer
         await Task.WhenAll(Enumerable.Range(1, consumers).Select(Consume));
         return;
         
-        async Task Consume(int _)
+        async Task Consume(int taskNumber)
         {
             await foreach (var instanceEvent in reader.ReadAllAsync(cancellationToken))
             {
-                _logger.LogInformation("Consuming event for {instanceId}", instanceEvent.InstanceId);
+                _logger.LogInformation("{TaskNumber}: Consuming event for {instanceId}", taskNumber, instanceEvent.InstanceId);
                 await _storageAdapterApi.Sync(instanceEvent, cancellationToken);
             }
         }

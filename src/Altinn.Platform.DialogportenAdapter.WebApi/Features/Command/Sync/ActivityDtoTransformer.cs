@@ -53,7 +53,10 @@ internal class ActivityDtoTransformer
                 Id = @event.Id.Value.ToVersion7(@event.Created.Value),
                 Type = activityType.Value,
                 CreatedAt = @event.Created,
-                PerformedBy = GetPerformedBy(@event.User, nationalIdentityNumberByUserId)
+                PerformedBy = GetPerformedBy(@event.User, nationalIdentityNumberByUserId),
+                Description = activityType == DialogActivityType.Information
+                    ? [ new LocalizationDto { LanguageCode = "nb", Value = eventType.ToString() } ]
+                    : [ ]
             });
         }
         
@@ -74,7 +77,8 @@ internal class ActivityDtoTransformer
                     Id = @event.Id.Value.ToVersion7(@event.Created.Value),
                     Type = DialogActivityType.Information,
                     CreatedAt = @event.Created,
-                    PerformedBy = GetPerformedBy(@event.User, nationalIdentityNumberByUserId)
+                    PerformedBy = GetPerformedBy(@event.User, nationalIdentityNumberByUserId),
+                    Description = { new LocalizationDto { LanguageCode = "nb", Value = "Lagret"} }
                 });
                 return tuple;
             }, tuple => tuple.Item1);
@@ -85,16 +89,27 @@ internal class ActivityDtoTransformer
 
     private static ActorDto GetPerformedBy(PlatformUser user, Dictionary<int, string> nationalIdentityNumberByUserId)
     {
-        return string.IsNullOrWhiteSpace(user.OrgId)
-            ? new() { ActorType = ActorType.ServiceOwner }
-            : new()
+        if (!string.IsNullOrWhiteSpace(user.OrgId))
+        {
+            return new ActorDto { ActorType = ActorType.ServiceOwner };
+        }
+        
+        // TODO: GetPerformedBy logic needs to be improved.
+        // We need to handle the case where the user is not found in the dictionary
+        if (!nationalIdentityNumberByUserId.TryGetValue(user.UserId.Value, out var nationalId))
+        {
+            return new ActorDto
             {
                 ActorType = ActorType.PartyRepresentative,
-                ActorId = nationalIdentityNumberByUserId.TryGetValue(user.UserId.Value, out var nationalId)
-                    ? ToPersonIdentifier(nationalId)
-                    // TODO: Fallback userId to national identity number api in storage
-                    : throw new InvalidOperationException()
+                ActorName = "Unknown user"
             };
+        }
+
+        return new ActorDto
+        {
+            ActorType = ActorType.PartyRepresentative,
+            ActorId = ToPersonIdentifier(nationalId)
+        };
     }
     
     private static string? ToPersonIdentifier(string? personNumber)
