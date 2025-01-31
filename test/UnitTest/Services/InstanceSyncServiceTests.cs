@@ -1,4 +1,4 @@
-namespace Altinn.Platform.DialogportenAdapter.UnitTest.Services;
+namespace Altinn.DialogportenAdapter.UnitTest.Services;
 
 public class UnitTest1
 {
