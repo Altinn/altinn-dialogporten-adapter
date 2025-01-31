@@ -1,8 +1,0 @@
-﻿services:
-  dialogportenadapter:
-    image: dialogportenadapter
-    ports:
-      - 8080:5011
-    build:
-      context: .
-      dockerfile: Dockerfile
