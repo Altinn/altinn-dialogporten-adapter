@@ -23,7 +23,7 @@ internal static class GuidExtensions
         uuidBytes[6] = (byte)((uuidBytes[6] & 0x0F) | 0x70);
 
         // Set the variant to RFC 4122 (2 most significant bits of the 9th byte to 10)
-        uuidBytes[8] = (byte)(uuidBytes[8] & 0x3F | 0x80);
+        uuidBytes[8] = (byte)((uuidBytes[8] & 0x3F) | 0x80);
 
         // Construct and return the UUID
         return new Guid(uuidBytes, bigEndian: true);
