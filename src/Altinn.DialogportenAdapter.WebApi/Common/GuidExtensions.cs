@@ -12,15 +12,15 @@ internal static class GuidExtensions
         var unixTimestampMillis = timestamp.ToUnixTimeMilliseconds();
 
         // Write the timestamp (48 bits) into the UUID buffer 
-        uuidBytes[0] = (byte)(unixTimestampMillis >> 40 & 0xFF);
-        uuidBytes[1] = (byte)(unixTimestampMillis >> 32 & 0xFF);
-        uuidBytes[2] = (byte)(unixTimestampMillis >> 24 & 0xFF);
-        uuidBytes[3] = (byte)(unixTimestampMillis >> 16 & 0xFF);
-        uuidBytes[4] = (byte)(unixTimestampMillis >> 8 & 0xFF);
+        uuidBytes[0] = (byte)((unixTimestampMillis >> 40) & 0xFF);
+        uuidBytes[1] = (byte)((unixTimestampMillis >> 32) & 0xFF);
+        uuidBytes[2] = (byte)((unixTimestampMillis >> 24) & 0xFF);
+        uuidBytes[3] = (byte)((unixTimestampMillis >> 16) & 0xFF);
+        uuidBytes[4] = (byte)((unixTimestampMillis >> 8) & 0xFF);
         uuidBytes[5] = (byte)(unixTimestampMillis & 0xFF);
 
         // Set the version to 7 (4 high bits of the 7th byte)
-        uuidBytes[6] = (byte)(uuidBytes[6] & 0x0F | 0x70);
+        uuidBytes[6] = (byte)((uuidBytes[6] & 0x0F) | 0x70);
 
         // Set the variant to RFC 4122 (2 most significant bits of the 9th byte to 10)
         uuidBytes[8] = (byte)(uuidBytes[8] & 0x3F | 0x80);
