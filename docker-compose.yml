@@ -1,6 +1,0 @@
-﻿services:
-  dialogportenadapter:
-    image: dialogportenadapter
-    build:
-      context: .
-      dockerfile: src/DialogportenAdapter/Dockerfile
