@@ -69,6 +69,11 @@ internal sealed class SyncInstanceToDialogService
             // TODO: Si til team core (storage) at de ikke skal sende event dersom datavalues endres
             await UpdateInstanceWithDialogId(dto, dialogId, cancellationToken);
         }
+        
+        if (IsDialogSyncDisabled(instance))
+        {
+            return;
+        }
 
         if (ShouldPurgeDialog(instance, existingDialog))
         {
@@ -124,6 +129,15 @@ internal sealed class SyncInstanceToDialogService
     private static bool ShouldSoftDeleteDialog([NotNullWhen(true)] Instance? instance, [NotNullWhen(true)] DialogDto? existingDialog)
     {
         return instance is { Status.IsSoftDeleted: true } && existingDialog is not null;
+    }
+
+    private static bool IsDialogSyncDisabled(Instance? instance)
+    {
+        const string disableSyncKey = "dialog.disableAutomaticSync";
+        return instance?.DataValues is not null 
+               && instance.DataValues.TryGetValue(disableSyncKey, out var disableSyncString) 
+               && bool.TryParse(disableSyncString, out var disableSync) 
+               && disableSync;
     }
 
     private static bool BothIsDeleted(Instance? instance, DialogDto? existingDialog)
