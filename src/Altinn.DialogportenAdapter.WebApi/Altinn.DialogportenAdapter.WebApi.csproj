@@ -16,6 +16,7 @@
          <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.22.0" />
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.0"/>
         <PackageReference Include="Refit.HttpClientFactory" Version="8.0.0" />
+        <PackageReference Include="UUIDNext" Version="4.0.0" />
     </ItemGroup>
 
 </Project>

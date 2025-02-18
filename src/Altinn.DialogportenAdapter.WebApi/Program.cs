@@ -1,13 +1,13 @@
 using Altinn.ApiClients.Maskinporten.Extensions;
 using Altinn.ApiClients.Maskinporten.Services;
 using Altinn.DialogportenAdapter.WebApi;
+using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Configuration;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Delete;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 using Altinn.DialogportenAdapter.WebApi.Health;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
-using Altinn.DialogportenAdapter.WebApi.Startup;
 using Altinn.Notifications.Configuration;
 using Azure.Identity;
 using Azure.Security.KeyVault.Secrets;
@@ -40,10 +40,12 @@ builder.Services.RegisterMaskinportenClientDefinition<SettingsJwkClientDefinitio
     defaultMaskinportenClientDefinitionKey, 
     settings.DialogportenAdapter.Maskinporten);
 
-builder.Services.AddOpenApi()
+builder.Services
+    .AddOpenApi()
     .AddSingleton(settings)
     .AddTransient<SyncInstanceToDialogService>()
     .AddTransient<StorageDialogportenDataMerger>()
+    .AddTransient<ActivityDtoTransformer>()
     
     // Http clients
     .AddRefitClient<IStorageApi>()
@@ -56,9 +58,13 @@ builder.Services.AddOpenApi()
         .Services
     .AddRefitClient<IDialogportenApi>()
         .ConfigureHttpClient(x => x.BaseAddress = settings.DialogportenAdapter.Dialogporten.BaseUri)
-        .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(defaultMaskinportenClientDefinitionKey);
+        .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(defaultMaskinportenClientDefinitionKey)
+        .Services
+        
+    // Health checks
+    .AddHealthChecks()
+        .AddCheck<HealthCheck>("dialogporte_adapter_health_check");
 
-builder.Services.AddHealthChecks().AddCheck<HealthCheck>("dialogporte_adapter_health_check");
 
 if (!string.IsNullOrEmpty(applicationInsightsConnectionString))
 {
@@ -73,14 +79,9 @@ if (!string.IsNullOrEmpty(applicationInsightsConnectionString))
 }
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
 
+app.MapOpenApi();
 app.UseHttpsRedirection();
-
 app.MapPost("/api/v1/syncDialog", async (
     [FromBody] SyncInstanceToDialogDto request,
     [FromServices] SyncInstanceToDialogService syncService,

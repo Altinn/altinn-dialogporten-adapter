@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging.ApplicationInsights;
 
-namespace Altinn.DialogportenAdapter.WebApi.Startup;
+namespace Altinn.DialogportenAdapter.WebApi.Common;
 
 /// <summary>
 /// Extension method(s) helping with setting up logging for the application during startup

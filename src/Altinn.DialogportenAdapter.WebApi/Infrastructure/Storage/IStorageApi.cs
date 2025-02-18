@@ -3,7 +3,7 @@ using Refit;
 
 namespace Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 
-public interface IStorageApi
+internal interface IStorageApi
 {
     [Get("/storage/api/v1/applications/{**appId}")]
     Task<IApiResponse<Application>> GetApplication(string appId, CancellationToken cancellationToken = default);

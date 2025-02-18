@@ -14,7 +14,7 @@ public record SyncInstanceToDialogDto(
     DateTimeOffset InstanceCreatedAt,
     bool IsMigration);
 
-internal class SyncInstanceToDialogService
+internal sealed class SyncInstanceToDialogService
 {
     private readonly IStorageApi _storageApi;
     private readonly IDialogportenApi _dialogportenApi;
@@ -102,7 +102,7 @@ internal class SyncInstanceToDialogService
         EnsureNotNull(application, instance, events);
 
         // Create or update the dialog with the fetched data
-        var updatedDialog = _dataMerger.Merge(dialogId, existingDialog, application, instance, events);
+        var updatedDialog = await _dataMerger.Merge(dialogId, existingDialog, application, instance, events);
         await UpsertDialog(updatedDialog, disableAltinnEvents: dto.IsMigration, cancellationToken);
     }
 
