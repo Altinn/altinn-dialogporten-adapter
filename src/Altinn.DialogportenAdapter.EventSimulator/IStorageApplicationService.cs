@@ -2,7 +2,7 @@ using Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
 
 namespace Altinn.DialogportenAdapter.EventSimulator;
 
-internal interface IApplicationService
+internal interface IStorageApplicationService
 {
     Task<IStorageApplicationContext[]> GetApplicationInfo(CancellationToken cancellationToken);
 }
@@ -13,13 +13,13 @@ internal interface IStorageApplicationContext
     Task<string> GetToken(CancellationToken cancellationToken);
 }
 
-internal sealed class DigdirApplicationService : IApplicationService
+internal sealed class DigdirStorageApplicationService : IStorageApplicationService
 {
     private readonly IStorageApi _storageApi;
     private readonly IAltinnCdnApi _altinnCdnApi;
     private readonly ITestTokenApi _testTokenApi;
 
-    public DigdirApplicationService(IStorageApi storageApi, IAltinnCdnApi altinnCdnApi, ITestTokenApi testTokenApi)
+    public DigdirStorageApplicationService(IStorageApi storageApi, IAltinnCdnApi altinnCdnApi, ITestTokenApi testTokenApi)
     {
         _storageApi = storageApi ?? throw new ArgumentNullException(nameof(storageApi));
         _altinnCdnApi = altinnCdnApi ?? throw new ArgumentNullException(nameof(altinnCdnApi));
@@ -61,13 +61,13 @@ internal sealed class DigdirApplicationService : IApplicationService
     }
 }
 
-internal sealed class ApplicationService : IApplicationService
+internal sealed class StorageApplicationService : IStorageApplicationService
 {
     private readonly IStorageApi _storageApi;
     private readonly IAltinnCdnApi _altinnCdnApi;
     private readonly ITestTokenApi _testTokenApi;
 
-    public ApplicationService(IStorageApi storageApi, IAltinnCdnApi altinnCdnApi, ITestTokenApi testTokenApi)
+    public StorageApplicationService(IStorageApi storageApi, IAltinnCdnApi altinnCdnApi, ITestTokenApi testTokenApi)
     {
         _storageApi = storageApi ?? throw new ArgumentNullException(nameof(storageApi));
         _altinnCdnApi = altinnCdnApi ?? throw new ArgumentNullException(nameof(altinnCdnApi));

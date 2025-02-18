@@ -7,17 +7,17 @@ namespace Altinn.DialogportenAdapter.EventSimulator;
 
 internal sealed class EventStreamer
 {
-    private readonly IApplicationService _applicationService;
+    private readonly IStorageApplicationService _storageApplicationService;
     private readonly InstanceStreamHttpClient _instanceStreamHttpClient;
     private readonly IStorageAdapterApi _storageAdapterApi;
     private readonly ILogger<EventStreamer> _logger;
 
-    public EventStreamer(IApplicationService applicationService,
+    public EventStreamer(IStorageApplicationService storageApplicationService,
         InstanceStreamHttpClient instanceStreamHttpClient,
         IStorageAdapterApi storageAdapterApi, 
         ILogger<EventStreamer> logger)
     {
-        _applicationService = applicationService ?? throw new ArgumentNullException(nameof(applicationService));
+        _storageApplicationService = storageApplicationService ?? throw new ArgumentNullException(nameof(storageApplicationService));
         _instanceStreamHttpClient = instanceStreamHttpClient ?? throw new ArgumentNullException(nameof(instanceStreamHttpClient));
         _storageAdapterApi = storageAdapterApi ?? throw new ArgumentNullException(nameof(storageAdapterApi));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -37,7 +37,7 @@ internal sealed class EventStreamer
     
     private async Task ProduceEvents(int producers, ChannelWriter<InstanceEvent> writer, CancellationToken cancellationToken)
     {
-        var appQueue = new ConcurrentQueue<IStorageApplicationContext>(await _applicationService.GetApplicationInfo(cancellationToken));
+        var appQueue = new ConcurrentQueue<IStorageApplicationContext>(await _storageApplicationService.GetApplicationInfo(cancellationToken));
         await Task.WhenAll(Enumerable.Range(1, producers).Select(Produce));
         writer.Complete();
         return;
