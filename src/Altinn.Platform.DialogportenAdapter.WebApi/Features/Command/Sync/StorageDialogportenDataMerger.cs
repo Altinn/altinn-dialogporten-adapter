@@ -37,6 +37,7 @@ internal sealed class StorageDialogportenDataMerger
     
     private async Task<DialogDto> ToDialogDto(Guid dialogId, Instance instance, Application application, InstanceEventList events)
     {
+        // TODO: Feedback => Sendt (alt før er draft, alt etter er InProgress) må hente fra process history
         var status = instance.Process?.CurrentTask?.AltinnTaskType?.ToLower() switch
         {
             _ when instance.Status.IsArchived => DialogStatus.Completed,
@@ -55,6 +56,12 @@ internal sealed class StorageDialogportenDataMerger
             _ => SystemLabel.Default
         };
         
+        // TODO: Ta stilling til applicaiton.hideSettings https://docs.altinn.studio/altinn-studio/reference/configuration/messagebox/hide_instances/
+        // TODO: Ta stilling til create copy (GuiAction for kopier? kun når instansen er arkivert) Spør Storage https://docs.altinn.studio/altinn-studio/reference/configuration/messagebox/create_copy/
+        // TODO: Hva med om Attachments er for lang?
+        // TODO: Hva med om Activities er for lang? 
+        var copyActionEnabled = (application.CopyInstanceSettings?.Enabled ?? false) && instance.Status.IsArchived;
+        
         return new DialogDto
         {
             Id = dialogId,
@@ -64,7 +71,7 @@ internal sealed class StorageDialogportenDataMerger
             CreatedAt = instance.Created,
             VisibleFrom = instance.VisibleAfter > DateTimeOffset.UtcNow ? instance.VisibleAfter : null,
             DueAt = instance.DueBefore < DateTimeOffset.UtcNow ? instance.DueBefore : null,
-            ExternalReference = $"{instance.Id}",
+            ExternalReference = instance.Id,
             Status = status,
             Content = new ContentDto
             {
@@ -90,7 +97,6 @@ internal sealed class StorageDialogportenDataMerger
             Attachments = instance.Data
                 .Select(x => new AttachmentDto
                 {
-                    // TODO: Add Id to Attachment in dialogporten
                     Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
                     DisplayName = [new() {LanguageCode = "nb", Value = x.Filename ?? x.DataType}],
                     Urls = [new()
@@ -109,6 +115,7 @@ internal sealed class StorageDialogportenDataMerger
 
     private GuiActionDto CreateGoToAction(Instance instance, Guid dialogId)
     {
+        // TODO: Legg inn engelsk og nynorsk
         if (instance.Status.IsArchived)
         {
             var platformBaseUri = _settings.Infrastructure.Altinn.PlatformBaseUri;
@@ -135,6 +142,7 @@ internal sealed class StorageDialogportenDataMerger
 
     private GuiActionDto CreateDeleteAction(DialogStatus status, Instance instance, Guid dialogId)
     {
+        // TODO: Legg inn engelsk og nynorsk
         var adapterBaseUri = _settings.Infrastructure.Adapter.BaseUri;
         var hardDelete = instance.Status.IsSoftDeleted || status is DialogStatus.Draft;
         return new GuiActionDto

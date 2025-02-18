@@ -16,7 +16,7 @@ builder.Logging.SetMinimumLevel(LogLevel.Warning);
 
 // TODO: Change from DigdirApplicationService to ApplicationService when scope 'altinn:storage/instances.syncadapter' is implemented in storage
 // https://digdir.slack.com/archives/C0785747G6M/p1737459622842289
-builder.Services.AddTransient<IApplicationService, DigdirApplicationService>();
+builder.Services.AddTransient<IApplicationService, ApplicationService>();
 builder.Services.AddTransient<EventStreamer>();
 builder.Services.AddRefitClient<IStorageApi>()
     .ConfigureHttpClient(x => x.BaseAddress = new Uri("https://platform.tt02.altinn.no"));

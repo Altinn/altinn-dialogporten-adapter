@@ -26,9 +26,9 @@ internal class ActivityDtoTransformer
 
             var activityType = eventType switch
             {
+                // When DataId is null the event refers to the instance itself
                 InstanceEventType.Created when @event.DataId is null && !createdFound => DialogActivityType.DialogCreated,
-                // InstanceEventType.Saved => DialogActivityType.Information, // TODO: Ta eldste - her må mer massering til
-                InstanceEventType.Submited => DialogActivityType.Information,
+                InstanceEventType.Submited => DialogActivityType.FormSubmitted, // TODO: Denne må legges til i dialogporten 
                 InstanceEventType.Deleted => DialogActivityType.DialogDeleted,
                 InstanceEventType.Undeleted => DialogActivityType.DialogRestored,
                 InstanceEventType.Signed => DialogActivityType.SignatureProvided,
@@ -63,25 +63,25 @@ internal class ActivityDtoTransformer
         var savedEvents = events.InstanceEvents
             .OrderBy(x => x.Created)
             .Where(x => StringComparer.OrdinalIgnoreCase.Equals(x.EventType, "Saved"))
-            .Aggregate((new List<ActivityDto>(), (ActorDto?)null), (tuple, @event) =>
+            .Aggregate((SavedActivities: new List<ActivityDto>(), Previous: (ActorDto?)null), (state, @event) =>
             {
                 var current = GetPerformedBy(@event.User, nationalIdentityNumberByUserId);
-                if (current.ActorId is null || current.ActorId == tuple.Item2?.ActorId)
+                if (current.ActorId is null || current.ActorId == state.Previous?.ActorId)
                 {
-                    return tuple;
+                    return state;
                 }
                 
-                tuple.Item2 = current;
-                tuple.Item1.Add(new ActivityDto
+                state.Previous = current;
+                state.SavedActivities.Add(new ActivityDto
                 {
                     Id = @event.Id.Value.ToVersion7(@event.Created.Value),
-                    Type = DialogActivityType.Information,
+                    Type = DialogActivityType.FormSaved, // TODO: Lag en egen type for dette (FormSaved?) slik at vi kan ta bort Description
                     CreatedAt = @event.Created,
-                    PerformedBy = GetPerformedBy(@event.User, nationalIdentityNumberByUserId),
+                    PerformedBy = current,
                     Description = { new LocalizationDto { LanguageCode = "nb", Value = "Lagret"} }
                 });
-                return tuple;
-            }, tuple => tuple.Item1);
+                return state;
+            }, tuple => tuple.SavedActivities);
 
         activities.AddRange(savedEvents);
         return activities;
