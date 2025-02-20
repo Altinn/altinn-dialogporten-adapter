@@ -85,9 +85,10 @@ if (!string.IsNullOrEmpty(applicationInsightsConnectionString))
 }
 var app = builder.Build();
 
-
+app.MapHealthChecks("/health");
 app.MapOpenApi();
 app.UseHttpsRedirection();
+
 app.MapPost("/api/v1/syncDialog", async (
     [FromBody] SyncInstanceToDialogDto request,
     [FromServices] SyncInstanceToDialogService syncService,
@@ -121,7 +122,7 @@ void ConfigureWebHostCreationLogging()
     var logFactory = LoggerFactory.Create(logBuilder =>
     {
         logBuilder
-            .AddFilter("Altinn.Notifications.Email.Program", LogLevel.Debug)
+            .AddFilter("Altinn.DialogportenAdapter.WebApi.Program", LogLevel.Debug)
             .AddConsole();
     });
 
