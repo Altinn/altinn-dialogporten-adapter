@@ -51,7 +51,7 @@ builder.Services
     .AddRefitClient<IStorageApi>()
         .ConfigureHttpClient(x =>
         {
-            x.BaseAddress = settings.DialogportenAdapter.Altinn.PlatformBaseUri;
+            x.BaseAddress = settings.DialogportenAdapter.Altinn.ApiStorageEndpoint;
             x.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", settings.DialogportenAdapter.Altinn.SubscriptionKey);
         })
         .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(defaultMaskinportenClientDefinitionKey)
