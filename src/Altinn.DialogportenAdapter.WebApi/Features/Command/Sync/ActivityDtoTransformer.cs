@@ -28,7 +28,7 @@ internal class ActivityDtoTransformer
             {
                 // When DataId is null the event refers to the instance itself
                 InstanceEventType.Created when @event.DataId is null && !createdFound => DialogActivityType.DialogCreated,
-                InstanceEventType.Submited => DialogActivityType.FormSubmitted, // TODO: Denne må legges til i dialogporten 
+                InstanceEventType.Submited => DialogActivityType.FormSubmitted,
                 InstanceEventType.Deleted => DialogActivityType.DialogDeleted,
                 InstanceEventType.Undeleted => DialogActivityType.DialogRestored,
                 InstanceEventType.Signed => DialogActivityType.SignatureProvided,
@@ -75,10 +75,9 @@ internal class ActivityDtoTransformer
                 state.SavedActivities.Add(new ActivityDto
                 {
                     Id = @event.Id.Value.ToVersion7(@event.Created.Value),
-                    Type = DialogActivityType.FormSaved, // TODO: Lag en egen type for dette (FormSaved?) slik at vi kan ta bort Description
+                    Type = DialogActivityType.FormSaved, 
                     CreatedAt = @event.Created,
-                    PerformedBy = current,
-                    Description = { new LocalizationDto { LanguageCode = "nb", Value = "Lagret"} }
+                    PerformedBy = current
                 });
                 return state;
             }, tuple => tuple.SavedActivities);
