@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.Platform.Storage.Interface.Models;
@@ -164,6 +165,13 @@ internal sealed class StorageDialogportenDataMerger
         // TODO: Legg inn engelsk og nynorsk
         var adapterBaseUri = _settings.DialogportenAdapter.Adapter.BaseUri;
         var hardDelete = instance.Status.IsSoftDeleted || status is DialogStatus.Draft;
+        var (instanceOwner, instanceGuid) = instance.Id.Split('/') switch
+        {
+            [var party, var id] when 
+                int.TryParse(party, out var y)
+                && Guid.TryParse(id, out var x) => (y, x),
+            _ => throw new UnreachableException()
+        };
         return new GuiActionDto
         {
             Id = dialogId.CreateDeterministicSubUuidV7("DialogGuiActionDelete"),
@@ -174,7 +182,7 @@ internal sealed class StorageDialogportenDataMerger
             Prompt = hardDelete
                 ? [new() { LanguageCode = "nb", Value = "Skjemaet blir permanent slettet" }]
                 : null,
-            Url = $"{adapterBaseUri}/api/v1/instance/{Uri.EscapeDataString(instance.Id)}?hard={hardDelete}",
+            Url = $"{adapterBaseUri}/api/v1/instance/{instanceOwner}/{instanceGuid}?hard={hardDelete}",
             HttpMethod = HttpVerb.DELETE
         };
     }

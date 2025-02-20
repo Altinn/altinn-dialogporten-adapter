@@ -19,6 +19,6 @@ internal interface IStorageApi
         [Query(CollectionFormat.Multi)] IEnumerable<string> eventTypes,
         CancellationToken cancellationToken = default);
 
-    [Delete("/storage/api/v1/sbl/instances/{**instanceId}")]
-    Task DeleteInstance(string instanceId, [Query] bool hard = false, CancellationToken cancellationToken = default);
+    [Delete("/storage/api/v1/sbl/instances/{partyId}/{instanceId}")]
+    Task DeleteInstance(int partyId, Guid instanceId, [Query] bool hard = false, CancellationToken cancellationToken = default);
 }

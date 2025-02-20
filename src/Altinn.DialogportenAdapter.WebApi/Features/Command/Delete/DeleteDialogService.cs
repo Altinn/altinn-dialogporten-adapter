@@ -1,28 +1,60 @@
+using Altinn.ApiClients.Dialogporten;
+using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 
 namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Delete;
 
-public record DeleteDialogDto(string InstanceId, bool Hard);
+public record DeleteDialogDto(int PartyId, Guid InstanceGuid, bool Hard, string DialogToken);
+
+public enum DeleteDialogResult
+{
+    Success,
+    InstanceNotFound,
+    Unauthorized
+}
 
 internal sealed class DeleteDialogService
 {
     private readonly IStorageApi _storageApi;
+    private readonly IDialogTokenValidator _dialogTokenValidator;
 
-    public DeleteDialogService(IStorageApi storageApi)
+    public DeleteDialogService(IStorageApi storageApi, IDialogTokenValidator dialogTokenValidator)
     {
         _storageApi = storageApi ?? throw new ArgumentNullException(nameof(storageApi));
+        _dialogTokenValidator = dialogTokenValidator ?? throw new ArgumentNullException(nameof(dialogTokenValidator));
     }
 
-    public async Task DeleteDialog(DeleteDialogDto request, CancellationToken cancellationToken)
+    public async Task<DeleteDialogResult> DeleteDialog(DeleteDialogDto request, CancellationToken cancellationToken)
     {
-        // TODO: Verifiser dialog token
-        await _storageApi.DeleteInstance(request.InstanceId, request.Hard, cancellationToken);
+        var instance = await _storageApi
+            .GetInstance(request.PartyId, request.InstanceGuid, cancellationToken)
+            .ContentOrDefault();
+
+        if (instance is null)
+        {
+            return DeleteDialogResult.InstanceNotFound;
+        }
+
+        var dialogId = request.InstanceGuid.ToVersion7(instance.Created!.Value);
+        var result = ValidateDialogToken(request.DialogToken, dialogId);
+        if (!result.IsValid)
+        {
+            return DeleteDialogResult.Unauthorized;
+        }
+        
+        await _storageApi.DeleteInstance(request.PartyId, request.InstanceGuid, request.Hard, cancellationToken);
+        return DeleteDialogResult.Success;
+    }
+    
+    private IValidationResult ValidateDialogToken(ReadOnlySpan<char> token, Guid dialogId)
+    {
+        const string bearerPrefix = "Bearer ";
+        token = token.StartsWith(bearerPrefix, StringComparison.OrdinalIgnoreCase) 
+            ? token[bearerPrefix.Length..] 
+            : token;
+        var result = _dialogTokenValidator.Validate(token);
+        // TODO: Validate dialog id
+        // TODO: Validate action
+        return result;
     }
 }
-
-// 1: Slett via gui action i AF
-// 2: Slett i Dialogporten adapter som verifiserer dialog token
-// 3: Kall /storage/api/v1/sbl/instances/:instanceOwnerPartyId/:instanceGuid?hard=<boolean>
-// 4: Storage sender slett event til dialogporten adapter (instanceId og CreatedAt)
-// 5: Dialogporten adapter sletter dialogen via dialogport api
-// 6: Dialogporten vil via GQL subscription si i fra til nettleser at dialogen er slettet

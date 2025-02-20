@@ -97,27 +97,22 @@ app.MapPost("/api/v1/syncDialog", async (
     return Results.NoContent();
 });
 
-app.MapDelete("/api/v1/instance/{instanceId}", async (
-    [FromRoute] string instanceId,
+app.MapDelete("/api/v1/instance/{instanceOwner:int}/{instanceGuid:guid}", async (
+    [FromRoute] int instanceOwner,
+    [FromRoute] Guid instanceGuid,
     [FromQuery] bool hard,
     [FromHeader(Name = "Authorization")] string authorization,
     [FromServices] DeleteDialogService deleteService,
-    [FromServices] IDialogTokenValidator dialogTokenValidator,
     CancellationToken cancellationToken) =>
 {
-    const string bearerPrefix = "Bearer ";
-    var token = authorization.StartsWith(bearerPrefix, StringComparison.OrdinalIgnoreCase) 
-        ? authorization.AsSpan()[bearerPrefix.Length..] 
-        : authorization.AsSpan();
-    var result = dialogTokenValidator.Validate(token);
-    if (!result.IsValid)
+    var request = new DeleteDialogDto(instanceOwner, instanceGuid, hard, authorization);
+    return await deleteService.DeleteDialog(request, cancellationToken) switch
     {
-        return Results.Unauthorized();
-    }
-    
-    var request = new DeleteDialogDto(instanceId, hard);
-    await deleteService.DeleteDialog(request, cancellationToken);
-    return Results.NoContent();
+        DeleteDialogResult.Success => Results.NoContent(),
+        DeleteDialogResult.InstanceNotFound => Results.NotFound(),
+        DeleteDialogResult.Unauthorized => Results.Unauthorized(),
+        _ => Results.InternalServerError()
+    };
 });
 app.Run();
 
