@@ -6,7 +6,14 @@ namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 
 internal sealed class StorageDialogportenDataMerger
 {
+    private static readonly List<(DialogGuiActionPriority Priority, int Limit)> PriorityLimits = [
+        (DialogGuiActionPriority.Primary, 1),
+        (DialogGuiActionPriority.Secondary, 1),
+        (DialogGuiActionPriority.Tertiary, 5 )
+    ];
+
     private readonly Settings _settings;
+
     private readonly ActivityDtoTransformer _activityDtoTransformer;
 
     public StorageDialogportenDataMerger(Settings settings, ActivityDtoTransformer activityDtoTransformer)
@@ -27,21 +34,26 @@ internal sealed class StorageDialogportenDataMerger
             return storageDialog;
         }
         
-        // TODO: Dersom det er en primary gui action som adatperet ikke kjenner til, legg adapter actions på thertyery. Ignorer adapter actions dersom det går over max antall actions.
-        // TODO: Bail dersom adapter back-off flagg er satt i instance datavalues. DisableAutomaticDialogportenSync
-        // TODO: Overskriv eksisterende tittel og summary med storage dialog data
-        // TODO: Overskiv existinigDialog.Attachements for kjente attachements, ikke rør de andre
-        // TODO: Overskriv existingDialog rot properties med satte storage dialog properties
-        storageDialog.Revision = existing.Revision;
-        storageDialog.Activities = storageDialog.Activities
+        existing.SystemLabel = storageDialog.SystemLabel;
+        existing.VisibleFrom = storageDialog.VisibleFrom;
+        existing.DueAt = storageDialog.DueAt;
+        existing.ExternalReference = storageDialog.ExternalReference;
+        existing.Status = storageDialog.Status;
+        existing.Content.Title = storageDialog.Content.Title;
+        existing.Content.Summary = storageDialog.Content.Summary;
+        existing.Transmissions.Clear();
+        existing.Activities = storageDialog.Activities
             .ExceptBy(existing.Activities.Select(x => x.Id), x => x.Id)
             .ToList();
-        
-        existing.Transmissions.Clear();
-        
+        existing.Attachments =
+        [
+            ..existing.Attachments.ExceptBy(storageDialog.Attachments.Select(x => x.Id), x => x.Id),
+            ..storageDialog.Attachments
+        ];
+        existing.GuiActions = MergeGuiActions(existing.GuiActions, storageDialog.GuiActions);
         return existing;
     }
-    
+
     private async Task<DialogDto> ToDialogDto(Guid dialogId, Instance instance, Application application, InstanceEventList events)
     {
         // TODO: Feedback => Sendt (alt før er draft, alt etter er InProgress) må hente fra process history
@@ -174,19 +186,19 @@ internal sealed class StorageDialogportenDataMerger
             ?? await ToFallbackIdentifier(instanceOwner.PartyId)
             ?? throw new ArgumentException("Instance owner must have either a person number or an organisation number");
     }
-    
+
     private static string? ToPersonIdentifier(string? personNumber)
     {
         const string personPrefix = "urn:altinn:person:identifier-no:";
         return string.IsNullOrWhiteSpace(personNumber) ? null : $"{personPrefix}{personNumber}";
     }
-    
+
     private static string? ToOrgIdentifier(string? organisationNumber)
     {
         const string orgPrefix = "urn:altinn:organization:identifier-no:";
         return string.IsNullOrWhiteSpace(organisationNumber) ? null : $"{orgPrefix}{organisationNumber}";
     }
-    
+
     private static Task<string> ToFallbackIdentifier(string? partyId)
     {
         // TODO: we need to lookup the party here
@@ -231,5 +243,59 @@ internal sealed class StorageDialogportenDataMerger
         }
     
         return titleSpan.ToString();
+    }
+
+    /// <summary>
+    /// Merge external and internal gui actions by prioritizing external, and attempting to
+    /// fill remaining GuiActionPriority with internal. Overflowing internal gui actions
+    /// will be discarded.
+    /// </summary>
+    private static List<GuiActionDto> MergeGuiActions(IEnumerable<GuiActionDto> existingGuiActions, IEnumerable<GuiActionDto> storageGuiActions)
+    {
+        var storageActions = new Queue<GuiActionDto>(storageGuiActions
+            .OrderBy(x => x.Priority)
+            .ThenBy(x => x.Id));
+        
+        if (storageActions.Count == 0)
+        {
+            return existingGuiActions as List<GuiActionDto> ?? existingGuiActions.ToList();
+        }
+        
+        var result = existingGuiActions
+            .ExceptBy(storageActions.Select(x => x.Id), x => x.Id)
+            .ToList();
+
+        var priorityCapacity = PriorityLimits
+            .GroupJoin(result, x => x.Priority, x => x.Priority,
+                (priorityLimit, existingActions) =>
+                (
+                    Priority: priorityLimit.Priority,
+                    Capacity: priorityLimit.Limit - existingActions.Count()
+                ))
+            .Where(x => x.Capacity > 0)
+            .OrderBy(x => x.Priority);
+        
+        foreach (var (priority, capacity) in priorityCapacity)
+        {
+            if (storageActions.Count == 0)
+            {
+                break;
+            }
+            
+            // We should not promote actions from a lower priority to a higher priority
+            if (storageActions.Peek().Priority > priority)
+            {
+                continue;
+            }
+
+            var remaining = capacity;
+            while (remaining-- > 0 && storageActions.TryDequeue(out var action))
+            {
+                action.Priority = priority;
+                result.Add(action);
+            }
+        }
+
+        return result;
     }
 }
