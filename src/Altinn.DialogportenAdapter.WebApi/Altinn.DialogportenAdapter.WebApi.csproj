@@ -8,6 +8,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <PackageReference Include="Altinn.ApiClients.Dialogporten" Version="1.54.0-rc" />
         <PackageReference Include="Altinn.ApiClients.Maskinporten" Version="9.2.1" />
         <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.3.2" />
         <PackageReference Include="Altinn.Platform.Storage.Interface" Version="4.0.4" />

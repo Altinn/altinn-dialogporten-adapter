@@ -1,3 +1,4 @@
+using Altinn.ApiClients.Dialogporten;
 using Altinn.ApiClients.Maskinporten.Extensions;
 using Altinn.ApiClients.Maskinporten.Services;
 using Altinn.DialogportenAdapter.WebApi;
@@ -43,6 +44,11 @@ builder.Services.RegisterMaskinportenClientDefinition<SettingsJwkClientDefinitio
 builder.Services
     .AddOpenApi()
     .AddSingleton(settings)
+    .AddDialogportenClient(x =>
+    {
+        x.Maskinporten = settings.DialogportenAdapter.Maskinporten;
+        x.BaseUri = settings.DialogportenAdapter.Dialogporten.BaseUri.ToString();
+    })
     .AddTransient<SyncInstanceToDialogService>()
     .AddTransient<StorageDialogportenDataMerger>()
     .AddTransient<ActivityDtoTransformer>()
@@ -94,9 +100,21 @@ app.MapPost("/api/v1/syncDialog", async (
 app.MapDelete("/api/v1/instance/{instanceId}", async (
     [FromRoute] string instanceId,
     [FromQuery] bool hard,
+    [FromHeader(Name = "Authorization")] string authorization,
     [FromServices] DeleteDialogService deleteService,
+    [FromServices] IDialogTokenValidator dialogTokenValidator,
     CancellationToken cancellationToken) =>
 {
+    const string bearerPrefix = "Bearer ";
+    var token = authorization.StartsWith(bearerPrefix, StringComparison.OrdinalIgnoreCase) 
+        ? authorization.AsSpan()[bearerPrefix.Length..] 
+        : authorization.AsSpan();
+    var result = dialogTokenValidator.Validate(token);
+    if (!result.IsValid)
+    {
+        return Results.Unauthorized();
+    }
+    
     var request = new DeleteDialogDto(instanceId, hard);
     await deleteService.DeleteDialog(request, cancellationToken);
     return Results.NoContent();
