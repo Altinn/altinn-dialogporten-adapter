@@ -138,7 +138,7 @@ internal sealed class StorageDialogportenDataMerger
         // TODO: Legg inn engelsk og nynorsk
         if (instance.Status.IsArchived)
         {
-            var platformBaseUri = _settings.DialogportenAdapter.Altinn.ApiStorageEndpoint;
+            var platformBaseUri = _settings.DialogportenAdapter.Altinn.GetPlatformUri();
             return new GuiActionDto
             {
                 Id = dialogId.CreateDeterministicSubUuidV7("DialogGuiActionGoTo"),
