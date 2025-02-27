@@ -1,11 +1,15 @@
 using System.Collections.Immutable;
+using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.Platform.Storage.Interface.Enums;
 
 namespace Altinn.DialogportenAdapter.WebApi.Common;
 
-public static class Constants
+internal static class Constants
 {
     public const int DefaultMaxStringLength = 255;
+    
+    public const string InstanceDataValueDialogIdKey = "dialog.id";
+    public const string InstanceDataValueDisableSyncKey = "dialog.disableAutomaticSync";
 
     public static readonly ImmutableArray<string> SupportedEventTypes =
     [
@@ -25,5 +29,11 @@ public static class Constants
         InstanceEventType.NotificationSentSms.ToString(),
         InstanceEventType.MessageArchived.ToString(),
         InstanceEventType.MessageRead.ToString(),
+    ];
+    
+    public static readonly ImmutableArray<(DialogGuiActionPriority Priority, int Limit)> PriorityLimits = [
+        (DialogGuiActionPriority.Primary, 1),
+        (DialogGuiActionPriority.Secondary, 1),
+        (DialogGuiActionPriority.Tertiary, 5 )
     ];
 }

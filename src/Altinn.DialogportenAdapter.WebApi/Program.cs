@@ -103,15 +103,15 @@ app.MapDelete("/api/v1/instance/{instanceOwner:int}/{instanceGuid:guid}", async 
     [FromRoute] Guid instanceGuid,
     [FromQuery] bool hard,
     [FromHeader(Name = "Authorization")] string authorization,
-    [FromServices] DeleteDialogService deleteService,
+    [FromServices] InstanceService instanceService,
     CancellationToken cancellationToken) =>
 {
-    var request = new DeleteDialogDto(instanceOwner, instanceGuid, hard, authorization);
-    return await deleteService.DeleteDialog(request, cancellationToken) switch
+    var request = new DeleteInstanceDto(instanceOwner, instanceGuid, hard, authorization);
+    return await instanceService.Delete(request, cancellationToken) switch
     {
-        DeleteDialogResult.Success => Results.NoContent(),
-        DeleteDialogResult.InstanceNotFound => Results.NotFound(),
-        DeleteDialogResult.Unauthorized => Results.Unauthorized(),
+        DeleteInstanceResult.Success => Results.NoContent(),
+        DeleteInstanceResult.InstanceNotFound => Results.NotFound(),
+        DeleteInstanceResult.Unauthorized => Results.Unauthorized(),
         _ => Results.InternalServerError()
     };
 });

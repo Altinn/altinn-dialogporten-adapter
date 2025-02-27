@@ -61,12 +61,12 @@ internal sealed class SyncInstanceToDialogService
             return;
         }
 
-        if (instance is not null)
+        if (ShouldUpdateInstanceWithDialogId(instance, dialogId))
         {
             // Update the instance with the dialogId before we start to modify the dialog
-            // This way we can keep track of which instances that have been synced to dialogporten
-            // even if the dialogporten api is down or we have a bug in the sync process.
-            // TODO: Si til team core (storage) at de ikke skal sende event dersom datavalues endres
+            // This way we can keep track of which instances that have been attempted synced
+            // to dialogporten even if the dialogporten api is down or we have a bug in the
+            // sync process.
             await UpdateInstanceWithDialogId(dto, dialogId, cancellationToken);
         }
         
@@ -133,9 +133,8 @@ internal sealed class SyncInstanceToDialogService
 
     private static bool IsDialogSyncDisabled(Instance? instance)
     {
-        const string disableSyncKey = "dialog.disableAutomaticSync";
         return instance?.DataValues is not null 
-               && instance.DataValues.TryGetValue(disableSyncKey, out var disableSyncString) 
+               && instance.DataValues.TryGetValue(Constants.InstanceDataValueDisableSyncKey, out var disableSyncString) 
                && bool.TryParse(disableSyncString, out var disableSync) 
                && disableSync;
     }
@@ -163,6 +162,14 @@ internal sealed class SyncInstanceToDialogService
     private static bool ShouldPurgeDialog(Instance? instance, [NotNullWhen(true)] DialogDto? existingDialog)
     {
         return instance is null or { Status.IsHardDeleted: true } && existingDialog is not null;
+    }
+    
+    private static bool ShouldUpdateInstanceWithDialogId([NotNullWhen(true)] Instance? instance, Guid dialogId)
+    {
+        return instance?.DataValues is null
+           || !instance.DataValues.TryGetValue(Constants.InstanceDataValueDialogIdKey, out var dialogIdString)
+           || !Guid.TryParse(dialogIdString, out var instanceDialogId)
+           || instanceDialogId != dialogId;
     }
 
     private Task UpsertDialog(DialogDto dialog, bool disableAltinnEvents, CancellationToken cancellationToken)
@@ -201,7 +208,7 @@ internal sealed class SyncInstanceToDialogService
         {
             Values = new()
             {
-                { "dialog.id", dialogId.ToString() }
+                { Constants.InstanceDataValueDialogIdKey, dialogId.ToString() }
             }
         }, cancellationToken);
     }

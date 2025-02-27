@@ -9,7 +9,7 @@
 
     <ItemGroup>
       <PackageReference Include="Cocona" Version="2.2.0" />
-      <PackageReference Include="Altinn.Platform.Storage.Interface" Version="4.0.4" />
+      <PackageReference Include="Altinn.Platform.Storage.Interface" Version="4.0.7" />
       <PackageReference Include="Refit.HttpClientFactory" Version="8.0.0" />
     </ItemGroup>
 

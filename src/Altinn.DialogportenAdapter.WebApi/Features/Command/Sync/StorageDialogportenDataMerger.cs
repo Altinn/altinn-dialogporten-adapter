@@ -7,11 +7,6 @@ namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 
 internal sealed class StorageDialogportenDataMerger
 {
-    private static readonly List<(DialogGuiActionPriority Priority, int Limit)> PriorityLimits = [
-        (DialogGuiActionPriority.Primary, 1),
-        (DialogGuiActionPriority.Secondary, 1),
-        (DialogGuiActionPriority.Tertiary, 5 )
-    ];
 
     private readonly Settings _settings;
 
@@ -273,7 +268,7 @@ internal sealed class StorageDialogportenDataMerger
             .ExceptBy(storageActions.Select(x => x.Id), x => x.Id)
             .ToList();
 
-        var priorityCapacity = PriorityLimits
+        var priorityCapacity = Constants.PriorityLimits
             .GroupJoin(result, x => x.Priority, x => x.Priority,
                 (priorityLimit, existingActions) =>
                 (

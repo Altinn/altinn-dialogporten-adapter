@@ -5,7 +5,7 @@ using Altinn.Platform.Storage.Interface.Models;
 
 namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 
-internal class ActivityDtoTransformer
+internal sealed class ActivityDtoTransformer
 {
     public List<ActivityDto> GetActivities(InstanceEventList events)
     {

@@ -4,27 +4,27 @@ using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 
 namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Delete;
 
-public record DeleteDialogDto(int PartyId, Guid InstanceGuid, bool Hard, string DialogToken);
+internal sealed record DeleteInstanceDto(int PartyId, Guid InstanceGuid, bool Hard, string DialogToken);
 
-public enum DeleteDialogResult
+internal enum DeleteInstanceResult
 {
     Success,
     InstanceNotFound,
     Unauthorized
 }
 
-internal sealed class DeleteDialogService
+internal sealed class InstanceService
 {
     private readonly IStorageApi _storageApi;
     private readonly IDialogTokenValidator _dialogTokenValidator;
 
-    public DeleteDialogService(IStorageApi storageApi, IDialogTokenValidator dialogTokenValidator)
+    public InstanceService(IStorageApi storageApi, IDialogTokenValidator dialogTokenValidator)
     {
         _storageApi = storageApi ?? throw new ArgumentNullException(nameof(storageApi));
         _dialogTokenValidator = dialogTokenValidator ?? throw new ArgumentNullException(nameof(dialogTokenValidator));
     }
 
-    public async Task<DeleteDialogResult> DeleteDialog(DeleteDialogDto request, CancellationToken cancellationToken)
+    public async Task<DeleteInstanceResult> Delete(DeleteInstanceDto request, CancellationToken cancellationToken)
     {
         var instance = await _storageApi
             .GetInstance(request.PartyId, request.InstanceGuid, cancellationToken)
@@ -32,29 +32,26 @@ internal sealed class DeleteDialogService
 
         if (instance is null)
         {
-            return DeleteDialogResult.InstanceNotFound;
+            return DeleteInstanceResult.InstanceNotFound;
         }
 
         var dialogId = request.InstanceGuid.ToVersion7(instance.Created!.Value);
-        var result = ValidateDialogToken(request.DialogToken, dialogId);
-        if (!result.IsValid)
+        if (!ValidateDialogToken(request.DialogToken, dialogId))
         {
-            return DeleteDialogResult.Unauthorized;
+            return DeleteInstanceResult.Unauthorized;
         }
         
         await _storageApi.DeleteInstance(request.PartyId, request.InstanceGuid, request.Hard, cancellationToken);
-        return DeleteDialogResult.Success;
+        return DeleteInstanceResult.Success;
     }
     
-    private IValidationResult ValidateDialogToken(ReadOnlySpan<char> token, Guid dialogId)
+    private bool ValidateDialogToken(ReadOnlySpan<char> token, Guid dialogId)
     {
         const string bearerPrefix = "Bearer ";
         token = token.StartsWith(bearerPrefix, StringComparison.OrdinalIgnoreCase) 
             ? token[bearerPrefix.Length..] 
             : token;
-        var result = _dialogTokenValidator.Validate(token);
-        // TODO: Validate dialog id
-        // TODO: Validate action
-        return result;
+        var result = _dialogTokenValidator.Validate(token, dialogId, ["delete"]);
+        return result.IsValid;
     }
 }
