@@ -7,6 +7,9 @@ using Altinn.Platform.Storage.Interface.Models;
 
 namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 
+// instanceId: partyId/instanceGuid
+// appId: appOwner/appId:int
+
 public record SyncInstanceToDialogDto(
     string AppId,
     int PartyId,

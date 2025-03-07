@@ -1,73 +1,59 @@
 using System.Collections.Concurrent;
 using System.Threading.Channels;
+using Altinn.DialogportenAdapter.EventSimulator.Common;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
-using Microsoft.Extensions.Logging;
 
 namespace Altinn.DialogportenAdapter.EventSimulator;
 
 internal sealed class EventStreamer
 {
-    private readonly IStorageApplicationService _storageApplicationService;
-    private readonly InstanceStreamHttpClient _instanceStreamHttpClient;
-    private readonly IStorageAdapterApi _storageAdapterApi;
+    private readonly IStorageApi _storageApi;
+    private readonly InstanceEventStreamer _instanceEventStreamer;
     private readonly ILogger<EventStreamer> _logger;
+    private readonly IChannelPublisher<InstanceEvent> _instanceEventPublisher;
 
-    public EventStreamer(IStorageApplicationService storageApplicationService,
-        InstanceStreamHttpClient instanceStreamHttpClient,
-        IStorageAdapterApi storageAdapterApi, 
-        ILogger<EventStreamer> logger)
+    public EventStreamer(InstanceEventStreamer instanceEventStreamer,
+        ILogger<EventStreamer> logger, 
+        IChannelPublisher<InstanceEvent> instanceEventPublisher, 
+        IStorageApi storageApi)
     {
-        _storageApplicationService = storageApplicationService ?? throw new ArgumentNullException(nameof(storageApplicationService));
-        _instanceStreamHttpClient = instanceStreamHttpClient ?? throw new ArgumentNullException(nameof(instanceStreamHttpClient));
-        _storageAdapterApi = storageAdapterApi ?? throw new ArgumentNullException(nameof(storageAdapterApi));
+        _instanceEventStreamer = instanceEventStreamer ?? throw new ArgumentNullException(nameof(instanceEventStreamer));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _instanceEventPublisher = instanceEventPublisher ?? throw new ArgumentNullException(nameof(instanceEventPublisher));
+        _storageApi = storageApi ?? throw new ArgumentNullException(nameof(storageApi));
     }
 
     public async Task StreamEvents(
         int numberOfProducers, 
-        int numberOfConsumers, 
-        int cacheCapacity, 
         CancellationToken cancellationToken)
     {
-        var instanceEventChannel = Channel.CreateBounded<InstanceEvent>(cacheCapacity);
-        var producerTask = ProduceEvents(numberOfProducers, instanceEventChannel, cancellationToken);
-        var consumerTask = ConsumeEvents(numberOfConsumers, instanceEventChannel, cancellationToken);
-        await Task.WhenAll(producerTask, consumerTask);
+        await ProduceEvents(numberOfProducers, cancellationToken);
     }
     
-    private async Task ProduceEvents(int producers, ChannelWriter<InstanceEvent> writer, CancellationToken cancellationToken)
+    private async Task ProduceEvents(int producers, CancellationToken cancellationToken)
     {
-        var appQueue = new ConcurrentQueue<IStorageApplicationContext>(await _storageApplicationService.GetApplicationInfo(cancellationToken));
+        var appQueue = new ConcurrentQueue<string>(await GetAllAppIds(cancellationToken));
         await Task.WhenAll(Enumerable.Range(1, producers).Select(Produce));
-        writer.Complete();
         return;
 
         async Task Produce(int taskNumber)
         {
-            while (appQueue.TryDequeue(out var appContext))
+            while (appQueue.TryDequeue(out var appId))
             {
-                var token = await appContext.GetToken(cancellationToken);
-                await foreach (var instanceEvent in _instanceStreamHttpClient.GetInstanceStream(appContext.AppId, token, cancellationToken))
+                await foreach (var instanceEvent in _instanceEventStreamer.GetInstanceStream(appId, cancellationToken))
                 {
                     _logger.LogInformation("{TaskNumber}: Producing event for {instanceId}", taskNumber, instanceEvent.InstanceId);
-                    await writer.WriteAsync(instanceEvent, cancellationToken);
+                    await _instanceEventPublisher.Publish(instanceEvent, cancellationToken);
                 }
             }
         }
     }
     
-    private async Task ConsumeEvents(int consumers, ChannelReader<InstanceEvent> reader, CancellationToken cancellationToken)
+    private async Task<List<string>> GetAllAppIds(CancellationToken cancellationToken)
     {
-        await Task.WhenAll(Enumerable.Range(1, consumers).Select(Consume));
-        return;
-        
-        async Task Consume(int taskNumber)
-        {
-            await foreach (var instanceEvent in reader.ReadAllAsync(cancellationToken))
-            {
-                _logger.LogInformation("{TaskNumber}: Consuming event for {instanceId}", taskNumber, instanceEvent.InstanceId);
-                await _storageAdapterApi.Sync(instanceEvent, cancellationToken);
-            }
-        }
+        var apps = await _storageApi.GetApplications(cancellationToken);
+        return apps.Applications
+            .Select(x => x.Id)
+            .ToList();
     }
 }

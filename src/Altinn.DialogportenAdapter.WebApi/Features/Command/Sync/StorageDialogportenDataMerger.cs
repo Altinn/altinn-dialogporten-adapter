@@ -7,9 +7,7 @@ namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 
 internal sealed class StorageDialogportenDataMerger
 {
-
     private readonly Settings _settings;
-
     private readonly ActivityDtoTransformer _activityDtoTransformer;
 
     public StorageDialogportenDataMerger(Settings settings, ActivityDtoTransformer activityDtoTransformer)
@@ -62,9 +60,10 @@ internal sealed class StorageDialogportenDataMerger
                 .ProcessInfo?
                 .CurrentTask?
                 .AltinnTaskType, "Feedback")) => DialogStatus.InProgress,
-            _ => DialogStatus.Draft
+            _ => DialogStatus.Draft // TODO: Hva med gammel ræl drafts? 
         };
 
+        // TODO: Enduser sin soft delete burde være systemlabel.bin, men er serviceowner soft delete??
         var systemLabel = instance.Status switch
         {
             { IsArchived: true } => SystemLabel.Archive,
@@ -75,8 +74,9 @@ internal sealed class StorageDialogportenDataMerger
         // TODO: Ta stilling til create copy (GuiAction for kopier? kun når instansen er arkivert) Spør Storage https://docs.altinn.studio/altinn-studio/reference/configuration/messagebox/create_copy/
         // TODO: Hva med om Attachments er for lang?
         // TODO: Hva med om Activities er for lang? 
+        // TODO: Er dato fra storage utc?
         var copyActionEnabled = (application.CopyInstanceSettings?.Enabled ?? false) && instance.Status.IsArchived;
-        
+
         return new DialogDto
         {
             Id = dialogId,
@@ -86,10 +86,11 @@ internal sealed class StorageDialogportenDataMerger
             CreatedAt = instance.Created,
             VisibleFrom = instance.VisibleAfter > DateTimeOffset.UtcNow ? instance.VisibleAfter : null,
             DueAt = instance.DueBefore < DateTimeOffset.UtcNow ? instance.DueBefore : null,
-            ExternalReference = instance.Id,
+            ExternalReference = $"urn:altinn:integration:storage:{instance.Id}",
             Status = status,
             Content = new ContentDto
             {
+                // TODO: Skal vi bruke non-sensitive title? 
                 Title = new ContentValueDto
                 {
                     MediaType = MediaTypes.PlainText,
