@@ -28,12 +28,12 @@ internal sealed class ChannelConsumerBackgroundService<TConsumer, TEvent> : Back
         List<Task> consumerTasks = [];
         for (var taskNumber = 1; taskNumber <= _consumers; taskNumber++)
         {
-            consumerTasks.Add(Consume_Private(taskNumber, cancellationToken));
+            consumerTasks.Add(Consume(taskNumber, cancellationToken));
         }
         await Task.WhenAll(consumerTasks);
     }
     
-    private async Task Consume_Private(int taskNumber, CancellationToken cancellationToken)
+    private async Task Consume(int taskNumber, CancellationToken cancellationToken)
     {
         await foreach (var item in _channel.Reader.ReadAllAsync(cancellationToken))
         {
@@ -74,8 +74,9 @@ internal static class ChannelConsumerExtensions
         int? capacity = 10)
         where TConsumer : class, IChannelConsumer<TEvent>
     {
-        services.AddHostedService<ChannelConsumerBackgroundService<TConsumer, TEvent>>(x => 
+        services.AddSingleton<ChannelConsumerBackgroundService<TConsumer, TEvent>>(x => 
             ActivatorUtilities.CreateInstance<ChannelConsumerBackgroundService<TConsumer, TEvent>>(x, consumers, capacity!));
+        services.AddHostedService<ChannelConsumerBackgroundService<TConsumer, TEvent>>(x => x.GetRequiredService<ChannelConsumerBackgroundService<TConsumer, TEvent>>());
         services.AddTransient<IChannelConsumer<TEvent>, TConsumer>();
         services.AddSingleton<IChannelPublisher<TEvent>>(x => x.GetRequiredService<ChannelConsumerBackgroundService<TConsumer, TEvent>>());
         return services;

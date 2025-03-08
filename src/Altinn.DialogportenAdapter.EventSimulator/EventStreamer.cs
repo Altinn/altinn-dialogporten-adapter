@@ -40,10 +40,11 @@ internal sealed class EventStreamer
         {
             while (appQueue.TryDequeue(out var appId))
             {
-                await foreach (var instanceEvent in _instanceEventStreamer.GetInstanceStream(appId, cancellationToken))
+                await foreach (var instanceDto in _instanceEventStreamer.InstanceHistoryStream(appId, cancellationToken))
                 {
-                    _logger.LogInformation("{TaskNumber}: Producing event for {instanceId}", taskNumber, instanceEvent.InstanceId);
-                    await _instanceEventPublisher.Publish(instanceEvent, cancellationToken);
+                    _logger.LogInformation("{TaskNumber}: Producing event for {instanceId}", taskNumber, instanceDto.Id);
+                    
+                    await _instanceEventPublisher.Publish(instanceDto.ToInstanceEvent(), cancellationToken);
                 }
             }
         }

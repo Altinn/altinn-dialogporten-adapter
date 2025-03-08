@@ -1,36 +1,41 @@
-﻿using Altinn.DialogportenAdapter.EventSimulator;
+﻿using Altinn.ApiClients.Maskinporten.Extensions;
+using Altinn.ApiClients.Maskinporten.Services;
+using Altinn.DialogportenAdapter.EventSimulator;
 using Altinn.DialogportenAdapter.EventSimulator.Common;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
 using Microsoft.AspNetCore.Mvc;
 using Refit;
 
+const string defaultMaskinportenClientDefinitionKey = "DefaultMaskinportenClientDefinitionKey";
+
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Logging.SetMinimumLevel(LogLevel.Warning);
-// builder.Logging.AddFilter("Altinn.DialogportenAdapter.EventSimulator.EventStreamer", LogLevel.Information);
+var settings = builder.Configuration.Get<Settings>()!;
 
-// TODO: Change from DigdirApplicationService to ApplicationService when scope 'altinn:storage/instances.syncadapter' is implemented in storage
-// https://digdir.slack.com/archives/C0785747G6M/p1737459622842289
 builder.Services.AddChannelConsumer<InstanceEventConsumer, InstanceEvent>(consumers: 1, capacity: 10);
+builder.Services.AddHostedService<InstanceUpdateStreamBackgroundService>();
 builder.Services.AddTransient<EventStreamer>();
-builder.Services.AddRefitClient<IStorageApi>()
-    .ConfigureHttpClient(x => x.BaseAddress = new Uri("https://platform.tt02.altinn.no"));
+builder.Services.AddTransient<InstanceEventStreamer>();
+
+// Http clients
+builder.Services.RegisterMaskinportenClientDefinition<SettingsJwkClientDefinition>(
+    defaultMaskinportenClientDefinitionKey, 
+    settings.Maskinporten);
 builder.Services.AddRefitClient<IAltinnCdnApi>()
     .ConfigureHttpClient(x => x.BaseAddress = new Uri("https://altinncdn.no/"));
-builder.Services.AddHttpClient<InstanceEventStreamer>()
-    .ConfigureHttpClient(x => x.BaseAddress = new Uri("https://platform.tt02.altinn.no"));
-// builder.Services.AddRefitClient<ITestTokenApi>()
-//     .ConfigureHttpClient(x =>
-//     {
-//         x.BaseAddress = new Uri("https://altinn-testtools-token-generator.azurewebsites.net/");
-//         x.DefaultRequestHeaders.Add("Authorization", "Basic ZHBvY3Rlc3Q6bWtiRlhsM2h5RWxBTlZwZ2Jha28=");
-//     });
 builder.Services.AddRefitClient<IStorageAdapterApi>()
     .ConfigureHttpClient(x =>
     {
         x.BaseAddress = new Uri("https://localhost:7241");
         x.Timeout = Timeout.InfiniteTimeSpan;
     });
+builder.Services.AddHttpClient(Constants.MaskinportenClientDefinitionKey)
+    .ConfigureHttpClient(x => x.BaseAddress = new Uri("https://platform.tt02.altinn.no"))
+    .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(defaultMaskinportenClientDefinitionKey);
+builder.Services.AddTransient<IStorageApi>(x => RestService
+    .For<IStorageApi>(x.GetRequiredService<IHttpClientFactory>()
+        .CreateClient(Constants.MaskinportenClientDefinitionKey)));
+
 
 var app = builder.Build();
 

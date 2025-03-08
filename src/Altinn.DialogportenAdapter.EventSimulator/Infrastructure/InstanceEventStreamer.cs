@@ -14,12 +14,12 @@ internal sealed class InstanceEventStreamer
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
     
-    public async IAsyncEnumerable<InstanceDto> GetInstanceStream(string appId,
+    public async IAsyncEnumerable<InstanceDto> InstanceHistoryStream(string appId,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        await foreach(var instanceDto in GetInstanceDataStream(
+        await foreach(var instanceDto in InstanceStream(
                           appId: appId, 
-                          sortLastChangedDesc: true,
+                          sortOrder: SortOrder.Descending,
                           cancellationToken: cancellationToken))
         {
             yield return instanceDto;
@@ -29,45 +29,63 @@ internal sealed class InstanceEventStreamer
     public async IAsyncEnumerable<InstanceDto> InstanceUpdateStream(
         string org,
         DateTimeOffset from,
-        TimeSpan pauseDuration,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        [EnumeratorCancellation] CancellationToken cancellationToken)
     {
+        var backoffHandler = new BackoffHandler([
+            TimeSpan.FromSeconds(5),
+            TimeSpan.FromSeconds(10),
+            TimeSpan.FromSeconds(30),
+            TimeSpan.FromMinutes(1),
+            TimeSpan.FromMinutes(5),
+            TimeSpan.FromMinutes(10)
+        ]);
         while (!cancellationToken.IsCancellationRequested)
         {
-            await foreach (var instanceDto in GetInstanceDataStream(
-                               org: org, 
-                               from: from, 
-                               cancellationToken: cancellationToken))
+            await foreach (var instanceDto in InstanceStream(
+               org: org, 
+               from: from, 
+               sortOrder: SortOrder.Ascending,
+               cancellationToken: cancellationToken))
             {
+                backoffHandler.Reset();
                 from = instanceDto.LastChanged > from
                     ? instanceDto.LastChanged
                     : from;
                 yield return instanceDto;
             }
             
-            await Task.Delay(pauseDuration, cancellationToken);
+            await Task.Delay(backoffHandler.Current, cancellationToken);
+            backoffHandler.Next();
         }
     }
 
-    private async IAsyncEnumerable<InstanceDto> GetInstanceDataStream(
+    private async IAsyncEnumerable<InstanceDto> InstanceStream(
         string? org = null,
         string? appId = null,
         string? partyId = null,
         DateTimeOffset? from = null,
         DateTimeOffset? to = null,
-        bool sortLastChangedDesc = false,
+        SortOrder sortOrder = SortOrder.Ascending,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (org is null && appId is null)
         {
             throw new ArgumentException("Org or AppId must be defined.");
         }
+
+        var order = sortOrder switch
+        {
+            SortOrder.Ascending => "asc",
+            SortOrder.Descending => "desc",
+            _ => throw new ArgumentOutOfRangeException(nameof(sortOrder), sortOrder, null)
+        };
         
-        var client = _clientFactory.CreateClient("TODO: Add correct name");
+        var client = _clientFactory.CreateClient(Constants.MaskinportenClientDefinitionKey);
         from ??= DateTimeOffset.MinValue;
         to ??= DateTimeOffset.MaxValue;
+        
         var queryString = QueryString
-            .Create("SortBy", $"{(sortLastChangedDesc ? "asc" : "desc")}:lastChanged")
+            .Create("SortBy", $"{order}:lastChanged")
             .Add("pageSize", "1000")
             .Add("lastChanged", $"gt:{from.Value.ToUniversalTime():O}")
             .Add("lastChanged", $"lt:{to.Value.ToUniversalTime():O}")
@@ -104,16 +122,17 @@ internal sealed class InstanceEventStreamer
     }
 
     private sealed record InstanceQueryResponse(List<InstanceDto> Instances, string? Next);
+    private enum SortOrder { Ascending, Descending }
 }
 
 internal sealed record InstanceDto(string AppId, string Id, DateTimeOffset Created, DateTimeOffset LastChanged);
 
 internal static class InstanceDtoExtensions
 {
-    public static InstanceEvent ToInstanceEvent(InstanceDto instance)
+    public static InstanceEvent ToInstanceEvent(this InstanceDto instance, bool isMigration = true)
     {
         var (partyId, instanceId) = ParseInstanceId(instance.Id);
-        return new InstanceEvent(instance.AppId, partyId, instanceId, instance.Created);
+        return new InstanceEvent(instance.AppId, partyId, instanceId, instance.Created, isMigration);
     }
 
     private static (int PartyId, Guid InstanceId) ParseInstanceId(ReadOnlySpan<char> id)
