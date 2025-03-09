@@ -1,4 +1,5 @@
 using System.Threading.Channels;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Altinn.DialogportenAdapter.EventSimulator.Common;
 
@@ -74,11 +75,15 @@ internal static class ChannelConsumerExtensions
         int? capacity = 10)
         where TConsumer : class, IChannelConsumer<TEvent>
     {
-        services.AddSingleton<ChannelConsumerBackgroundService<TConsumer, TEvent>>(x => 
-            ActivatorUtilities.CreateInstance<ChannelConsumerBackgroundService<TConsumer, TEvent>>(x, consumers, capacity!));
-        services.AddHostedService<ChannelConsumerBackgroundService<TConsumer, TEvent>>(x => x.GetRequiredService<ChannelConsumerBackgroundService<TConsumer, TEvent>>());
-        services.AddTransient<IChannelConsumer<TEvent>, TConsumer>();
-        services.AddSingleton<IChannelPublisher<TEvent>>(x => x.GetRequiredService<ChannelConsumerBackgroundService<TConsumer, TEvent>>());
+        var backgroundServiceExists = services.Any(x => x.ServiceType == typeof(ChannelConsumerBackgroundService<TConsumer, TEvent>));
+        if (!backgroundServiceExists)
+        {
+            services.AddSingleton<ChannelConsumerBackgroundService<TConsumer, TEvent>>(x => 
+                ActivatorUtilities.CreateInstance<ChannelConsumerBackgroundService<TConsumer, TEvent>>(x, consumers, capacity!));
+            services.AddSingleton<IChannelPublisher<TEvent>>(x => x.GetRequiredService<ChannelConsumerBackgroundService<TConsumer, TEvent>>());
+            services.AddHostedService<ChannelConsumerBackgroundService<TConsumer, TEvent>>(x => x.GetRequiredService<ChannelConsumerBackgroundService<TConsumer, TEvent>>());
+        }
+        services.TryAddEnumerable(ServiceDescriptor.Transient<IChannelConsumer<TEvent>, TConsumer>());
         return services;
     }
 }

@@ -7,6 +7,8 @@ internal sealed class InstanceStreamer
 {
     private static readonly List<TimeSpan> BackoffDelays =
     [
+        // TODO: Remove 1 sec when https://github.com/Altinn/altinn-storage/pull/654/files is in tt02
+        TimeSpan.FromSeconds(1), 
         TimeSpan.FromSeconds(5),
         TimeSpan.FromSeconds(10),
         TimeSpan.FromSeconds(30),
@@ -87,10 +89,10 @@ internal sealed class InstanceStreamer
         var client = _clientFactory.CreateClient(Constants.MaskinportenClientDefinitionKey);
         
         var queryString = QueryString
-            .Create("SortBy", $"{order}:lastChanged")
+            .Create("order", $"{order}:lastChanged")
             .Add("pageSize", "1000")
-            .AddIf(from.HasValue, "lastChanged", $"gt:{from!.Value.ToUniversalTime():O}")
-            .AddIf(to.HasValue, "lastChanged", $"lt:{to!.Value.ToUniversalTime():O}")
+            .AddIf(from.HasValue, "lastChanged", $"gt:{from?.ToUniversalTime():O}")
+            .AddIf(to.HasValue, "lastChanged", $"lt:{to?.ToUniversalTime():O}")
             .AddIfNotNull("org", org)
             .AddIfNotNull("appId", appId)
             .AddIfNotNull("instanceOwner.partyId", partyId);
