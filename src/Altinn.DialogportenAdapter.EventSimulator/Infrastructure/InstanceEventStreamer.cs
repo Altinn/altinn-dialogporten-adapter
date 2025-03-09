@@ -5,6 +5,16 @@ namespace Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
 
 internal sealed class InstanceEventStreamer
 {
+    private static readonly List<TimeSpan> BackoffDelays =
+    [
+        TimeSpan.FromSeconds(5),
+        TimeSpan.FromSeconds(10),
+        TimeSpan.FromSeconds(30),
+        TimeSpan.FromMinutes(1),
+        TimeSpan.FromMinutes(5),
+        TimeSpan.FromMinutes(10)
+    ];
+    
     private readonly IHttpClientFactory _clientFactory;
     private readonly ILogger<InstanceEventStreamer> _logger;
     
@@ -31,14 +41,10 @@ internal sealed class InstanceEventStreamer
         DateTimeOffset from,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var backoffHandler = new BackoffHandler([
-            TimeSpan.FromSeconds(5),
-            TimeSpan.FromSeconds(10),
-            TimeSpan.FromSeconds(30),
-            TimeSpan.FromMinutes(1),
-            TimeSpan.FromMinutes(5),
-            TimeSpan.FromMinutes(10)
-        ]);
+        var backoffHandler = new BackoffHandler(
+            withJitter: true,
+            startPosition: BackoffHandler.Position.Last,
+            delays: BackoffDelays);
         while (!cancellationToken.IsCancellationRequested)
         {
             await foreach (var instanceDto in InstanceStream(
@@ -48,13 +54,11 @@ internal sealed class InstanceEventStreamer
                cancellationToken: cancellationToken))
             {
                 backoffHandler.Reset();
-                from = instanceDto.LastChanged > from
-                    ? instanceDto.LastChanged
-                    : from;
+                from = instanceDto.LastChanged > from ? instanceDto.LastChanged : from;
                 yield return instanceDto;
             }
-            
-            await Task.Delay(backoffHandler.Current, cancellationToken);
+            _logger.LogDebug("Done fetching instances for {org}. New fetch in {delay} +- {jitter}%.", org, backoffHandler.Current, BackoffHandler.JitterPercentage);
+            await backoffHandler.Delay(cancellationToken);
             backoffHandler.Next();
         }
     }

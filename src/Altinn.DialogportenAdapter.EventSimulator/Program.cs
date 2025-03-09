@@ -2,6 +2,7 @@
 using Altinn.ApiClients.Maskinporten.Services;
 using Altinn.DialogportenAdapter.EventSimulator;
 using Altinn.DialogportenAdapter.EventSimulator.Common;
+using Altinn.DialogportenAdapter.EventSimulator.Features;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
 using Microsoft.AspNetCore.Mvc;
 using Refit;
