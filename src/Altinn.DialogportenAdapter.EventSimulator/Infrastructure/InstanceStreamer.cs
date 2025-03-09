@@ -85,14 +85,12 @@ internal sealed class InstanceStreamer
         };
         
         var client = _clientFactory.CreateClient(Constants.MaskinportenClientDefinitionKey);
-        from ??= DateTimeOffset.MinValue;
-        to ??= DateTimeOffset.MaxValue;
         
         var queryString = QueryString
             .Create("SortBy", $"{order}:lastChanged")
             .Add("pageSize", "1000")
-            .Add("lastChanged", $"gt:{from.Value.ToUniversalTime():O}")
-            .Add("lastChanged", $"lt:{to.Value.ToUniversalTime():O}")
+            .AddIf(from.HasValue, "lastChanged", $"gt:{from!.Value.ToUniversalTime():O}")
+            .AddIf(to.HasValue, "lastChanged", $"lt:{to!.Value.ToUniversalTime():O}")
             .AddIfNotNull("org", org)
             .AddIfNotNull("appId", appId)
             .AddIfNotNull("instanceOwner.partyId", partyId);
