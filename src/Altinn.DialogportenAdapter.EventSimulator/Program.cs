@@ -10,20 +10,16 @@ using Refit;
 const string defaultMaskinportenClientDefinitionKey = "DefaultMaskinportenClientDefinitionKey";
 
 var builder = WebApplication.CreateBuilder(args);
-
 var settings = builder.Configuration.Get<Settings>()!;
-
 builder.Services.AddChannelConsumer<InstanceEventConsumer, InstanceEvent>(consumers: 1, capacity: 10);
 builder.Services.AddHostedService<InstanceUpdateStreamBackgroundService>();
 builder.Services.AddTransient<EventStreamer>();
-builder.Services.AddTransient<InstanceEventStreamer>();
+builder.Services.AddTransient<InstanceStreamer>();
 
 // Http clients
 builder.Services.RegisterMaskinportenClientDefinition<SettingsJwkClientDefinition>(
     defaultMaskinportenClientDefinitionKey, 
     settings.Maskinporten);
-builder.Services.AddRefitClient<IAltinnCdnApi>()
-    .ConfigureHttpClient(x => x.BaseAddress = new Uri("https://altinncdn.no/"));
 builder.Services.AddRefitClient<IStorageAdapterApi>()
     .ConfigureHttpClient(x =>
     {

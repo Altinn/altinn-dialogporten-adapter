@@ -3,7 +3,7 @@ using Altinn.DialogportenAdapter.EventSimulator.Common;
 
 namespace Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
 
-internal sealed class InstanceEventStreamer
+internal sealed class InstanceStreamer
 {
     private static readonly List<TimeSpan> BackoffDelays =
     [
@@ -16,9 +16,9 @@ internal sealed class InstanceEventStreamer
     ];
     
     private readonly IHttpClientFactory _clientFactory;
-    private readonly ILogger<InstanceEventStreamer> _logger;
+    private readonly ILogger<InstanceStreamer> _logger;
     
-    public InstanceEventStreamer(IHttpClientFactory clientFactory, ILogger<InstanceEventStreamer> logger)
+    public InstanceStreamer(IHttpClientFactory clientFactory, ILogger<InstanceStreamer> logger)
     {
         _clientFactory = clientFactory ?? throw new ArgumentNullException(nameof(clientFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));

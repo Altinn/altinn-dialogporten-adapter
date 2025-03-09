@@ -6,19 +6,19 @@ namespace Altinn.DialogportenAdapter.EventSimulator.Features;
 internal sealed class InstanceUpdateStreamBackgroundService : BackgroundService
 {
     private readonly IChannelPublisher<InstanceEvent> _channelPublisher;
-    private readonly InstanceEventStreamer _instanceEventStreamer;
+    private readonly InstanceStreamer _instanceStreamer;
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly ILogger<InstanceEventConsumer> _logger;
     private List<string>? _orgs;
 
     public InstanceUpdateStreamBackgroundService(
         IChannelPublisher<InstanceEvent> channelPublisher,
-        InstanceEventStreamer instanceEventStreamer,
+        InstanceStreamer instanceStreamer,
         IServiceScopeFactory serviceScopeFactory, 
         ILogger<InstanceEventConsumer> logger)
     {
         _channelPublisher = channelPublisher ?? throw new ArgumentNullException(nameof(channelPublisher));
-        _instanceEventStreamer = instanceEventStreamer ?? throw new ArgumentNullException(nameof(instanceEventStreamer));
+        _instanceStreamer = instanceStreamer ?? throw new ArgumentNullException(nameof(instanceStreamer));
         _serviceScopeFactory = serviceScopeFactory ?? throw new ArgumentNullException(nameof(serviceScopeFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -47,7 +47,7 @@ internal sealed class InstanceUpdateStreamBackgroundService : BackgroundService
         {
             try
             {
-                await foreach (var instanceDto in _instanceEventStreamer.InstanceUpdateStream(
+                await foreach (var instanceDto in _instanceStreamer.InstanceUpdateStream(
                                    org,
                                    from: from,
                                    cancellationToken))

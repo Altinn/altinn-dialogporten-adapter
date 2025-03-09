@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Threading.Channels;
 using Altinn.DialogportenAdapter.EventSimulator.Common;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
 
@@ -8,16 +7,16 @@ namespace Altinn.DialogportenAdapter.EventSimulator;
 internal sealed class EventStreamer
 {
     private readonly IStorageApi _storageApi;
-    private readonly InstanceEventStreamer _instanceEventStreamer;
+    private readonly InstanceStreamer _instanceStreamer;
     private readonly ILogger<EventStreamer> _logger;
     private readonly IChannelPublisher<InstanceEvent> _instanceEventPublisher;
 
-    public EventStreamer(InstanceEventStreamer instanceEventStreamer,
+    public EventStreamer(InstanceStreamer instanceStreamer,
         ILogger<EventStreamer> logger, 
         IChannelPublisher<InstanceEvent> instanceEventPublisher, 
         IStorageApi storageApi)
     {
-        _instanceEventStreamer = instanceEventStreamer ?? throw new ArgumentNullException(nameof(instanceEventStreamer));
+        _instanceStreamer = instanceStreamer ?? throw new ArgumentNullException(nameof(instanceStreamer));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _instanceEventPublisher = instanceEventPublisher ?? throw new ArgumentNullException(nameof(instanceEventPublisher));
         _storageApi = storageApi ?? throw new ArgumentNullException(nameof(storageApi));
@@ -40,7 +39,7 @@ internal sealed class EventStreamer
         {
             while (appQueue.TryDequeue(out var appId))
             {
-                await foreach (var instanceDto in _instanceEventStreamer.InstanceHistoryStream(appId, cancellationToken))
+                await foreach (var instanceDto in _instanceStreamer.InstanceHistoryStream(appId, cancellationToken))
                 {
                     _logger.LogInformation("{TaskNumber}: Producing event for {instanceId}", taskNumber, instanceDto.Id);
                     
