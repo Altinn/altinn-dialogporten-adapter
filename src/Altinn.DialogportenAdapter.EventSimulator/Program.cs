@@ -11,10 +11,10 @@ const string defaultMaskinportenClientDefinitionKey = "DefaultMaskinportenClient
 
 var builder = WebApplication.CreateBuilder(args);
 var settings = builder.Configuration.Get<Settings>()!;
-builder.Services.AddChannelConsumer<InstanceEventConsumer, InstanceEvent>(consumers: 1, capacity: 10);
+builder.Services.AddChannelConsumer<InstanceEventConsumer, InstanceEvent>(consumers: 10, capacity: 1000);
 // builder.Services.AddHostedService<InstanceUpdateStreamBackgroundService>();
-builder.Services.AddSingleton<InstanceHistoryStreamBackgroundService>();
-builder.Services.AddHostedService<InstanceHistoryStreamBackgroundService>(x => x.GetRequiredService<InstanceHistoryStreamBackgroundService>());
+builder.Services.AddSingleton<PauseContext<InstanceHistoryStreamBackgroundService>>();
+builder.Services.AddHostedService<InstanceHistoryStreamBackgroundService>();
 builder.Services.AddTransient<InstanceStreamer>();
 
 // Http clients
@@ -38,13 +38,13 @@ builder.Services.AddTransient<IStorageApi>(x => RestService
 var app = builder.Build();
 
 app.MapGet("/api/v1/instanceHistoryStream/pause",async (
-        [FromServices] InstanceHistoryStreamBackgroundService historyStream, 
+        [FromServices] PauseContext<InstanceHistoryStreamBackgroundService> pauseContext, 
         CancellationToken cancellationToken) 
-    => await historyStream.Pause(cancellationToken));
+    => await pauseContext.Pause(cancellationToken));
 
 app.MapGet("/api/v1/instanceHistoryStream/resume",async (
-        [FromServices] InstanceHistoryStreamBackgroundService historyStream, 
+        [FromServices] PauseContext<InstanceHistoryStreamBackgroundService> pauseContext, 
         CancellationToken cancellationToken) 
-    => await historyStream.Resume(cancellationToken));
+    => await pauseContext.Resume(cancellationToken));
 
 await app.RunAsync();
