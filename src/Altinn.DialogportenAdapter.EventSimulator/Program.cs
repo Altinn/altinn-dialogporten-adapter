@@ -13,7 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 var settings = builder.Configuration.Get<Settings>()!;
 builder.Services.AddChannelConsumer<InstanceEventConsumer, InstanceEvent>(consumers: 1, capacity: 10);
 builder.Services.AddHostedService<InstanceUpdateStreamBackgroundService>();
-builder.Services.AddTransient<EventStreamer>();
+builder.Services.AddHostedService<InstanceHistoryStreamBackgroundService>();
 builder.Services.AddTransient<InstanceStreamer>();
 
 // Http clients
@@ -36,9 +36,14 @@ builder.Services.AddTransient<IStorageApi>(x => RestService
 
 var app = builder.Build();
 
-app.MapGet("/api/v1/streamEvents",async (
-        [FromServices] EventStreamer eventStreamer, 
+app.MapGet("/api/v1/instanceHistoryStream/pause",async (
+        [FromServices] InstanceHistoryStreamBackgroundService historyStream, 
         CancellationToken cancellationToken) 
-    => await eventStreamer.StreamEvents(numberOfProducers: 2, cancellationToken));
+    => await historyStream.Pause(cancellationToken));
+
+app.MapGet("/api/v1/instanceHistoryStream/resume",async (
+        [FromServices] InstanceHistoryStreamBackgroundService historyStream, 
+        CancellationToken cancellationToken) 
+    => await historyStream.Resume(cancellationToken));
 
 await app.RunAsync();

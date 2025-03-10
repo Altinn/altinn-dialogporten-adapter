@@ -26,11 +26,13 @@ internal sealed class InstanceStreamer
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
     
-    public async IAsyncEnumerable<InstanceDto> InstanceHistoryStream(string appId,
+    public async IAsyncEnumerable<InstanceDto> InstanceHistoryStream(string org,
+        DateTimeOffset to,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         await foreach(var instanceDto in InstanceStream(
-                          appId: appId, 
+                          org: org, 
+                          to: to,
                           sortOrder: SortOrder.Descending,
                           cancellationToken: cancellationToken))
         {
