@@ -1,0 +1,7 @@
+@baseUri = https://localhost:7241
+
+### Resume
+GET {{baseUri}}/api/v1/instanceHistoryStream/resume
+
+### Pause
+GET {{baseUri}}/api/v1/instanceHistoryStream/pause

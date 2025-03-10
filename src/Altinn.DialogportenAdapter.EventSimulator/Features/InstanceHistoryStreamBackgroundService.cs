@@ -34,6 +34,7 @@ internal sealed class InstanceHistoryStreamBackgroundService : BackgroundService
         _logger.LogInformation("Found {OrgCount} orgs.", _orgs.Count);
         await base.StartAsync(cancellationToken);
     }
+    
     public async Task Pause(CancellationToken cancellationToken)
     {
         await _semaphoresByOrgLock.WaitAsync(cancellationToken);
@@ -91,16 +92,15 @@ internal sealed class InstanceHistoryStreamBackgroundService : BackgroundService
         }
     }
 
-    private List<SemaphoreSlim> GetStrongSemaphores()
+    private IEnumerable<SemaphoreSlim> GetStrongSemaphores()
     {
-        var result = new List<SemaphoreSlim>();
-        foreach (var (_, weakSemaphore) in _semaphoreByOrg)
+        foreach (var weakSemaphore in _semaphoreByOrg.Values)
         {
-            if (weakSemaphore.TryGetTarget(out var semaphore)) 
-                result.Add(semaphore);
+            if (weakSemaphore.TryGetTarget(out var semaphore))
+            {
+                yield return semaphore;
+            }
         }
-            
-        return result;
     }
 
     protected override async Task ExecuteAsync(CancellationToken cancellationToken)
@@ -151,5 +151,101 @@ internal sealed class InstanceHistoryStreamBackgroundService : BackgroundService
             .Select(x => x.Org)
             .Distinct()
             .ToList();
+    }
+}
+
+internal class PauseContext
+{
+    private readonly SemaphoreSlim _semaphoresByOrgLock = new(1, 1);
+    private readonly ConcurrentDictionary<string, WeakReference<SemaphoreSlim>> _semaphoreByKey = [];
+    public bool Paused { get; private set; }
+
+    public async Task Pause(CancellationToken cancellationToken)
+    {
+        await _semaphoresByOrgLock.WaitAsync(cancellationToken);
+        try
+        {
+            await Task.WhenAll(GetStrongSemaphores().Select(x => x.WaitAsync(cancellationToken)));
+            Paused = true;
+        }
+        finally
+        {
+            _semaphoresByOrgLock.Release();
+        }
+    }
+
+    public async Task Resume(CancellationToken cancellationToken)
+    {
+        await _semaphoresByOrgLock.WaitAsync(cancellationToken);
+        try
+        {
+            foreach (var semaphore in GetStrongSemaphores().Where(x => x.CurrentCount == 0))
+            {
+                semaphore.Release();
+            }
+            
+            Paused = false;
+        }
+        finally
+        {
+            _semaphoresByOrgLock.Release();
+        }
+    }
+
+    public async Task<Handler> CreatePauseHandler(string key, CancellationToken cancellationToken)
+    {
+        await _semaphoresByOrgLock.WaitAsync(cancellationToken);
+        try
+        {
+            var newSemaphore = new SemaphoreSlim(Paused ? 0 : 1, 1);
+            var weakExistingSemaphore = _semaphoreByKey.GetOrAdd(key, new WeakReference<SemaphoreSlim>(newSemaphore));
+            if (!weakExistingSemaphore.TryGetTarget(out var existingSemaphore))
+            {
+                weakExistingSemaphore.SetTarget(existingSemaphore = newSemaphore);
+            }
+
+            if (newSemaphore != existingSemaphore)
+            {
+                newSemaphore.Dispose();
+            }
+
+            return new Handler(existingSemaphore);
+        }
+        finally
+        {
+            _semaphoresByOrgLock.Release();
+        }
+    }
+
+    private IEnumerable<SemaphoreSlim> GetStrongSemaphores()
+    {
+        foreach (var weakSemaphore in _semaphoreByKey.Values)
+        {
+            if (weakSemaphore.TryGetTarget(out var semaphore))
+            {
+                yield return semaphore;
+            }
+        }
+    }
+    
+    internal class Handler : IDisposable
+    {
+        private readonly SemaphoreSlim _semaphore;
+
+        public Handler(SemaphoreSlim semaphore)
+        {
+            _semaphore = semaphore;
+        }
+
+        public async Task WaitForPause(CancellationToken cancellationToken)
+        {
+            await _semaphore.WaitAsync(cancellationToken);
+            _semaphore.Release();
+        }
+
+        public void Dispose()
+        {
+            _semaphore.Dispose();
+        }
     }
 }

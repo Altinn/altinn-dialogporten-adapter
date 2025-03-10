@@ -12,8 +12,9 @@ const string defaultMaskinportenClientDefinitionKey = "DefaultMaskinportenClient
 var builder = WebApplication.CreateBuilder(args);
 var settings = builder.Configuration.Get<Settings>()!;
 builder.Services.AddChannelConsumer<InstanceEventConsumer, InstanceEvent>(consumers: 1, capacity: 10);
-builder.Services.AddHostedService<InstanceUpdateStreamBackgroundService>();
-builder.Services.AddHostedService<InstanceHistoryStreamBackgroundService>();
+// builder.Services.AddHostedService<InstanceUpdateStreamBackgroundService>();
+builder.Services.AddSingleton<InstanceHistoryStreamBackgroundService>();
+builder.Services.AddHostedService<InstanceHistoryStreamBackgroundService>(x => x.GetRequiredService<InstanceHistoryStreamBackgroundService>());
 builder.Services.AddTransient<InstanceStreamer>();
 
 // Http clients
