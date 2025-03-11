@@ -8,7 +8,7 @@ internal class PauseContext<T>
     private readonly ConcurrentDictionary<string, WeakReference<SemaphoreSlim>> _semaphoreByKey = [];
     public bool Paused { get; private set; }
 
-    public PauseContext(bool paused = false)
+    public PauseContext(bool paused = true)
     {
         Paused = paused;
     }

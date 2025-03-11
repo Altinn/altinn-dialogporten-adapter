@@ -50,16 +50,23 @@ internal sealed class ChannelConsumerBackgroundService<TConsumer, TEvent> : Back
             }
         }
     }
-    
+
     public ValueTask Publish(TEvent instanceEvent, CancellationToken cancellationToken)
     {
         return _channel.Writer.WriteAsync(instanceEvent, cancellationToken);
+    }
+
+    public bool TryPublish(TEvent instanceEvent)
+    {
+        return _channel.Writer.TryWrite(instanceEvent);
     }
 }
 
 internal interface IChannelPublisher<in T>
 {
     ValueTask Publish(T instanceEvent, CancellationToken cancellationToken);
+    bool TryPublish(T instanceEvent);
+
 }
 
 internal interface IChannelConsumer<in T>

@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Altinn.DialogportenAdapter.EventSimulator.Common;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
 
@@ -55,10 +56,7 @@ internal sealed class InstanceHistoryStreamBackgroundService : BackgroundService
         {
             try
             {
-                await foreach (var instanceDto in _instanceStreamer.InstanceHistoryStream(
-                                   org: org,
-                                   to: to,
-                                   cancellationToken))
+                await foreach (var instanceDto in InstanceHistoryStream(org, to, cancellationToken))
                 {
                     await pauseHandler.AwaitPause(cancellationToken); 
                     await _channelPublisher.Publish(instanceDto.ToInstanceEvent(isMigration: false), cancellationToken);
@@ -71,6 +69,20 @@ internal sealed class InstanceHistoryStreamBackgroundService : BackgroundService
                 _logger.LogError(e, "Error while consuming instance update stream. Attempting to reset stream in 5 seconds.");
                 await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
             }
+        }
+    }
+    
+    private async IAsyncEnumerable<InstanceDto> InstanceHistoryStream(string org,
+        DateTimeOffset to,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        await foreach(var instanceDto in _instanceStreamer.InstanceStream(
+                          org: org, 
+                          to: to,
+                          sortOrder: InstanceStreamer.Order.Descending,
+                          cancellationToken: cancellationToken))
+        {
+            yield return instanceDto;
         }
     }
 

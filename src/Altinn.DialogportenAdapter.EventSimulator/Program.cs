@@ -12,9 +12,10 @@ const string defaultMaskinportenClientDefinitionKey = "DefaultMaskinportenClient
 var builder = WebApplication.CreateBuilder(args);
 var settings = builder.Configuration.Get<Settings>()!;
 builder.Services.AddChannelConsumer<InstanceEventConsumer, InstanceEvent>(consumers: 10, capacity: 1000);
-// builder.Services.AddHostedService<InstanceUpdateStreamBackgroundService>();
-builder.Services.AddSingleton<PauseContext<InstanceHistoryStreamBackgroundService>>();
-builder.Services.AddHostedService<InstanceHistoryStreamBackgroundService>();
+builder.Services.AddChannelConsumer<OrgSyncConsumer, OrgSyncEvent>(consumers: 1, capacity: 10);
+builder.Services.AddHostedService<InstanceUpdateStreamBackgroundService>();
+// builder.Services.AddSingleton<PauseContext<InstanceHistoryStreamBackgroundService>>();
+// builder.Services.AddHostedService<InstanceHistoryStreamBackgroundService>();
 builder.Services.AddTransient<InstanceStreamer>();
 
 // Http clients
@@ -37,14 +38,21 @@ builder.Services.AddTransient<IStorageApi>(x => RestService
 
 var app = builder.Build();
 
-app.MapGet("/api/v1/instanceHistoryStream/pause",async (
-        [FromServices] PauseContext<InstanceHistoryStreamBackgroundService> pauseContext, 
-        CancellationToken cancellationToken) 
-    => await pauseContext.Pause(cancellationToken));
+// app.MapGet("/api/v1/instanceHistoryStream/pause",async (
+//         [FromServices] PauseContext<InstanceHistoryStreamBackgroundService> pauseContext, 
+//         CancellationToken cancellationToken) 
+//     => await pauseContext.Pause(cancellationToken));
+//
+// app.MapGet("/api/v1/instanceHistoryStream/resume",async (
+//         [FromServices] PauseContext<InstanceHistoryStreamBackgroundService> pauseContext, 
+//         CancellationToken cancellationToken) 
+//     => await pauseContext.Resume(cancellationToken));
 
-app.MapGet("/api/v1/instanceHistoryStream/resume",async (
-        [FromServices] PauseContext<InstanceHistoryStreamBackgroundService> pauseContext, 
-        CancellationToken cancellationToken) 
-    => await pauseContext.Resume(cancellationToken));
+app.MapPost("/api/v1/orgSync", (
+        [FromBody] OrgSyncEvent orgSyncEvent,
+        [FromServices] IChannelPublisher<OrgSyncEvent> publisher) 
+    => publisher.TryPublish(orgSyncEvent) 
+        ? Results.Ok() 
+        : Results.BadRequest("Queue is full, YO!"));
 
 await app.RunAsync();

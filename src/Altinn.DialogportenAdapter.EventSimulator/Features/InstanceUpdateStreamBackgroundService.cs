@@ -59,7 +59,7 @@ internal sealed class InstanceUpdateStreamBackgroundService : BackgroundService
             catch (Exception e) when (e is TaskCanceledException or OperationCanceledException) { /* Swallow by design */ }
             catch (Exception e)
             {
-                _logger.LogError(e, "Error while consuming instance update stream. Attempting to reset stream in 5 seconds.");
+                _logger.LogError(e, "Error while consuming instance update stream for org {org}. Attempting to reset stream in 5 seconds.", org);
                 await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
             }
         }

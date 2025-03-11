@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using Altinn.DialogportenAdapter.EventSimulator.Common;
 
@@ -8,7 +9,7 @@ internal sealed class InstanceStreamer
     private static readonly List<TimeSpan> BackoffDelays =
     [
         // TODO: Remove 1 sec when https://github.com/Altinn/altinn-storage/pull/654/files is in tt02
-        TimeSpan.FromSeconds(1), 
+        TimeSpan.FromSeconds(1),
         TimeSpan.FromSeconds(5),
         TimeSpan.FromSeconds(10),
         TimeSpan.FromSeconds(30),
@@ -25,20 +26,6 @@ internal sealed class InstanceStreamer
         _clientFactory = clientFactory ?? throw new ArgumentNullException(nameof(clientFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
-    
-    public async IAsyncEnumerable<InstanceDto> InstanceHistoryStream(string org,
-        DateTimeOffset to,
-        [EnumeratorCancellation] CancellationToken cancellationToken)
-    {
-        await foreach(var instanceDto in InstanceStream(
-                          org: org, 
-                          to: to,
-                          sortOrder: SortOrder.Descending,
-                          cancellationToken: cancellationToken))
-        {
-            yield return instanceDto;
-        }
-    }
 
     public async IAsyncEnumerable<InstanceDto> InstanceUpdateStream(
         string org,
@@ -54,7 +41,7 @@ internal sealed class InstanceStreamer
             await foreach (var instanceDto in InstanceStream(
                org: org, 
                from: from, 
-               sortOrder: SortOrder.Ascending,
+               sortOrder: Order.Ascending,
                cancellationToken: cancellationToken))
             {
                 backoffHandler.Reset();
@@ -67,37 +54,36 @@ internal sealed class InstanceStreamer
         }
     }
 
-    private async IAsyncEnumerable<InstanceDto> InstanceStream(
+    public async IAsyncEnumerable<InstanceDto> InstanceStream(
         string? org = null,
         string? appId = null,
         string? partyId = null,
         DateTimeOffset? from = null,
         DateTimeOffset? to = null,
-        SortOrder sortOrder = SortOrder.Ascending,
+        int pageSize = 100,
+        Order sortOrder = Order.Ascending,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        if (org is null && appId is null)
-        {
-            throw new ArgumentException("Org or AppId must be defined.");
-        }
+        if (org is null) ArgumentException.ThrowIfNullOrWhiteSpace(appId);
+        if (appId is null) ArgumentException.ThrowIfNullOrWhiteSpace(org);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pageSize);
 
         var order = sortOrder switch
         {
-            SortOrder.Ascending => "asc",
-            SortOrder.Descending => "desc",
+            Order.Ascending => "asc",
+            Order.Descending => "desc",
             _ => throw new ArgumentOutOfRangeException(nameof(sortOrder), sortOrder, null)
         };
         
         var client = _clientFactory.CreateClient(Constants.MaskinportenClientDefinitionKey);
-        
         var queryString = QueryString
             .Create("order", $"{order}:lastChanged")
-            .Add("pageSize", "1000")
+            .Add("size", pageSize.ToString(CultureInfo.InvariantCulture))
             .AddIf(from.HasValue, "lastChanged", $"gt:{from?.ToUniversalTime():O}")
             .AddIf(to.HasValue, "lastChanged", $"lt:{to?.ToUniversalTime():O}")
-            .AddIfNotNull("org", org)
-            .AddIfNotNull("appId", appId)
-            .AddIfNotNull("instanceOwner.partyId", partyId);
+            .AddIf(org is not null, "org", org!)
+            .AddIf(appId is not null, "org", appId!)
+            .AddIf(partyId is not null, "instanceOwner.partyId", partyId!);
         var next = $"storage/api/v1/instances{queryString}";
         
         while (next is not null)
@@ -128,7 +114,7 @@ internal sealed class InstanceStreamer
     }
 
     private sealed record InstanceQueryResponse(List<InstanceDto> Instances, string? Next);
-    private enum SortOrder { Ascending, Descending }
+    public enum Order { Ascending, Descending }
 }
 
 internal sealed record InstanceDto(string AppId, string Id, DateTimeOffset Created, DateTimeOffset LastChanged);
