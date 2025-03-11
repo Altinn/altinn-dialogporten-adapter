@@ -111,7 +111,7 @@ internal sealed class SyncInstanceToDialogService
 
         // Create or update the dialog with the fetched data
         var updatedDialog = await _dataMerger.Merge(dialogId, existingDialog, application, instance, events);
-        await UpsertDialog(updatedDialog, disableAltinnEvents: dto.IsMigration, cancellationToken);
+        await UpsertDialog(updatedDialog, isMigration: dto.IsMigration, cancellationToken);
     }
 
     private static void EnsureNotNull(
@@ -175,11 +175,11 @@ internal sealed class SyncInstanceToDialogService
            || instanceDialogId != dialogId;
     }
 
-    private Task UpsertDialog(DialogDto dialog, bool disableAltinnEvents, CancellationToken cancellationToken)
+    private Task UpsertDialog(DialogDto dialog, bool isMigration, CancellationToken cancellationToken)
     {
         return !dialog.Revision.HasValue
-            ? _dialogportenApi.Create(dialog, disableAltinnEvents, cancellationToken: cancellationToken)
-            : _dialogportenApi.Update(dialog, dialog.Revision!.Value, disableAltinnEvents, cancellationToken: cancellationToken);
+            ? _dialogportenApi.Create(dialog, disableAltinnEvents: isMigration, disableSystemLabelReset: isMigration, cancellationToken: cancellationToken)
+            : _dialogportenApi.Update(dialog, dialog.Revision!.Value, disableAltinnEvents: isMigration, disableSystemLabelReset: isMigration, cancellationToken: cancellationToken);
     }
 
     private async Task<Guid> RestoreDialog(Guid dialogId,
