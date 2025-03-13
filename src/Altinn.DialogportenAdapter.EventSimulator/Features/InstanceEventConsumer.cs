@@ -19,6 +19,6 @@ internal sealed class InstanceEventConsumer : IChannelConsumer<InstanceEvent>
     public async Task Consume(InstanceEvent item, int taskNumber, CancellationToken cancellationToken)
     {
         _logger.LogInformation("{TaskNumber}: Consuming {@InstanceEvent}", taskNumber, item);
-        // await _storageAdapterApi.Sync(item, cancellationToken);
+        await _storageAdapterApi.Sync(item, cancellationToken);
     }
 }

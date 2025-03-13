@@ -66,7 +66,6 @@ internal interface IChannelPublisher<in T>
 {
     ValueTask Publish(T instanceEvent, CancellationToken cancellationToken);
     bool TryPublish(T instanceEvent);
-
 }
 
 internal interface IChannelConsumer<in T>

@@ -175,9 +175,6 @@ internal sealed class StorageDialogportenDataMerger
             Priority = DialogGuiActionPriority.Secondary,
             IsDeleteDialogAction = true,
             Title = [new() { LanguageCode = "nb", Value = "Slett skjema" }],
-            Prompt = hardDelete
-                ? [new() { LanguageCode = "nb", Value = "Skjemaet blir permanent slettet" }]
-                : null,
             Url = $"{adapterBaseUri}/api/v1/instance/{instanceOwner}/{instanceGuid}?hard={hardDelete}",
             HttpMethod = HttpVerb.DELETE
         };

@@ -10,6 +10,8 @@ internal static class Constants
     
     public const string InstanceDataValueDialogIdKey = "dialog.id";
     public const string InstanceDataValueDisableSyncKey = "dialog.disableAutomaticSync";
+    
+    public const string DefaultMaskinportenClientDefinitionKey = "DefaultMaskinportenClientDefinitionKey";
 
     public static readonly ImmutableArray<string> SupportedEventTypes =
     [

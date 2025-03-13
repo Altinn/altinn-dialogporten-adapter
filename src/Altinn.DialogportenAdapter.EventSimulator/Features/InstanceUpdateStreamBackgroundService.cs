@@ -67,6 +67,7 @@ internal sealed class InstanceUpdateStreamBackgroundService : BackgroundService
 
     private async Task<List<string>> GetDistinctStorageOrgs(CancellationToken cancellationToken)
     {
+        // Maybe use altinn cdn api to get orgs? 
         using var scope = _serviceScopeFactory.CreateScope();
         var apps = await scope.ServiceProvider
             .GetRequiredService<IStorageApi>()

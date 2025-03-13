@@ -15,3 +15,5 @@ public sealed record AltinnPlatformSettings(Uri BaseUri, Uri ApiStorageEndpoint,
     public Uri GetAppUriForOrg(string org) => new($"{BaseUri.Scheme}://{org}.apps.{BaseUri.Host}");
     public Uri GetPlatformUri() => new($"{BaseUri.Scheme}://platform.{BaseUri.Host}");
 }
+
+public record KeyVaultSettings(string ClientId, string ClientSecret, string TenantId, string SecretUri);
