@@ -1,7 +1,6 @@
 using Altinn.DialogportenAdapter.EventSimulator.Common.Channels;
 using Altinn.DialogportenAdapter.EventSimulator.Common.Extensions;
-using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Adapter;
-using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
+using Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
 
 namespace Altinn.DialogportenAdapter.EventSimulator.Features;
 
@@ -69,7 +68,6 @@ internal sealed class InstanceUpdateStreamBackgroundService : BackgroundService
 
     private async Task<List<string>> GetDistinctStorageOrgs(CancellationToken cancellationToken)
     {
-        // Maybe use altinn cdn api to get orgs? 
         using var scope = _serviceScopeFactory.CreateScope();
         var apps = await scope.ServiceProvider
             .GetRequiredService<IStorageApi>()

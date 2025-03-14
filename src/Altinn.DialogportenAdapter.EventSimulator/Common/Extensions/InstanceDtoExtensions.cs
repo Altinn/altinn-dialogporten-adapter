@@ -1,5 +1,4 @@
-using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Adapter;
-using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
+using Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
 
 namespace Altinn.DialogportenAdapter.EventSimulator.Common.Extensions;
 

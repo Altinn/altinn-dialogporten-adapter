@@ -5,8 +5,7 @@ using Altinn.DialogportenAdapter.EventSimulator.Common;
 using Altinn.DialogportenAdapter.EventSimulator.Common.Channels;
 using Altinn.DialogportenAdapter.EventSimulator.Common.Extensions;
 using Altinn.DialogportenAdapter.EventSimulator.Features;
-using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Adapter;
-using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
+using Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
 using Microsoft.AspNetCore.Mvc;
 using Refit;
 

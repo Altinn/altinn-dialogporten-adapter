@@ -1,5 +1,5 @@
 using Altinn.DialogportenAdapter.EventSimulator.Common.Channels;
-using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Adapter;
+using Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
 
 namespace Altinn.DialogportenAdapter.EventSimulator.Features;
 

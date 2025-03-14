@@ -3,14 +3,14 @@ using System.Runtime.CompilerServices;
 using Altinn.DialogportenAdapter.EventSimulator.Common;
 using Altinn.DialogportenAdapter.EventSimulator.Common.Extensions;
 
-namespace Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
+namespace Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
+
+internal sealed record InstanceDto(string AppId, string Id, DateTimeOffset Created, DateTimeOffset LastChanged);
 
 internal sealed class InstanceStreamer
 {
     private static readonly List<TimeSpan> BackoffDelays =
     [
-        // TODO: Remove 1 sec when https://github.com/Altinn/altinn-storage/pull/654/files is in tt02
-        TimeSpan.FromSeconds(1),
         TimeSpan.FromSeconds(5),
         TimeSpan.FromSeconds(10),
         TimeSpan.FromSeconds(30),
