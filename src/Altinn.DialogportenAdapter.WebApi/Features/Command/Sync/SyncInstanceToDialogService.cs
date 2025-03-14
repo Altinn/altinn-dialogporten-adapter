@@ -38,12 +38,6 @@ internal sealed class SyncInstanceToDialogService
 
     public async Task Sync(SyncInstanceToDialogDto dto, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Syncing instance to dialog. {PartyId},{InstanceId},{InstanceCreatedAt},{IsMigration}.",
-            dto.PartyId,
-            dto.InstanceId,
-            dto.InstanceCreatedAt,
-            dto.IsMigration);
-        return;
         // Create a uuid7 from the instance id and created timestamp to use as dialog id
         var dialogId = dto.InstanceId.ToVersion7(dto.InstanceCreatedAt);
 
