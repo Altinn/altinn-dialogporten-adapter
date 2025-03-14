@@ -1,45 +1,89 @@
-﻿using Altinn.DialogportenAdapter.EventSimulator;
+﻿using Altinn.ApiClients.Maskinporten.Extensions;
+using Altinn.ApiClients.Maskinporten.Services;
+using Altinn.DialogportenAdapter.EventSimulator;
+using Altinn.DialogportenAdapter.EventSimulator.Common;
+using Altinn.DialogportenAdapter.EventSimulator.Common.Channels;
+using Altinn.DialogportenAdapter.EventSimulator.Common.Extensions;
+using Altinn.DialogportenAdapter.EventSimulator.Features;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
-using Cocona;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Mvc;
 using Refit;
 
-const int producers = 2;
-const int consumers = 1;
-const int cacheSize = 5;
+using var loggerFactory = CreateBootstrapLoggerFactory();
+var bootstrapLogger = loggerFactory.CreateLogger<Program>();
 
-var builder = CoconaApp.CreateBuilder(args);
+try
+{
+    BuildAndRun(args);
+}
+catch (Exception e)
+{
+    bootstrapLogger.LogCritical(e, "Application terminated unexpectedly");
+    throw;
+}
 
-builder.Logging.SetMinimumLevel(LogLevel.Warning);
-// builder.Logging.AddFilter("Altinn.DialogportenAdapter.EventSimulator.EventStreamer", LogLevel.Information);
+return;
 
-// TODO: Change from DigdirApplicationService to ApplicationService when scope 'altinn:storage/instances.syncadapter' is implemented in storage
-// https://digdir.slack.com/archives/C0785747G6M/p1737459622842289
-builder.Services.AddTransient<IStorageApplicationService, StorageApplicationService>();
-builder.Services.AddTransient<EventStreamer>();
-builder.Services.AddRefitClient<IStorageApi>()
-    .ConfigureHttpClient(x => x.BaseAddress = new Uri("https://platform.tt02.altinn.no"));
-builder.Services.AddRefitClient<IAltinnCdnApi>()
-    .ConfigureHttpClient(x => x.BaseAddress = new Uri("https://altinncdn.no/"));
-builder.Services.AddHttpClient<InstanceStreamHttpClient>()
-    .ConfigureHttpClient(x => x.BaseAddress = new Uri("https://platform.tt02.altinn.no"));
-builder.Services.AddRefitClient<ITestTokenApi>()
-    .ConfigureHttpClient(x =>
+static void BuildAndRun(string[] args)
+{
+    var builder = WebApplication.CreateBuilder(args);
+    
+    builder.Logging
+        .ClearProviders()
+        .AddConsole();
+    
+    builder.Configuration
+        .AddCoreClusterSettings()
+        .AddAzureKeyVault();
+    
+    var settings = builder.Configuration.Get<Settings>()!;
+    
+    builder.Services.AddChannelConsumer<InstanceEventConsumer, InstanceEvent>(consumers: 10, capacity: 1000);
+    builder.Services.AddChannelConsumer<OrgSyncConsumer, OrgSyncEvent>(consumers: 1, capacity: 10);
+    builder.Services.AddHostedService<InstanceUpdateStreamBackgroundService>();
+    builder.Services.AddTransient<InstanceStreamer>();
+    
+    // Health checks
+    builder.Services.AddHealthChecks()
+        .AddCheck<HealthCheck>("event_simulator_health_check");
+
+    // Http clients
+    builder.Services.RegisterMaskinportenClientDefinition<SettingsJwkClientDefinition>(
+        Constants.MaskinportenClientDefinitionKey,
+        settings.DialogportenAdapter.Maskinporten);
+    builder.Services.AddRefitClient<IStorageAdapterApi>()
+        .ConfigureHttpClient(x =>
+        {
+            x.BaseAddress = settings.DialogportenAdapter.Adapter.InternalBaseUri;
+            x.Timeout = Timeout.InfiniteTimeSpan;
+        }); // TODO: Auth?
+    builder.Services.AddHttpClient(Constants.MaskinportenClientDefinitionKey)
+        .ConfigureHttpClient(x => x.BaseAddress = settings.DialogportenAdapter.Altinn.ApiStorageEndpoint)
+        .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.MaskinportenClientDefinitionKey);
+    builder.Services.AddTransient<IStorageApi>(x => RestService
+        .For<IStorageApi>(x.GetRequiredService<IHttpClientFactory>()
+            .CreateClient(Constants.MaskinportenClientDefinitionKey)));
+
+    var app = builder.Build();
+    app.UseHttpsRedirection();
+    app.MapHealthChecks("/health");
+    app.MapOpenApi();
+    app.MapPost("/api/v1/orgSync", (
+            [FromBody] OrgSyncEvent orgSyncEvent,
+            [FromServices] IChannelPublisher<OrgSyncEvent> publisher)
+        => publisher.TryPublish(orgSyncEvent)
+            ? Results.Ok()
+            : Results.BadRequest("Queue is full, YO!"));
+
+    app.Run();
+}
+
+ILoggerFactory CreateBootstrapLoggerFactory() => LoggerFactory.Create(builder => builder
+    .SetMinimumLevel(LogLevel.Warning)
+    .AddSimpleConsole(options =>
     {
-        x.BaseAddress = new Uri("https://altinn-testtools-token-generator.azurewebsites.net/");
-        x.DefaultRequestHeaders.Add("Authorization", "Basic ZHBvY3Rlc3Q6bWtiRlhsM2h5RWxBTlZwZ2Jha28=");
-    });
-builder.Services.AddRefitClient<IStorageAdapterApi>()
-    .ConfigureHttpClient(x =>
-    {
-        x.BaseAddress = new Uri("https://localhost:7241");
-        x.Timeout = Timeout.InfiniteTimeSpan;
-    });
-
-var app = builder.Build();
-
-app.AddCommand(async (CoconaAppContext ctx, EventStreamer eventStreamer) 
-    => await eventStreamer.StreamEvents(producers, consumers, cacheSize, ctx.CancellationToken));
-
-await app.RunAsync();
+        options.IncludeScopes = true;
+        options.UseUtcTimestamp = true;
+        options.SingleLine = true;
+        options.TimestampFormat = "yyyy-MM-dd HH:mm:ss ";
+    }));
