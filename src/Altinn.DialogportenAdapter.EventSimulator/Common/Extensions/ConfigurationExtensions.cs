@@ -1,7 +1,7 @@
 using Azure.Identity;
 using Microsoft.Extensions.FileProviders;
 
-namespace Altinn.DialogportenAdapter.EventSimulator.Common;
+namespace Altinn.DialogportenAdapter.EventSimulator.Common.Extensions;
 
 internal static class ConfigurationExtensions
 {

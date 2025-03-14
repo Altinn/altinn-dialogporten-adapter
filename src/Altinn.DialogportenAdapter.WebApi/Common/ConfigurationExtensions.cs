@@ -1,5 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Reflection.PortableExecutable;
 using Azure.Identity;
 using Microsoft.Extensions.FileProviders;
 

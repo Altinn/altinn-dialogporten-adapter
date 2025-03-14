@@ -1,4 +1,4 @@
-namespace Altinn.DialogportenAdapter.EventSimulator.Common;
+namespace Altinn.DialogportenAdapter.EventSimulator.Common.Extensions;
 
 internal static class QueryStringExtensions
 {
