@@ -44,7 +44,10 @@ internal sealed class OrgSyncConsumer : IChannelConsumer<OrgSyncEvent>
             {
                 _logger.LogError(e, "Error while consuming instance history stream for {org}. Attempting to reset stream in 5 seconds.", item.Org);
                 await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+                continue;
             }
+
+            return;
         }
     }
 }

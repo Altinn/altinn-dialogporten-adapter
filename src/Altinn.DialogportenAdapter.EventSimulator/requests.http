@@ -1,7 +1,11 @@
-@baseUri = https://localhost:7241
+@baseUri = https://localhost:7242
 
 ### Resume
-GET {{baseUri}}/api/v1/instanceHistoryStream/resume
+POST {{baseUri}}/api/v1/orgSync
+Content-Type: application/json
 
-### Pause
-GET {{baseUri}}/api/v1/instanceHistoryStream/pause
+{
+    "org": "digdir",
+    "from": "2025-03-13T00:00:00Z",
+    "to": "2025-03-14T00:00:00Z"
+}

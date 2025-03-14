@@ -19,7 +19,7 @@ internal interface IDialogportenApi
     [Delete("/api/v1/serviceowner/dialogs/{dialogId}")]
     Task Delete(Guid dialogId, [Header(IfMatchHeader)] Guid revision, [Query] bool disableAltinnEvents = false, CancellationToken cancellationToken = default);
 
-    [Delete("/api/v1/serviceowner/dialogs/{dialogId}/actions/purge")]
+    [Post("/api/v1/serviceowner/dialogs/{dialogId}/actions/purge")]
     Task Purge(Guid dialogId, [Header(IfMatchHeader)] Guid revision, [Query] bool disableAltinnEvents = false, CancellationToken cancellationToken = default);
 
     [Post("/api/v1/serviceowner/dialogs/{dialogId}/actions/restore")]

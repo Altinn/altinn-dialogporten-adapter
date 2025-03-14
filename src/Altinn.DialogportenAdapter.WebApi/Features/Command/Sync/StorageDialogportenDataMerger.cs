@@ -85,7 +85,7 @@ internal sealed class StorageDialogportenDataMerger
             SystemLabel = systemLabel,
             CreatedAt = instance.Created,
             VisibleFrom = instance.VisibleAfter > DateTimeOffset.UtcNow ? instance.VisibleAfter : null,
-            DueAt = instance.DueBefore < DateTimeOffset.UtcNow ? instance.DueBefore : null,
+            DueAt = instance.DueBefore > DateTimeOffset.UtcNow ? instance.DueBefore : null,
             ExternalReference = $"urn:altinn:integration:storage:{instance.Id}",
             Status = status,
             Content = new ContentDto
