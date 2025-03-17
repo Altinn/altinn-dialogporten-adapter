@@ -1,0 +1,13 @@
+@baseUri = https://localhost:7241
+
+### Resume
+POST {{baseUri}}/api/v1/syncDialog
+Content-Type: application/json
+
+{
+  "appId": "digdir/oed",
+  "partyId": "50357009",
+  "instanceId": "8e2612fb-895f-48c9-874d-ba718edccf99",
+  "instanceCreatedAt": "2025-03-17T09:26:07.091585Z",
+  "isMigration": true
+}

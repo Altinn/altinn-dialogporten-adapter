@@ -73,6 +73,7 @@ static void BuildAndRun(string[] args)
         .AddTransient<SyncInstanceToDialogService>()
         .AddTransient<StorageDialogportenDataMerger>()
         .AddTransient<ActivityDtoTransformer>()
+        .AddTransient<FourHundredLoggingDelegatingHandler>()
         
         // Http clients
         .AddRefitClient<IStorageApi>()
@@ -86,6 +87,7 @@ static void BuildAndRun(string[] args)
         .AddRefitClient<IDialogportenApi>()
             .ConfigureHttpClient(x => x.BaseAddress = settings.DialogportenAdapter.Dialogporten.BaseUri)
             .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
+            .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>()
             .Services
             
         // Health checks
