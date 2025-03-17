@@ -83,6 +83,7 @@ static void BuildAndRun(string[] args)
                 x.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", settings.DialogportenAdapter.Altinn.SubscriptionKey);
             })
             .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
+            .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>()
             .Services
         .AddRefitClient<IDialogportenApi>()
             .ConfigureHttpClient(x => x.BaseAddress = settings.DialogportenAdapter.Dialogporten.BaseUri)

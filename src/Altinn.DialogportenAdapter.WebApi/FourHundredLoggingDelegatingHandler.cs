@@ -25,7 +25,7 @@ internal sealed class FourHundredLoggingDelegatingHandler : DelegatingHandler
         await (request.Content?.LoadIntoBufferAsync(cancellationToken) ?? Task.CompletedTask);
         var response = await base.SendAsync(request, cancellationToken);
         if ((int)response.StatusCode is 404 || 
-            (int)response.StatusCode is <= 400 or > 499)
+            (int)response.StatusCode is < 400 or > 499)
         {
             return response;
         }
@@ -47,6 +47,6 @@ internal sealed class FourHundredLoggingDelegatingHandler : DelegatingHandler
 
 internal static partial class LogMessages
 {
-    [LoggerMessage(EventId = 0, Level = LogLevel.Debug, Message = "{Method} {RequestUri} resulted in {StatusCode}. {Request}, {Response}")]
-    public static partial void Log400Response(this ILogger logger, HttpMethod method, Uri? requestUri, HttpStatusCode statusCode, string request, string response);
+    [LoggerMessage(EventId = 0, Level = LogLevel.Debug, Message = "{Method} {RequestUri} resulted in {StatusCode}.\nRequest: {Request}\nResponse: {Response}")]
+    public static partial void Log400Response(this ILogger logger, HttpMethod method, Uri? requestUri, HttpStatusCode statusCode, string? request, string? response);
 }

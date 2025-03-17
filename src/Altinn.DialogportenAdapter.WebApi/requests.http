@@ -1,13 +1,34 @@
 @baseUri = https://localhost:7241
+@altinnPlatformBaseUri = https://platform.at23.altinn.cloud
+@instanceId = 50024588/3a5c0a06-2ec9-44ed-8ceb-2d32b9cc8e04
+
+
+### Log into maskinporten
+// @no-log
+GET  https://altinn-testtools-token-generator.azurewebsites.net/api/GetEnterpriseToken?org=digdir&env={{env}}&scopes=altinn:storage/instances.syncadapter&ttl=86400
+Authorization: Basic {{username}} {{password}}
+
+> {% client.global.set("maskinportenToken", response.body) %}
+
+### Get instance data
+// @no-log
+GET {{altinnPlatformBaseUri}}/storage/api/v1/instances/{{instanceId}}
+Authorization: Bearer {{maskinportenToken}}
+
+> {% 
+    const idParts = response.body.id.split('/');
+    client.global.set("syncDialogDto", JSON.stringify({
+        "appId": response.body.appId,
+        "partyId": idParts[0],
+        "instanceId": idParts[1],
+        "instanceCreatedAt": response.body.created,
+        "isMigration": true
+    }))
+ %}
 
 ### Resume
+// @no-log
 POST {{baseUri}}/api/v1/syncDialog
 Content-Type: application/json
 
-{
-  "appId": "digdir/oed",
-  "partyId": "50357009",
-  "instanceId": "8e2612fb-895f-48c9-874d-ba718edccf99",
-  "instanceCreatedAt": "2025-03-17T09:26:07.091585Z",
-  "isMigration": true
-}
+{{syncDialogDto}}
