@@ -135,7 +135,10 @@ internal sealed class StorageDialogportenDataMerger
         // TODO: Legg inn engelsk og nynorsk
         if (instance.Status.IsArchived)
         {
-            var platformBaseUri = _settings.DialogportenAdapter.Altinn.GetPlatformUri();
+            var platformBaseUri = _settings.DialogportenAdapter.Altinn
+                .GetPlatformUri()
+                .ToString()
+                .TrimEnd('/');
             return new GuiActionDto
             {
                 Id = dialogId.CreateDeterministicSubUuidV7("DialogGuiActionGoTo"),
@@ -146,7 +149,10 @@ internal sealed class StorageDialogportenDataMerger
             };
         }
 
-        var appBaseUri = _settings.DialogportenAdapter.Altinn.GetAppUriForOrg(instance.Org);
+        var appBaseUri = _settings.DialogportenAdapter.Altinn
+            .GetAppUriForOrg(instance.Org)
+            .ToString()
+            .TrimEnd('/');
         return new GuiActionDto
         {
             Id = dialogId.CreateDeterministicSubUuidV7("DialogGuiActionGoTo"),
@@ -160,7 +166,9 @@ internal sealed class StorageDialogportenDataMerger
     private GuiActionDto CreateDeleteAction(DialogStatus status, Instance instance, Guid dialogId)
     {
         // TODO: Legg inn engelsk og nynorsk
-        var adapterBaseUri = _settings.DialogportenAdapter.Adapter.BaseUri;
+        var adapterBaseUri = _settings.DialogportenAdapter.Adapter.BaseUri
+            .ToString()
+            .TrimEnd('/');
         var hardDelete = instance.Status.IsSoftDeleted || status is DialogStatus.Draft;
         var (instanceOwner, instanceGuid) = instance.Id.Split('/') switch
         {
