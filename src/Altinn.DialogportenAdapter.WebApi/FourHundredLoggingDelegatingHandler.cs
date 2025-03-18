@@ -15,7 +15,7 @@ internal sealed class FourHundredLoggingDelegatingHandler : DelegatingHandler
 
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        return !_hostEnvironment.IsProduction() && _logger.IsEnabled(LogLevel.Debug)
+        return !_hostEnvironment.IsProduction() && _logger.IsEnabled(LogLevel.Information)
             ? SendAsync_Internal(request, cancellationToken)
             : base.SendAsync(request, cancellationToken);
     }
@@ -47,6 +47,6 @@ internal sealed class FourHundredLoggingDelegatingHandler : DelegatingHandler
 
 internal static partial class LogMessages
 {
-    [LoggerMessage(EventId = 0, Level = LogLevel.Debug, Message = "{Method} {RequestUri} resulted in {StatusCode}.\nRequest: {Request}\nResponse: {Response}")]
+    [LoggerMessage(EventId = 0, Level = LogLevel.Information, Message = "{Method} {RequestUri} resulted in {StatusCode}.\nRequest: {Request}\nResponse: {Response}")]
     public static partial void Log400Response(this ILogger logger, HttpMethod method, Uri? requestUri, HttpStatusCode statusCode, string? request, string? response);
 }
