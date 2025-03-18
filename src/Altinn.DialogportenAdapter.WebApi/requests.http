@@ -1,7 +1,5 @@
 @baseUri = https://localhost:7241
-@altinnPlatformBaseUri = https://platform.at23.altinn.cloud
-@instanceId = 50024588/3a5c0a06-2ec9-44ed-8ceb-2d32b9cc8e04
-
+@instanceId = 51583478/4f230136-d9b2-40a8-9c53-22fbc8b9ef26
 
 ### Log into maskinporten
 // @no-log

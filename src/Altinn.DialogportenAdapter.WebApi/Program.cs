@@ -3,19 +3,15 @@ using Altinn.ApiClients.Maskinporten.Extensions;
 using Altinn.ApiClients.Maskinporten.Services;
 using Altinn.DialogportenAdapter.WebApi;
 using Altinn.DialogportenAdapter.WebApi.Common;
-using Altinn.DialogportenAdapter.WebApi.Configuration;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Delete;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 using Altinn.DialogportenAdapter.WebApi.Health;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
-// using Microsoft.ApplicationInsights.AspNetCore.Extensions;
-// using Microsoft.ApplicationInsights.Channel;
-// using Microsoft.ApplicationInsights.Extensibility;
-// using Microsoft.ApplicationInsights.WindowsServer.TelemetryChannel;
 using Microsoft.AspNetCore.Mvc;
 using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Refit;
 
 using var loggerFactory = CreateBootstrapLoggerFactory();
@@ -50,20 +46,19 @@ static void BuildAndRun(string[] args)
     if (builder.Configuration.TryGetApplicationInsightsConnectionString(out var appInsightsConnectionString))
     {
         builder.Services
+            .AddTransient<HealthCheckFilterProcessor>()
+            .ConfigureOpenTelemetryTracerProvider((sp, builder) => builder.AddProcessor(sp.GetRequiredService<HealthCheckFilterProcessor>()))
             .AddOpenTelemetry()
             .ConfigureResource(x => x.AddAttributes([
                 new("service.name", "platform-dialogporten-adapter")
             ]))
-            .UseAzureMonitor(x => x.ConnectionString = appInsightsConnectionString);
-        // builder.Logging.AddFilter<Microsoft.Extensions.Logging.ApplicationInsights.ApplicationInsightsLoggerProvider>(string.Empty, LogLevel.Warning);
-        // builder.Services
-        //     .AddSingleton<ITelemetryInitializer, CustomTelemetryInitializer>()
-        //     .AddSingleton<ITelemetryChannel>(new ServerTelemetryChannel { StorageFolder = "/tmp/logtelemetry" })
-        //     .AddApplicationInsightsTelemetryProcessor<HealthTelemetryFilter>()
-        //     .AddApplicationInsightsTelemetry(new ApplicationInsightsServiceOptions
-        //     {
-        //         ConnectionString = appInsightsConnectionString
-        //     });
+            .UseAzureMonitor(x =>
+            {
+                x.ConnectionString = appInsightsConnectionString;
+                x.SamplingRatio = 0.05F;
+                x.EnableLiveMetrics = false;
+                x.StorageDirectory = "/tmp/logtelemetry";
+            });
     }
     
     builder.Services.RegisterMaskinportenClientDefinition<SettingsJwkClientDefinition>(

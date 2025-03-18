@@ -223,11 +223,18 @@ internal sealed class StorageDialogportenDataMerger
         
         var offset = 0;
         presentationTexts ??= Array.Empty<string>();
-        var titleLength = Math.Min(Constants.DefaultMaxStringLength,
-            title.Length
-            + presentationTexts.Sum(x => x.Length) 
-            + presentationTexts.Count * separator.Length);
-        Span<char> titleSpan = stackalloc char[titleLength];
+        
+        var titleIdealLength = title.Length
+          + presentationTexts.Sum(x => x.Length)
+          + presentationTexts.Count * separator.Length;
+        
+        // We need to clamp the title length to avoid overflowing the stackalloc buffer,
+        // and to avoid overflowing the dialog title length limit. We also need to
+        // ensure that the title can hold the "AndMore" string on the lower bound.
+        var titleClampedLength = Math.Clamp(titleIdealLength, 
+            min: SpanExtensions.AndMore.Length, 
+            max: Constants.DefaultMaxStringLength);
+        Span<char> titleSpan = stackalloc char[titleClampedLength];
         
         if (!title.TryCopyTo(titleSpan, ref offset))
         {
