@@ -2,8 +2,6 @@ namespace Altinn.DialogportenAdapter.WebApi.Common;
 
 internal static class SpanExtensions
 {
-    public const string AndMore = "...";
-    
     /// <summary>
     /// Will try to copy the source span to the destination span from offset, and return true if the entire source span was copied.
     /// If the destination span reminder is too small, the source span will be truncated and "..." will be appended to the destination span.
@@ -14,11 +12,12 @@ internal static class SpanExtensions
     /// <returns>True if the entire source span was copied, false otherwise.</returns>
     public static bool TryCopyTo(this ReadOnlySpan<char> source, Span<char> destination, ref int offset)
     {
+        const string andMore = "...";
         var remaining = destination.Length - offset;
-        if (remaining <= source.Length)
+        if (remaining < source.Length)
         {
-            source[..Math.Max(remaining - AndMore.Length, 0)].CopyTo(destination[offset..]);
-            AndMore.CopyTo(destination[^AndMore.Length..]);
+            source[..remaining].CopyTo(destination[offset..]);
+            andMore.CopyTo(destination[^andMore.Length..]);
             offset = destination.Length;
             return false;
         }

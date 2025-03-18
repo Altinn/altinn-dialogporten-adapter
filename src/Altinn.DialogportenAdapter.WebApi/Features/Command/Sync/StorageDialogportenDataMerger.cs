@@ -95,6 +95,7 @@ internal sealed class StorageDialogportenDataMerger
                 {
                     MediaType = MediaTypes.PlainText,
                     Value = application.Title
+                        .Where(x => !string.IsNullOrWhiteSpace(x.Value))
                         .Select(x => new LocalizationDto
                         {
                             LanguageCode = x.Key,
@@ -216,35 +217,36 @@ internal sealed class StorageDialogportenDataMerger
         urnPrefix.CopyTo(span);
         return span.ToString();
     }
-
-    private static string ToTitle(ReadOnlySpan<char> title, IReadOnlyCollection<string>? presentationTexts)
+    
+    private static string ToTitle(string title, IEnumerable<string>? presentationTexts)
     {
         const string separator = ", ";
         
+        List<string> texts =
+        [
+            title,
+            ..presentationTexts?.Where(x => !string.IsNullOrWhiteSpace(x)) ?? []
+        ];
+
         var offset = 0;
-        presentationTexts ??= Array.Empty<string>();
-        
-        var titleIdealLength = title.Length
-          + presentationTexts.Sum(x => x.Length)
-          + presentationTexts.Count * separator.Length;
-        
-        // We need to clamp the title length to avoid overflowing the stackalloc buffer,
-        // and to avoid overflowing the dialog title length limit. We also need to
-        // ensure that the title can hold the "AndMore" string on the lower bound.
-        var titleClampedLength = Math.Clamp(titleIdealLength, 
-            min: SpanExtensions.AndMore.Length, 
+        var titleIdealLength = 
+            texts.Sum(x => x.Length) + 
+            texts.Count * (separator.Length - 1);
+        var titleClampedLength = Math.Clamp(titleIdealLength,
+            min: 0,
             max: Constants.DefaultMaxStringLength);
-        Span<char> titleSpan = stackalloc char[titleClampedLength];
         
-        if (!title.TryCopyTo(titleSpan, ref offset))
+        Span<char> titleSpan = stackalloc char[titleClampedLength];
+        using var enumerator = texts.GetEnumerator();
+        if (!enumerator.MoveNext() || !enumerator.Current.AsSpan().TryCopyTo(titleSpan, ref offset))
         {
             return titleSpan.ToString();
         }
-        
-        foreach (var text in presentationTexts)
+
+        while (enumerator.MoveNext())
         {
             if (!separator.AsSpan().TryCopyTo(titleSpan, ref offset)
-                || !text.AsSpan().TryCopyTo(titleSpan, ref offset))
+                || !enumerator.Current.AsSpan().TryCopyTo(titleSpan, ref offset))
             {
                 break;
             }
