@@ -9,11 +9,13 @@ using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 using Altinn.DialogportenAdapter.WebApi.Health;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
-using Microsoft.ApplicationInsights.AspNetCore.Extensions;
-using Microsoft.ApplicationInsights.Channel;
-using Microsoft.ApplicationInsights.Extensibility;
-using Microsoft.ApplicationInsights.WindowsServer.TelemetryChannel;
+using Azure.Monitor.OpenTelemetry.AspNetCore;
+// using Microsoft.ApplicationInsights.AspNetCore.Extensions;
+// using Microsoft.ApplicationInsights.Channel;
+// using Microsoft.ApplicationInsights.Extensibility;
+// using Microsoft.ApplicationInsights.WindowsServer.TelemetryChannel;
 using Microsoft.AspNetCore.Mvc;
+using OpenTelemetry.Resources;
 using Refit;
 
 using var loggerFactory = CreateBootstrapLoggerFactory();
@@ -48,13 +50,20 @@ static void BuildAndRun(string[] args)
     if (builder.Configuration.TryGetApplicationInsightsConnectionString(out var appInsightsConnectionString))
     {
         builder.Services
-            .AddSingleton<ITelemetryInitializer, CustomTelemetryInitializer>()
-            .AddSingleton<ITelemetryChannel>(new ServerTelemetryChannel { StorageFolder = "/tmp/logtelemetry" })
-            .AddApplicationInsightsTelemetryProcessor<HealthTelemetryFilter>()
-            .AddApplicationInsightsTelemetry(new ApplicationInsightsServiceOptions
-            {
-                ConnectionString = appInsightsConnectionString
-            });
+            .AddOpenTelemetry()
+            .ConfigureResource(x => x.AddAttributes([
+                new("service.name", "platform-dialogporten-adapter")
+            ]))
+            .UseAzureMonitor(x => x.ConnectionString = appInsightsConnectionString);
+        // builder.Logging.AddFilter<Microsoft.Extensions.Logging.ApplicationInsights.ApplicationInsightsLoggerProvider>(string.Empty, LogLevel.Warning);
+        // builder.Services
+        //     .AddSingleton<ITelemetryInitializer, CustomTelemetryInitializer>()
+        //     .AddSingleton<ITelemetryChannel>(new ServerTelemetryChannel { StorageFolder = "/tmp/logtelemetry" })
+        //     .AddApplicationInsightsTelemetryProcessor<HealthTelemetryFilter>()
+        //     .AddApplicationInsightsTelemetry(new ApplicationInsightsServiceOptions
+        //     {
+        //         ConnectionString = appInsightsConnectionString
+        //     });
     }
     
     builder.Services.RegisterMaskinportenClientDefinition<SettingsJwkClientDefinition>(
@@ -109,7 +118,7 @@ static void BuildAndRun(string[] args)
         await syncService.Sync(request, cancellationToken);
         return Results.NoContent();
     });
-
+    
     app.MapDelete("/api/v1/instance/{instanceOwner:int}/{instanceGuid:guid}", async (
         [FromRoute] int instanceOwner,
         [FromRoute] Guid instanceGuid,
