@@ -237,9 +237,9 @@ internal sealed class StorageDialogportenDataMerger
         ];
 
         var offset = 0;
-        var titleIdealLength = 
-            texts.Sum(x => x.Length) + 
-            texts.Count * (separator.Length - 1);
+        var titleIdealLength =
+            texts.Sum(x => x.Length) +
+            separator.Length * (texts.Count - 1);
         var titleClampedLength = Math.Clamp(titleIdealLength,
             min: 0,
             max: Constants.DefaultMaxStringLength);
