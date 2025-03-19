@@ -1,4 +1,4 @@
-namespace Altinn.DialogportenAdapter.WebApi.Common;
+namespace Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 
 internal static class SpanExtensions
 {

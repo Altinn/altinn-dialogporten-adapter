@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
-namespace Altinn.DialogportenAdapter.WebApi.Health;
+namespace Altinn.DialogportenAdapter.WebApi.Common.Health;
 
 /// <summary>
 /// Health check service configured in startup

@@ -2,7 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using Azure.Identity;
 using Microsoft.Extensions.FileProviders;
 
-namespace Altinn.DialogportenAdapter.WebApi.Common;
+namespace Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 
 internal static class ConfigurationExtensions
 {

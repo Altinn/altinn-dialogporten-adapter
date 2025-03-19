@@ -1,7 +1,7 @@
 using System.Net;
 using Refit;
 
-namespace Altinn.DialogportenAdapter.WebApi.Common;
+namespace Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 
 internal static class ApiResponseExtensions
 {

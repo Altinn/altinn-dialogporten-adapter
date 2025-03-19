@@ -3,9 +3,10 @@ using Altinn.ApiClients.Maskinporten.Extensions;
 using Altinn.ApiClients.Maskinporten.Services;
 using Altinn.DialogportenAdapter.WebApi;
 using Altinn.DialogportenAdapter.WebApi.Common;
+using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
+using Altinn.DialogportenAdapter.WebApi.Common.Health;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Delete;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
-using Altinn.DialogportenAdapter.WebApi.Health;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
@@ -39,7 +40,8 @@ static void BuildAndRun(string[] args)
 
     builder.Configuration
         .AddCoreClusterSettings()
-        .AddAzureKeyVault();
+        .AddAzureKeyVault()
+        .AddLocalDevelopmentSettings(builder.Environment);
     
     var settings = builder.Configuration.Get<Settings>()!;
     
@@ -98,6 +100,8 @@ static void BuildAndRun(string[] args)
         // Health checks
         .AddHealthChecks()
             .AddCheck<HealthCheck>("dialogporte_adapter_health_check");
+
+    builder.ReplaceLocalDevelopmentResources();
     
     var app = builder.Build();
 

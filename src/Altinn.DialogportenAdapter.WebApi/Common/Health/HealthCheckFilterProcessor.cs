@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using OpenTelemetry;
 
-namespace Altinn.DialogportenAdapter.WebApi.Health;
+namespace Altinn.DialogportenAdapter.WebApi.Common.Health;
 
 internal sealed class HealthCheckFilterProcessor : BaseProcessor<Activity>
 {

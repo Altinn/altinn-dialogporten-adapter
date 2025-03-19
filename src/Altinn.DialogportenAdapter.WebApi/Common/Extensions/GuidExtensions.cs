@@ -1,6 +1,6 @@
 using UUIDNext;
 
-namespace Altinn.DialogportenAdapter.WebApi.Common;
+namespace Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 
 internal static class GuidExtensions
 {

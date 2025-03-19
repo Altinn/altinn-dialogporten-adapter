@@ -1,5 +1,5 @@
 using Altinn.ApiClients.Dialogporten;
-using Altinn.DialogportenAdapter.WebApi.Common;
+using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 
 namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Delete;

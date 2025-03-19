@@ -1,8 +1,8 @@
 using System.Runtime.CompilerServices;
 
-namespace Altinn.DialogportenAdapter.WebApi.Common;
+namespace Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 
-public static class TaskExtentions
+internal static class TaskExtentions
 {
     public static TaskAwaiter<(T1, T2)> GetAwaiter<T1, T2>(
         this (Task<T1>, Task<T2>) taskTuple)
