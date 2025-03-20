@@ -158,6 +158,7 @@ internal sealed class StorageDialogportenDataMerger
         {
             Id = dialogId.CreateDeterministicSubUuidV7("DialogGuiActionGoTo"),
             Action = "write",
+            AuthorizationAttribute = "urn:altinn:task:" + instance.Process.CurrentTask.ElementId,
             Priority = DialogGuiActionPriority.Primary,
             Title = [new() { LanguageCode = "nb", Value = "Gå til skjemautfylling" }],
             Url = $"{appBaseUri}/{instance.AppId}/#/instance/{instance.Id}"
