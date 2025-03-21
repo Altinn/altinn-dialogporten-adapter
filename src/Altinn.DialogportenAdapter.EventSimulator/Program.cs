@@ -56,7 +56,8 @@ static void BuildAndRun(string[] args)
         {
             x.BaseAddress = settings.DialogportenAdapter.Adapter.InternalBaseUri;
             x.Timeout = Timeout.InfiniteTimeSpan;
-        }); // TODO: Auth?
+        })
+        .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.MaskinportenClientDefinitionKey);
     builder.Services.AddHttpClient(Constants.MaskinportenClientDefinitionKey)
         .ConfigureHttpClient(x => x.BaseAddress = settings.DialogportenAdapter.Altinn.ApiStorageEndpoint)
         .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.MaskinportenClientDefinitionKey);

@@ -10,7 +10,10 @@ using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Refit;
@@ -33,7 +36,7 @@ return;
 static void BuildAndRun(string[] args)
 {
     var builder = WebApplication.CreateBuilder(args);
-    
+
     builder.Logging
         .ClearProviders()
         .AddConsole();
@@ -42,9 +45,9 @@ static void BuildAndRun(string[] args)
         .AddCoreClusterSettings()
         .AddAzureKeyVault()
         .AddLocalDevelopmentSettings(builder.Environment);
-    
+
     var settings = builder.Configuration.Get<Settings>()!;
-    
+
     if (builder.Configuration.TryGetApplicationInsightsConnectionString(out var appInsightsConnectionString))
     {
         builder.Services
@@ -62,12 +65,43 @@ static void BuildAndRun(string[] args)
                 x.StorageDirectory = "/tmp/logtelemetry";
             });
     }
-    
+
     builder.Services.RegisterMaskinportenClientDefinition<SettingsJwkClientDefinition>(
-        Constants.DefaultMaskinportenClientDefinitionKey, 
+        Constants.DefaultMaskinportenClientDefinitionKey,
         settings.DialogportenAdapter.Maskinporten);
 
     builder.Services
+        .AddCors(x => x.AddDefaultPolicy(policy => policy
+            .AllowAnyOrigin()
+            .AllowAnyHeader()
+            .AllowAnyMethod()))
+        .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
+            {
+                options.MetadataAddress = settings.DialogportenAdapter.Authentication.JwtBearerWellKnown;
+                options.MapInboundClaims = false;
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuerSigningKey = true,
+                    ValidateIssuer = false,
+                    ValidateAudience = false,
+                    RequireExpirationTime = true,
+                    ValidateLifetime = true,
+                    ClockSkew = TimeSpan.FromSeconds(2)
+                };
+            })
+            .Services
+        .AddAuthorization(options =>
+        {
+            options.FallbackPolicy = new AuthorizationPolicyBuilder()
+                .RequireAuthenticatedUser()
+                .Build();
+
+            options.DefaultPolicy = new AuthorizationPolicyBuilder()
+                .Combine(options.FallbackPolicy)
+                .RequireScope("altinn:storage/instances.syncadapter")
+                .Build();
+        })
         .AddOpenApi()
         .AddSingleton(settings)
         .AddDialogportenClient(x =>
@@ -80,7 +114,7 @@ static void BuildAndRun(string[] args)
         .AddTransient<StorageDialogportenDataMerger>()
         .AddTransient<ActivityDtoTransformer>()
         .AddTransient<FourHundredLoggingDelegatingHandler>()
-        
+
         // Http clients
         .AddRefitClient<IStorageApi>()
             .ConfigureHttpClient(x =>
@@ -96,18 +130,25 @@ static void BuildAndRun(string[] args)
             .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
             .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>()
             .Services
-            
+
         // Health checks
         .AddHealthChecks()
             .AddCheck<HealthCheck>("dialogporte_adapter_health_check");
 
     builder.ReplaceLocalDevelopmentResources();
-    
+
     var app = builder.Build();
 
-    app.UseHttpsRedirection();
-    app.MapHealthChecks("/health");
-    app.MapOpenApi();
+    app.UseHttpsRedirection()
+        .UseCors()
+        .UseAuthentication()
+        .UseAuthorization();
+
+    app.MapHealthChecks("/health")
+        .AllowAnonymous();
+
+    app.MapOpenApi()
+        .AllowAnonymous();
 
     app.MapPost("/api/v1/syncDialog", async (
         [FromBody] SyncInstanceToDialogDto request,
@@ -116,26 +157,28 @@ static void BuildAndRun(string[] args)
     {
         await syncService.Sync(request, cancellationToken);
         return Results.NoContent();
-    });
-    
+    })
+    .RequireAuthorization();
+
     app.MapDelete("/api/v1/instance/{instanceOwner:int}/{instanceGuid:guid}", async (
-        [FromRoute] int instanceOwner,
-        [FromRoute] Guid instanceGuid,
-        [FromQuery] bool hard,
-        [FromHeader(Name = "Authorization")] string authorization,
-        [FromServices] InstanceService instanceService,
-        CancellationToken cancellationToken) =>
-    {
-        var request = new DeleteInstanceDto(instanceOwner, instanceGuid, hard, authorization);
-        return await instanceService.Delete(request, cancellationToken) switch
+            [FromRoute] int instanceOwner,
+            [FromRoute] Guid instanceGuid,
+            [FromQuery] bool hard,
+            [FromHeader(Name = "Authorization")] string authorization,
+            [FromServices] InstanceService instanceService,
+            CancellationToken cancellationToken) =>
         {
-            DeleteInstanceResult.Success => Results.NoContent(),
-            DeleteInstanceResult.InstanceNotFound => Results.NotFound(),
-            DeleteInstanceResult.Unauthorized => Results.Unauthorized(),
-            _ => Results.InternalServerError()
-        };
-    });
-    
+            var request = new DeleteInstanceDto(instanceOwner, instanceGuid, hard, authorization);
+            return await instanceService.Delete(request, cancellationToken) switch
+            {
+                DeleteInstanceResult.Success => Results.NoContent(),
+                DeleteInstanceResult.InstanceNotFound => Results.NotFound(),
+                DeleteInstanceResult.Unauthorized => Results.Unauthorized(),
+                _ => Results.InternalServerError()
+            };
+        })
+        .AllowAnonymous(); // 👈 Dialog token is validated inside InstanceService
+
     app.Run();
 }
 

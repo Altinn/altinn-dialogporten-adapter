@@ -5,7 +5,14 @@ namespace Altinn.DialogportenAdapter.WebApi;
 
 public sealed record Settings(DialogportenAdapterSettings DialogportenAdapter);
 
-public sealed record DialogportenAdapterSettings(MaskinportenSettings Maskinporten, AltinnPlatformSettings Altinn, DialogportenSettings Dialogporten, AdapterSettings Adapter);
+public sealed record DialogportenAdapterSettings(
+    MaskinportenSettings Maskinporten,
+    AltinnPlatformSettings Altinn,
+    DialogportenSettings Dialogporten,
+    AdapterSettings Adapter,
+    AuthenticationSettings Authentication);
+
+public sealed record AuthenticationSettings(string JwtBearerWellKnown);
 
 public record AdapterSettings(Uri BaseUri);
 
@@ -19,7 +26,7 @@ public sealed record AltinnPlatformSettings(Uri BaseUri, Uri ApiStorageEndpoint,
 
 public record KeyVaultSettings(string ClientId, string ClientSecret, string TenantId, string SecretUri);
 
-internal sealed record LocalDevelopmentSettings(bool MockDialogportenApi)
+internal sealed record LocalDevelopmentSettings(bool MockDialogportenApi, bool DisableAuth)
 {
     public const string ConfigurationSectionName = "LocalDevelopment";
 }
@@ -41,7 +48,7 @@ internal static class LocalDevelopmentExtensions
         {
             return config;
         }
-        
+
         config.AddJsonFile(localAppsettingsJsonFileName, optional: true, reloadOnChange: true);
         return config;
     }

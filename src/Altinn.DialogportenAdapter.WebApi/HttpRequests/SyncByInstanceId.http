@@ -13,7 +13,7 @@ Authorization: Basic {{username}} {{password}}
 GET {{altinnPlatformBaseUri}}/storage/api/v1/instances/{{instanceId}}
 Authorization: Bearer {{maskinportenToken}}
 
-> {% 
+> {%
     const idParts = response.body.id.split('/');
     client.global.set("syncDialogDto", JSON.stringify({
         "appId": response.body.appId,
@@ -24,9 +24,10 @@ Authorization: Bearer {{maskinportenToken}}
     }))
  %}
 
-### Resume
+### Sync
 // @no-log
 POST {{baseUri}}/api/v1/syncDialog
+Authorization: Bearer {{maskinportenToken}}
 Content-Type: application/json
 
 {{syncDialogDto}}

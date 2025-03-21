@@ -1,6 +1,6 @@
 using System.Net;
 
-namespace Altinn.DialogportenAdapter.WebApi;
+namespace Altinn.DialogportenAdapter.WebApi.Common;
 
 internal sealed class FourHundredLoggingDelegatingHandler : DelegatingHandler
 {

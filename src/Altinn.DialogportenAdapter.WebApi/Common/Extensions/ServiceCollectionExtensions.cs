@@ -1,4 +1,5 @@
 ﻿using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 
@@ -68,8 +69,9 @@ internal static class ServiceCollectionExtensions
         }
 
         builder.Services
-            .ReplaceTransient<IDialogportenApi, MockDialogportenApi>(predicate: localDevelopmentSettings.MockDialogportenApi);
-        
+            .ReplaceTransient<IDialogportenApi, MockDialogportenApi>(predicate: localDevelopmentSettings.MockDialogportenApi)
+            .ReplaceSingleton<IAuthorizationHandler, AllowAnonymousHandler>(predicate: localDevelopmentSettings.DisableAuth);
+
         return builder;
     }
 }

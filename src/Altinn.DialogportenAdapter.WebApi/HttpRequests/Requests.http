@@ -34,3 +34,5 @@ Content-Type: application/json
   "IsMigration": true
 }
 
+### Health
+GET {{AdapterHost}}/health
