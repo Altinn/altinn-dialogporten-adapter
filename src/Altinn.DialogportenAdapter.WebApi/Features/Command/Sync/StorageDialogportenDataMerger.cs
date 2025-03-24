@@ -21,14 +21,15 @@ internal sealed class StorageDialogportenDataMerger
         DialogDto? existing,
         Application application,
         Instance instance,
-        InstanceEventList events)
+        InstanceEventList events,
+        bool isMigration)
     {
-        var storageDialog = await ToDialogDto(dialogId, instance, application, events);
+        var storageDialog = await ToDialogDto(dialogId, instance, application, events, isMigration);
         if (existing is null)
         {
             return storageDialog;
         }
-        
+
         existing.SystemLabel = storageDialog.SystemLabel;
         existing.VisibleFrom = storageDialog.VisibleFrom;
         existing.DueAt = storageDialog.DueAt;
@@ -49,7 +50,7 @@ internal sealed class StorageDialogportenDataMerger
         return existing;
     }
 
-    private async Task<DialogDto> ToDialogDto(Guid dialogId, Instance instance, Application application, InstanceEventList events)
+    private async Task<DialogDto> ToDialogDto(Guid dialogId, Instance instance, Application application, InstanceEventList events, bool isMigration)
     {
         // TODO: Feedback => Sendt (alt før er draft, alt etter er InProgress) må hente fra process history
         var status = instance.Process?.CurrentTask?.AltinnTaskType?.ToLower() switch
@@ -61,20 +62,20 @@ internal sealed class StorageDialogportenDataMerger
                 .ProcessInfo?
                 .CurrentTask?
                 .AltinnTaskType, "Feedback")) => DialogStatus.InProgress,
-            _ => DialogStatus.Draft // TODO: Hva med gammel ræl drafts? 
+            _ => DialogStatus.Draft // TODO: Hva med gammel ræl drafts?
         };
 
         // TODO: Enduser sin soft delete burde være systemlabel.bin, men er serviceowner soft delete??
         var systemLabel = instance.Status switch
         {
-            { IsArchived: true } => SystemLabel.Archive,
+            { IsArchived: true } when isMigration => SystemLabel.Archive,
             _ => SystemLabel.Default
         };
-        
+
         // TODO: Ta stilling til applicaiton.hideSettings https://docs.altinn.studio/altinn-studio/reference/configuration/messagebox/hide_instances/
         // TODO: Ta stilling til create copy (GuiAction for kopier? kun når instansen er arkivert) Spør Storage https://docs.altinn.studio/altinn-studio/reference/configuration/messagebox/create_copy/
         // TODO: Hva med om Attachments er for lang?
-        // TODO: Hva med om Activities er for lang? 
+        // TODO: Hva med om Activities er for lang?
         // TODO: Er dato fra storage utc?
         var copyActionEnabled = (application.CopyInstanceSettings?.Enabled ?? false) && instance.Status.IsArchived;
 
@@ -91,7 +92,7 @@ internal sealed class StorageDialogportenDataMerger
             Status = status,
             Content = new ContentDto
             {
-                // TODO: Skal vi bruke non-sensitive title? 
+                // TODO: Skal vi bruke non-sensitive title?
                 Title = new ContentValueDto
                 {
                     MediaType = MediaTypes.PlainText,
@@ -122,7 +123,7 @@ internal sealed class StorageDialogportenDataMerger
                         ConsumerType = x.Filename is not null
                             ? AttachmentUrlConsumerType.Gui
                             : AttachmentUrlConsumerType.Api,
-                        MediaType = x.ContentType, 
+                        MediaType = x.ContentType,
                         Url = x.SelfLinks.Platform
                     }]
                 })
@@ -174,7 +175,7 @@ internal sealed class StorageDialogportenDataMerger
         var hardDelete = instance.Status.IsSoftDeleted || status is DialogStatus.Draft;
         var (instanceOwner, instanceGuid) = instance.Id.Split('/') switch
         {
-            [var party, var id] when 
+            [var party, var id] when
                 int.TryParse(party, out var y)
                 && Guid.TryParse(id, out var x) => (y, x),
             _ => throw new UnreachableException()
@@ -227,11 +228,11 @@ internal sealed class StorageDialogportenDataMerger
         urnPrefix.CopyTo(span);
         return span.ToString();
     }
-    
+
     private static string ToTitle(string title, IEnumerable<string>? presentationTexts)
     {
         const string separator = ", ";
-        
+
         List<string> texts =
         [
             title,
@@ -245,7 +246,7 @@ internal sealed class StorageDialogportenDataMerger
         var titleClampedLength = Math.Clamp(titleIdealLength,
             min: 0,
             max: Constants.DefaultMaxStringLength);
-        
+
         Span<char> titleSpan = stackalloc char[titleClampedLength];
         using var enumerator = texts.GetEnumerator();
         if (!enumerator.MoveNext() || !enumerator.Current.AsSpan().TryCopyTo(titleSpan, ref offset))
@@ -261,7 +262,7 @@ internal sealed class StorageDialogportenDataMerger
                 break;
             }
         }
-    
+
         return titleSpan.ToString();
     }
 
@@ -275,12 +276,12 @@ internal sealed class StorageDialogportenDataMerger
         var storageActions = new Queue<GuiActionDto>(storageGuiActions
             .OrderBy(x => x.Priority)
             .ThenBy(x => x.Id));
-        
+
         if (storageActions.Count == 0)
         {
             return existingGuiActions as List<GuiActionDto> ?? existingGuiActions.ToList();
         }
-        
+
         var result = existingGuiActions
             .ExceptBy(storageActions.Select(x => x.Id), x => x.Id)
             .ToList();
@@ -294,14 +295,14 @@ internal sealed class StorageDialogportenDataMerger
                 ))
             .Where(x => x.Capacity > 0)
             .OrderBy(x => x.Priority);
-        
+
         foreach (var (priority, capacity) in priorityCapacity)
         {
             if (storageActions.Count == 0)
             {
                 break;
             }
-            
+
             // We should not promote actions from a lower priority to a higher priority
             if (storageActions.Peek().Priority > priority)
             {
