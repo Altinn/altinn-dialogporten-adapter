@@ -70,7 +70,7 @@ internal sealed class SyncInstanceToDialogService
             // sync process.
             await UpdateInstanceWithDialogId(dto, dialogId, cancellationToken);
         }
-        
+
         if (IsDialogSyncDisabled(instance))
         {
             return;
@@ -108,7 +108,7 @@ internal sealed class SyncInstanceToDialogService
         EnsureNotNull(application, instance, events);
 
         // Create or update the dialog with the fetched data
-        var updatedDialog = await _dataMerger.Merge(dialogId, existingDialog, application, instance, events);
+        var updatedDialog = await _dataMerger.Merge(dialogId, existingDialog, application, instance, events, dto.IsMigration);
         await UpsertDialog(updatedDialog, isMigration: dto.IsMigration, cancellationToken);
     }
 
@@ -134,9 +134,9 @@ internal sealed class SyncInstanceToDialogService
 
     private static bool IsDialogSyncDisabled(Instance? instance)
     {
-        return instance?.DataValues is not null 
-               && instance.DataValues.TryGetValue(Constants.InstanceDataValueDisableSyncKey, out var disableSyncString) 
-               && bool.TryParse(disableSyncString, out var disableSync) 
+        return instance?.DataValues is not null
+               && instance.DataValues.TryGetValue(Constants.InstanceDataValueDisableSyncKey, out var disableSyncString)
+               && bool.TryParse(disableSyncString, out var disableSync)
                && disableSync;
     }
 
@@ -164,7 +164,7 @@ internal sealed class SyncInstanceToDialogService
     {
         return instance is null or { Status.IsHardDeleted: true } && existingDialog is not null;
     }
-    
+
     private static bool ShouldUpdateInstanceWithDialogId([NotNullWhen(true)] Instance? instance, Guid dialogId)
     {
         return instance?.DataValues is null
