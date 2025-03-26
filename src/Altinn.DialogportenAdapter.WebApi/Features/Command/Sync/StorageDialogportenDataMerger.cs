@@ -138,7 +138,6 @@ internal sealed class StorageDialogportenDataMerger
 
     private GuiActionDto CreateGoToAction(Guid dialogId, Instance instance)
     {
-        // TODO: Legg inn engelsk og nynorsk
         if (instance.Status.IsArchived)
         {
             var platformBaseUri = _settings.DialogportenAdapter.Altinn
@@ -160,7 +159,7 @@ internal sealed class StorageDialogportenDataMerger
         }
 
         var appBaseUri = _settings.DialogportenAdapter.Altinn
-            .GetAppUriForOrg(instance.Org)
+            .GetAppUriForOrg(instance.Org, instance.AppId)
             .ToString()
             .TrimEnd('/');
         return new GuiActionDto
@@ -174,7 +173,7 @@ internal sealed class StorageDialogportenDataMerger
                 new() { LanguageCode = "nn", Value = "Gå til skjemautfylling" },
                 new() { LanguageCode = "en", Value = "Go to form completion" }
             ],
-            Url = $"{appBaseUri}/{instance.AppId}/#/instance/{instance.Id}"
+            Url = $"{appBaseUri}/#/instance/{instance.Id}"
         };
     }
 
@@ -209,7 +208,7 @@ internal sealed class StorageDialogportenDataMerger
         }
 
         var appBaseUri = _settings.DialogportenAdapter.Altinn
-            .GetAppUriForOrg(instance.Org)
+            .GetAppUriForOrg(instance.Org, instance.AppId)
             .ToString()
             .TrimEnd('/');
         yield return new GuiActionDto
@@ -221,8 +220,8 @@ internal sealed class StorageDialogportenDataMerger
                 new() { LanguageCode = "nb", Value = "Lag ny kopi" },
                 new() { LanguageCode = "nn", Value = "Lag ny kopi" },
                 new() { LanguageCode = "en", Value = "Create new copy" }
-            ], // TODO: Legg til riktig tekst
-            Url = $"{appBaseUri}/{instance.AppId}/legacy/instances/{instance.Id}/copy",
+            ],
+            Url = $"{appBaseUri}/legacy/instances/{instance.Id}/copy",
             HttpMethod = HttpVerb.GET
         };
     }
