@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
@@ -112,7 +111,12 @@ internal sealed class StorageDialogportenDataMerger
                     Value = [new() { LanguageCode = "nb", Value = "Konvertert med DialogportenAdapter..." }]
                 }
             },
-            GuiActions = [CreateGoToAction(instance, dialogId), CreateDeleteAction(status, instance, dialogId)],
+            GuiActions =
+            [
+                CreateGoToAction(dialogId, instance),
+                CreateDeleteAction(dialogId, status, instance),
+                ..CreateCopyAction(dialogId, instance, application)
+            ],
             Attachments = instance.Data
                 .Select(x => new AttachmentDto
                 {
@@ -132,9 +136,8 @@ internal sealed class StorageDialogportenDataMerger
         };
     }
 
-    private GuiActionDto CreateGoToAction(Instance instance, Guid dialogId)
+    private GuiActionDto CreateGoToAction(Guid dialogId, Instance instance)
     {
-        // TODO: Legg inn engelsk og nynorsk
         if (instance.Status.IsArchived)
         {
             var platformBaseUri = _settings.DialogportenAdapter.Altinn
@@ -146,13 +149,17 @@ internal sealed class StorageDialogportenDataMerger
                 Id = dialogId.CreateDeterministicSubUuidV7("DialogGuiActionGoTo"),
                 Action = "read",
                 Priority = DialogGuiActionPriority.Primary,
-                Title = [new() { LanguageCode = "nb", Value = "Se innsendt skjema" }],
+                Title = [
+                    new() { LanguageCode = "nb", Value = "Se innsendt skjema" },
+                    new() { LanguageCode = "nn", Value = "Sjå innsendt skjema" },
+                    new() { LanguageCode = "en", Value = "See submitted form" }
+                ],
                 Url = $"{platformBaseUri}/receipt/{instance.Id}"
             };
         }
 
         var appBaseUri = _settings.DialogportenAdapter.Altinn
-            .GetAppUriForOrg(instance.Org)
+            .GetAppUriForOrg(instance.Org, instance.AppId)
             .ToString()
             .TrimEnd('/');
         return new GuiActionDto
@@ -161,34 +168,61 @@ internal sealed class StorageDialogportenDataMerger
             Action = "write",
             AuthorizationAttribute = "urn:altinn:task:" + instance.Process.CurrentTask.ElementId,
             Priority = DialogGuiActionPriority.Primary,
-            Title = [new() { LanguageCode = "nb", Value = "Gå til skjemautfylling" }],
-            Url = $"{appBaseUri}/{instance.AppId}/#/instance/{instance.Id}"
+            Title = [
+                new() { LanguageCode = "nb", Value = "Gå til skjemautfylling" },
+                new() { LanguageCode = "nn", Value = "Gå til skjemautfylling" },
+                new() { LanguageCode = "en", Value = "Go to form completion" }
+            ],
+            Url = $"{appBaseUri}/#/instance/{instance.Id}"
         };
     }
 
-    private GuiActionDto CreateDeleteAction(DialogStatus status, Instance instance, Guid dialogId)
+    private GuiActionDto CreateDeleteAction(Guid dialogId, DialogStatus status, Instance instance)
     {
-        // TODO: Legg inn engelsk og nynorsk
         var adapterBaseUri = _settings.DialogportenAdapter.Adapter.BaseUri
             .ToString()
             .TrimEnd('/');
         var hardDelete = instance.Status.IsSoftDeleted || status is DialogStatus.Draft;
-        var (instanceOwner, instanceGuid) = instance.Id.Split('/') switch
-        {
-            [var party, var id] when
-                int.TryParse(party, out var y)
-                && Guid.TryParse(id, out var x) => (y, x),
-            _ => throw new UnreachableException()
-        };
         return new GuiActionDto
         {
             Id = dialogId.CreateDeterministicSubUuidV7("DialogGuiActionDelete"),
             Action = "delete",
             Priority = DialogGuiActionPriority.Secondary,
             IsDeleteDialogAction = true,
-            Title = [new() { LanguageCode = "nb", Value = "Slett skjema" }],
-            Url = $"{adapterBaseUri}/api/v1/instance/{instanceOwner}/{instanceGuid}?hard={hardDelete}",
+            Title = [
+                new() { LanguageCode = "nb", Value = "Slett" },
+                new() { LanguageCode = "nn", Value = "Slett" },
+                new() { LanguageCode = "en", Value = "Delete" }
+            ],
+            Url = $"{adapterBaseUri}/api/v1/instance/{instance.Id}?hard={hardDelete}",
             HttpMethod = HttpVerb.DELETE
+        };
+    }
+
+    private IEnumerable<GuiActionDto> CreateCopyAction(Guid dialogId, Instance instance, Application application)
+    {
+        var copyEnabled = application.CopyInstanceSettings?.Enabled ?? false;
+        if (!instance.Status.IsArchived || !copyEnabled)
+        {
+            yield break;
+        }
+
+        var appBaseUri = _settings.DialogportenAdapter.Altinn
+            .GetAppUriForOrg(instance.Org, instance.AppId)
+            .ToString()
+            .TrimEnd('/');
+        yield return new GuiActionDto
+        {
+            Id = dialogId.CreateDeterministicSubUuidV7("DialogGuiActionCopy"),
+            Action = "write",
+            Priority = DialogGuiActionPriority.Tertiary,
+            Title = [
+                new() { LanguageCode = "nb", Value = "Lag ny kopi" },
+                new() { LanguageCode = "nn", Value = "Lag ny kopi" },
+                new() { LanguageCode = "en", Value = "Create new copy" }
+            ],
+            Url = $"{appBaseUri}/legacy/instances/{instance.Id}/copy",
+            HttpMethod = HttpVerb.GET
         };
     }
 
