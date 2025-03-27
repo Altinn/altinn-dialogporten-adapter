@@ -16,31 +16,31 @@ internal sealed class MockDialogportenApi : IDialogportenApi
         return Task.FromResult<IApiResponse<DialogDto>>(apiResponse);
     }
 
-    public Task<Guid> Create(DialogDto dto, bool disableAltinnEvents = false, bool disableSystemLabelReset = false,
+    public Task<Guid> Create(DialogDto dto, bool isSilentUpdate = false,
         CancellationToken cancellationToken = default)
     {
         return Task.FromResult(Guid.Empty);
     }
 
-    public Task Update(DialogDto dto, Guid revision, bool disableAltinnEvents = false, bool disableSystemLabelReset = false,
+    public Task Update(DialogDto dto, Guid revision, bool isSilentUpdate = false,
         CancellationToken cancellationToken = default)
     {
         return Task.CompletedTask;
     }
 
-    public Task Delete(Guid dialogId, Guid revision, bool disableAltinnEvents = false,
+    public Task Delete(Guid dialogId, Guid revision, bool isSilentUpdate = false,
         CancellationToken cancellationToken = default)
     {
         return Task.CompletedTask;
     }
 
-    public Task Purge(Guid dialogId, Guid revision, bool disableAltinnEvents = false,
+    public Task Purge(Guid dialogId, Guid revision, bool isSilentUpdate = false,
         CancellationToken cancellationToken = default)
     {
         return Task.CompletedTask;
     }
 
-    public Task<IApiResponse> Restore(Guid dialogId, Guid revision, bool disableAltinnEvents = false,
+    public Task<IApiResponse> Restore(Guid dialogId, Guid revision, bool isSilentUpdate = false,
         CancellationToken cancellationToken = default)
     {
         throw new NotImplementedException();

@@ -81,7 +81,7 @@ internal sealed class SyncInstanceToDialogService
             await _dialogportenApi.Purge(
                 dialogId,
                 existingDialog.Revision!.Value,
-                disableAltinnEvents: dto.IsMigration,
+                isSilentUpdate: dto.IsMigration,
                 cancellationToken: cancellationToken);
             return;
         }
@@ -91,7 +91,7 @@ internal sealed class SyncInstanceToDialogService
             await _dialogportenApi.Delete(
                 dialogId,
                 existingDialog.Revision!.Value,
-                disableAltinnEvents: dto.IsMigration,
+                isSilentUpdate: dto.IsMigration,
                 cancellationToken: cancellationToken);
             return;
         }
@@ -176,8 +176,8 @@ internal sealed class SyncInstanceToDialogService
     private Task UpsertDialog(DialogDto dialog, bool isMigration, CancellationToken cancellationToken)
     {
         return !dialog.Revision.HasValue
-            ? _dialogportenApi.Create(dialog, disableAltinnEvents: isMigration, disableSystemLabelReset: isMigration, cancellationToken: cancellationToken)
-            : _dialogportenApi.Update(dialog, dialog.Revision!.Value, disableAltinnEvents: isMigration, disableSystemLabelReset: isMigration, cancellationToken: cancellationToken);
+            ? _dialogportenApi.Create(dialog, isSilentUpdate: isMigration, cancellationToken: cancellationToken)
+            : _dialogportenApi.Update(dialog, dialog.Revision!.Value, isSilentUpdate: isMigration, cancellationToken: cancellationToken);
     }
 
     private async Task<Guid> RestoreDialog(Guid dialogId,
