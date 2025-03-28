@@ -214,7 +214,7 @@ internal sealed class StorageDialogportenDataMerger
         yield return new GuiActionDto
         {
             Id = dialogId.CreateDeterministicSubUuidV7("DialogGuiActionCopy"),
-            Action = "read",
+            Action = "instantiate",
             Priority = DialogGuiActionPriority.Tertiary,
             Title = [
                 new() { LanguageCode = "nb", Value = "Lag ny kopi" },
