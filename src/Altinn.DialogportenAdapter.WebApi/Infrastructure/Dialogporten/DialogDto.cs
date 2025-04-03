@@ -8,6 +8,8 @@ public class DialogDto
     /// <example>01913cd5-784f-7d3b-abef-4c77b1f0972d</example>
     public Guid? Id { get; set; }
 
+    public bool IsApiOnly { get; set; }
+
     /// <summary>
     /// The unique identifier for the revision in UUIDv4 format.
     /// </summary>

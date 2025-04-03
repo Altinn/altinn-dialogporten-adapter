@@ -29,17 +29,15 @@ internal sealed class StorageDialogportenDataMerger
             return storageDialog;
         }
 
-        existing.SystemLabel = storageDialog.SystemLabel;
         existing.VisibleFrom = storageDialog.VisibleFrom;
         existing.DueAt = storageDialog.DueAt;
         existing.ExternalReference = storageDialog.ExternalReference;
         existing.Status = storageDialog.Status;
-        existing.Content.Title = storageDialog.Content.Title;
-        existing.Content.Summary = storageDialog.Content.Summary;
         existing.Transmissions.Clear();
         existing.Activities = storageDialog.Activities
             .ExceptBy(existing.Activities.Select(x => x.Id), x => x.Id)
             .ToList();
+        // TODO: Attachements blir det duplikater av - hvorfor?
         existing.Attachments =
         [
             ..existing.Attachments.ExceptBy(storageDialog.Attachments.Select(x => x.Id), x => x.Id),
@@ -64,7 +62,6 @@ internal sealed class StorageDialogportenDataMerger
             _ => DialogStatus.Draft // TODO: Hva med gammel ræl drafts?
         };
 
-        // TODO: Enduser sin soft delete burde være systemlabel.bin, men er serviceowner soft delete??
         var systemLabel = instance.Status switch
         {
             { IsArchived: true } when isMigration => SystemLabel.Archive,
@@ -72,19 +69,17 @@ internal sealed class StorageDialogportenDataMerger
         };
 
         // TODO: Ta stilling til applicaiton.hideSettings https://docs.altinn.studio/altinn-studio/reference/configuration/messagebox/hide_instances/
-        // TODO: Ta stilling til create copy (GuiAction for kopier? kun når instansen er arkivert) Spør Storage https://docs.altinn.studio/altinn-studio/reference/configuration/messagebox/create_copy/
         // TODO: Hva med om Attachments er for lang?
         // TODO: Hva med om Activities er for lang?
-        // TODO: Er dato fra storage utc?
-        var copyActionEnabled = (application.CopyInstanceSettings?.Enabled ?? false) && instance.Status.IsArchived;
-
         return new DialogDto
         {
             Id = dialogId,
+            IsApiOnly = application.ShouldBeHidden(instance),
             Party = await ToParty(instance.InstanceOwner),
             ServiceResource = ToServiceResource(instance.AppId),
             SystemLabel = systemLabel,
             CreatedAt = instance.Created,
+            UpdatedAt = instance.LastChanged,
             VisibleFrom = instance.VisibleAfter > DateTimeOffset.UtcNow ? instance.VisibleAfter : null,
             DueAt = instance.DueBefore > DateTimeOffset.UtcNow ? instance.DueBefore : null,
             ExternalReference = $"urn:altinn:integration:storage:{instance.Id}",
