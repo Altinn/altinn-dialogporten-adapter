@@ -144,13 +144,16 @@ static void BuildAndRun(string[] args)
         .UseAuthentication()
         .UseAuthorization();
 
+    var baseRoute = app.MapGroup("storage/dialogporten");
+    var v1Route = baseRoute.MapGroup("api/v1");
+
     app.MapHealthChecks("/health")
         .AllowAnonymous();
 
     app.MapOpenApi()
         .AllowAnonymous();
 
-    app.MapPost("/api/v1/syncDialog", async (
+    v1Route.MapPost("syncDialog", async (
         [FromBody] SyncInstanceToDialogDto request,
         [FromServices] SyncInstanceToDialogService syncService,
         CancellationToken cancellationToken) =>
@@ -160,7 +163,30 @@ static void BuildAndRun(string[] args)
     })
     .RequireAuthorization();
 
-    app.MapDelete("/api/v1/instance/{instanceOwner:int}/{instanceGuid:guid}", async (
+    v1Route.MapPost("syncDialog/simple/{partyId:int}/{instanceGuid:guid}", async (
+            [FromRoute] int partyId,
+            [FromRoute] Guid instanceGuid,
+            [FromQuery] bool? isMigration,
+            [FromServices] SyncInstanceToDialogService syncService,
+            [FromServices] IStorageApi storageApi,
+            CancellationToken cancellationToken) =>
+        {
+            var instance = await storageApi
+                .GetInstance(partyId, instanceGuid, cancellationToken)
+                .ContentOrDefault();
+            if (instance is null)
+            {
+                return Results.NotFound();
+            }
+
+            var request = new SyncInstanceToDialogDto(instance.AppId, partyId, instanceGuid, instance.Created!.Value, isMigration ?? false);
+            await syncService.Sync(request, cancellationToken);
+            return Results.NoContent();
+        })
+        .RequireAuthorization()
+        .ExcludeFromDescription();
+
+    v1Route.MapDelete("instance/{instanceOwner:int}/{instanceGuid:guid}", async (
             [FromRoute] int instanceOwner,
             [FromRoute] Guid instanceGuid,
             [FromQuery] bool hard,

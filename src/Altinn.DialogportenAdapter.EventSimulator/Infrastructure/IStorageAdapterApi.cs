@@ -4,13 +4,13 @@ namespace Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
 
 public interface IStorageAdapterApi
 {
-    [Post("/api/v1/syncDialog")]
+    [Post("/storage/dialogporten/api/v1/syncDialog")]
     Task<IApiResponse> Sync([Body] InstanceEvent syncDialogDto, CancellationToken cancellationToken);
 }
 
 public record InstanceEvent(
     string AppId,
-    int PartyId, 
+    int PartyId,
     Guid InstanceId,
     DateTimeOffset InstanceCreatedAt,
     bool IsMigration = true);
