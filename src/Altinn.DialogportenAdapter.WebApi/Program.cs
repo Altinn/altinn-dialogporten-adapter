@@ -190,12 +190,11 @@ static void BuildAndRun(string[] args)
     v1Route.MapDelete("instance/{instanceOwner:int}/{instanceGuid:guid}", async (
             [FromRoute] int instanceOwner,
             [FromRoute] Guid instanceGuid,
-            [FromQuery] bool hard,
             [FromHeader(Name = "Authorization")] string authorization,
             [FromServices] InstanceService instanceService,
             CancellationToken cancellationToken) =>
         {
-            var request = new DeleteInstanceDto(instanceOwner, instanceGuid, hard, authorization);
+            var request = new DeleteInstanceDto(instanceOwner, instanceGuid, authorization);
             return await instanceService.Delete(request, cancellationToken) switch
             {
                 DeleteInstanceResult.Success => Results.NoContent(),

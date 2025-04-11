@@ -75,6 +75,7 @@ internal sealed class StorageDialogportenDataMerger
         return new DialogDto
         {
             Id = dialogId,
+            // TODO: Sett korrekt bool
             IsApiOnly = application.ShouldBeHidden(instance),
             Party = await ToParty(instance.InstanceOwner),
             ServiceResource = ToServiceResource(instance.AppId),
@@ -110,7 +111,7 @@ internal sealed class StorageDialogportenDataMerger
             GuiActions =
             [
                 CreateGoToAction(dialogId, instance),
-                CreateDeleteAction(dialogId, status, instance),
+                CreateDeleteAction(dialogId, instance),
                 ..CreateCopyAction(dialogId, instance, application)
             ],
             Attachments = instance.Data
@@ -173,12 +174,11 @@ internal sealed class StorageDialogportenDataMerger
         };
     }
 
-    private GuiActionDto CreateDeleteAction(Guid dialogId, DialogStatus status, Instance instance)
+    private GuiActionDto CreateDeleteAction(Guid dialogId, Instance instance)
     {
         var adapterBaseUri = _settings.DialogportenAdapter.Adapter.BaseUri
             .ToString()
             .TrimEnd('/');
-        var hardDelete = instance.Status.IsSoftDeleted || status is DialogStatus.Draft;
         return new GuiActionDto
         {
             Id = dialogId.CreateDeterministicSubUuidV7("DialogGuiActionDelete"),
@@ -190,7 +190,7 @@ internal sealed class StorageDialogportenDataMerger
                 new() { LanguageCode = "nn", Value = "Slett" },
                 new() { LanguageCode = "en", Value = "Delete" }
             ],
-            Url = $"{adapterBaseUri}/api/v1/instance/{instance.Id}?hard={hardDelete}",
+            Url = $"{adapterBaseUri}/api/v1/instance/{instance.Id}",
             HttpMethod = HttpVerb.DELETE
         };
     }

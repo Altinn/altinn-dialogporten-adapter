@@ -4,7 +4,7 @@ using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 
 namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Delete;
 
-internal sealed record DeleteInstanceDto(int PartyId, Guid InstanceGuid, bool Hard, string DialogToken);
+internal sealed record DeleteInstanceDto(int PartyId, Guid InstanceGuid, string DialogToken);
 
 internal enum DeleteInstanceResult
 {
@@ -40,16 +40,17 @@ internal sealed class InstanceService
         {
             return DeleteInstanceResult.Unauthorized;
         }
-        
-        await _storageApi.DeleteInstance(request.PartyId, request.InstanceGuid, request.Hard, cancellationToken);
+
+        // TODO: Skal vi utlede hard delete i noen tilfeller? Basert på status = draft?
+        await _storageApi.DeleteInstance(request.PartyId, request.InstanceGuid, hard: false, cancellationToken);
         return DeleteInstanceResult.Success;
     }
-    
+
     private bool ValidateDialogToken(ReadOnlySpan<char> token, Guid dialogId)
     {
         const string bearerPrefix = "Bearer ";
-        token = token.StartsWith(bearerPrefix, StringComparison.OrdinalIgnoreCase) 
-            ? token[bearerPrefix.Length..] 
+        token = token.StartsWith(bearerPrefix, StringComparison.OrdinalIgnoreCase)
+            ? token[bearerPrefix.Length..]
             : token;
         var result = _dialogTokenValidator.Validate(token, dialogId, ["delete"]);
         return result.IsValid;
