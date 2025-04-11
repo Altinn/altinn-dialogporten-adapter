@@ -114,6 +114,7 @@ static void BuildAndRun(string[] args)
         .AddTransient<StorageDialogportenDataMerger>()
         .AddTransient<ActivityDtoTransformer>()
         .AddTransient<FourHundredLoggingDelegatingHandler>()
+        .AddTransient<InstanceService>()
 
         // Http clients
         .AddRefitClient<IStorageApi>()
