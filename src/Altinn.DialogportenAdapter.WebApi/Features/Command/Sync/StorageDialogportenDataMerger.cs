@@ -50,12 +50,15 @@ internal sealed class StorageDialogportenDataMerger
 
     private async Task<DialogDto> ToDialogDto(Guid dialogId, Instance instance, Application application, InstanceEventList events, bool isMigration)
     {
-        // TODO: Feedback => Sendt (alt før er draft, alt etter er InProgress) må hente fra process history
         var status = instance.Process?.CurrentTask?.AltinnTaskType?.ToLower() switch
         {
-            _ when instance.Status.IsArchived => DialogStatus.Completed,
+            // Hvis vi har CompleteConfirmations etter arkivering kan vi regne denne som "ferdig", før det er den bare sent
+            _ when instance.Status.IsArchived => instance.CompleteConfirmations.Count != 0 ? DialogStatus.Completed : DialogStatus.Sent,
             "reject" => DialogStatus.RequiresAttention,
             "feedback" => DialogStatus.Sent,
+            "confirmation" => DialogStatus.InProgress,
+            "signing" => DialogStatus.InProgress,
+            // Hvis vi tidligere har hatt en "feedback" og er nå på en annen task, er vi "InProgress"
             _ when events.InstanceEvents.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x
                 .ProcessInfo?
                 .CurrentTask?
