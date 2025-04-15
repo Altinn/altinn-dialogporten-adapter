@@ -13,6 +13,7 @@ using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.IdentityModel.Tokens;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -102,6 +103,14 @@ static void BuildAndRun(string[] args)
                 .RequireScope("altinn:storage/instances.syncadapter")
                 .Build();
         })
+        .AddHybridCache(options =>
+        {
+            options.DefaultEntryOptions = new HybridCacheEntryOptions
+            {
+                Expiration = TimeSpan.FromMinutes(10),
+                LocalCacheExpiration = TimeSpan.FromMinutes(10)
+            };
+        }).Services
         .AddOpenApi()
         .AddSingleton(settings)
         .AddDialogportenClient(x =>
@@ -117,7 +126,7 @@ static void BuildAndRun(string[] args)
         .AddTransient<InstanceService>()
 
         // Http clients
-        .AddRefitClient<IStorageApi>()
+        .AddRefitClient<IInstancesApi>()
             .ConfigureHttpClient(x =>
             {
                 x.BaseAddress = settings.DialogportenAdapter.Altinn.ApiStorageEndpoint;
@@ -126,6 +135,15 @@ static void BuildAndRun(string[] args)
             .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
             .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>()
             .Services
+        .AddRefitClient<IApplicationsApi>()
+        .ConfigureHttpClient(x =>
+        {
+            x.BaseAddress = settings.DialogportenAdapter.Altinn.ApiStorageEndpoint;
+            x.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", settings.DialogportenAdapter.Altinn.SubscriptionKey);
+        })
+        .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
+        .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>()
+        .Services
         .AddRefitClient<IDialogportenApi>()
             .ConfigureHttpClient(x => x.BaseAddress = settings.DialogportenAdapter.Dialogporten.BaseUri)
             .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
@@ -169,7 +187,7 @@ static void BuildAndRun(string[] args)
             [FromRoute] Guid instanceGuid,
             [FromQuery] bool? isMigration,
             [FromServices] SyncInstanceToDialogService syncService,
-            [FromServices] IStorageApi storageApi,
+            [FromServices] IInstancesApi storageApi,
             CancellationToken cancellationToken) =>
         {
             var instance = await storageApi
