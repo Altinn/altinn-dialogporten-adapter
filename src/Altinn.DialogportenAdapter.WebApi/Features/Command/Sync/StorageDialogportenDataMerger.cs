@@ -50,17 +50,18 @@ internal sealed class StorageDialogportenDataMerger
 
     private async Task<DialogDto> ToDialogDto(Guid dialogId, Instance instance, Application application, InstanceEventList events, bool isMigration)
     {
-        // TODO: Feedback => Sendt (alt før er draft, alt etter er InProgress) må hente fra process history
-        var status = instance.Process?.CurrentTask?.AltinnTaskType?.ToLower() switch
+        var instanceDerivedStatus = GetInstanceDerivedStatus(instance, events);
+        var status = instanceDerivedStatus switch
         {
-            _ when instance.Status.IsArchived => DialogStatus.Completed,
-            "reject" => DialogStatus.RequiresAttention,
-            "feedback" => DialogStatus.Sent,
-            _ when events.InstanceEvents.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x
-                .ProcessInfo?
-                .CurrentTask?
-                .AltinnTaskType, "Feedback")) => DialogStatus.InProgress,
-            _ => DialogStatus.Draft // TODO: Hva med gammel ræl drafts?
+            InstanceDerivedStatus.ArchivedUnconfirmed => DialogStatus.Sent,
+            InstanceDerivedStatus.ArchivedConfirmed => DialogStatus.Completed,
+            InstanceDerivedStatus.Rejected => DialogStatus.RequiresAttention,
+            InstanceDerivedStatus.AwaitingServiceOwnerFeedback => DialogStatus.Sent,
+            InstanceDerivedStatus.AwaitingConfirmation => DialogStatus.InProgress,
+            InstanceDerivedStatus.AwaitingSignature => DialogStatus.InProgress,
+            InstanceDerivedStatus.AwaitingAdditionalUserInput => DialogStatus.InProgress,
+            InstanceDerivedStatus.AwaitingInitialUserInput => DialogStatus.Draft,
+            _ => DialogStatus.InProgress
         };
 
         var systemLabel = instance.Status switch
@@ -104,8 +105,7 @@ internal sealed class StorageDialogportenDataMerger
                 Summary = new ContentValueDto
                 {
                     MediaType = MediaTypes.PlainText,
-                    // TODO: Dette er en midlertidig løsning for å få med all nødvendig informasjon.
-                    Value = [new() { LanguageCode = "nb", Value = "Konvertert med DialogportenAdapter..." }]
+                    Value = await GetSummary(instance, application, instanceDerivedStatus)
                 }
             },
             GuiActions =
@@ -131,6 +131,93 @@ internal sealed class StorageDialogportenDataMerger
                 .ToList(),
             Activities = _activityDtoTransformer.GetActivities(events)
         };
+    }
+
+    private static InstanceDerivedStatus GetInstanceDerivedStatus(Instance instance, InstanceEventList events) =>
+        instance.Process?.CurrentTask?.AltinnTaskType?.ToLower() switch
+        {
+            // Hvis vi har CompleteConfirmations etter arkivering kan vi regne denne som "ferdig", før det er den bare sent
+            _ when instance.Status.IsArchived => instance.CompleteConfirmations.Count != 0
+                ? InstanceDerivedStatus.ArchivedConfirmed : InstanceDerivedStatus.ArchivedUnconfirmed,
+            "reject" => InstanceDerivedStatus.Rejected,
+            "feedback" => InstanceDerivedStatus.AwaitingServiceOwnerFeedback,
+            "confirmation" => InstanceDerivedStatus.AwaitingConfirmation,
+            "signing" => InstanceDerivedStatus.AwaitingSignature,
+            // Hvis vi tidligere har hatt en "feedback" og er nå på en annen task, er vi "InProgress"
+            _ when events.InstanceEvents.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x
+                .ProcessInfo?
+                .CurrentTask?
+                .AltinnTaskType, "Feedback")) => InstanceDerivedStatus.AwaitingAdditionalUserInput,
+            _ => InstanceDerivedStatus.AwaitingInitialUserInput
+        };
+
+    /// <summary>
+    /// This method attempts to create a summary for the instance. This will employ the following heuristics:
+    /// 1. Check if there is a service owner supplied summary text for the active task for this app
+    /// 2. Check if there is a service owner supplied summary text for the app on the given instance status
+    /// 3. Check if there is a service owner supplied summary text for the app
+    /// 4. Derive a summary from the instance status alone
+    /// </summary>
+    /// <param name="instance"></param>
+    /// <param name="application"></param>
+    /// <param name="instanceDerivedStatus"></param>
+    /// <returns></returns>
+    /// <exception cref="NotImplementedException"></exception>
+    private async Task<List<LocalizationDto>> GetSummary(Instance instance, Application application, InstanceDerivedStatus instanceDerivedStatus)
+    {
+        // TODO! Check application texts! See https://github.com/Altinn/dialogporten/issues/2081
+
+        // Step 4: derive a summary from the derived instance status alone
+        List<LocalizationDto> summary = instanceDerivedStatus switch
+        {
+            InstanceDerivedStatus.ArchivedUnconfirmed => [
+                new() { LanguageCode = "nb", Value = "Innsendingen er maskinelt kontrollert og formidlet, venter på endelig bekreftelse. Du kan åpne dialogen for å se en foreløpig kvittering." },
+                new() { LanguageCode = "nn", Value = "Innsendinga er maskinelt kontrollert og formidla, ventar på endeleg stadfesting. Du kan opne dialogen for å sjå ei førebels kvittering." },
+                new() { LanguageCode = "en", Value = "The submission has been automatically checked and forwarded, awaiting final confirmation. You can open the dialog to see a preliminary receipt." }
+            ],
+            InstanceDerivedStatus.ArchivedConfirmed => [
+                new() { LanguageCode = "nb", Value = "Innsendingen er bekreftet mottatt. Du kan åpne dialogen for å se din kvittering." },
+                new() { LanguageCode = "nn", Value = "Innsendinga er stadfesta motteken. Du kan opne dialogen for å sjå di kvittering." },
+                new() { LanguageCode = "en", Value = "The submission has been confirmed as received. You can open the dialog to see your receipt." }
+            ],
+            InstanceDerivedStatus.Rejected => [
+                new() { LanguageCode = "nb", Value = "Innsendingen ble avvist. Åpne dialogen for mer informasjon." },
+                new() { LanguageCode = "nn", Value = "Innsendinga vart avvist. Opne dialogen for meir informasjon." },
+                new() { LanguageCode = "en", Value = "The submission was rejected. Open the dialog for more information." }
+            ],
+            InstanceDerivedStatus.AwaitingServiceOwnerFeedback => [
+                new() { LanguageCode = "nb", Value = "Innsendingen er maskinelt kontrollert og formidlet, venter på tilbakemelding." },
+                new() { LanguageCode = "nn", Value = "Innsendinga er maskinelt kontrollert og formidla, ventar på tilbakemelding." },
+                new() { LanguageCode = "en", Value = "The submission has been automatically checked and forwarded, awaiting feedback." }
+            ],
+            InstanceDerivedStatus.AwaitingConfirmation => [
+                new() { LanguageCode = "nb", Value = "Innsendingen må bekreftes for å gå til neste steg." },
+                new() { LanguageCode = "nn", Value = "Innsendinga må stadfestast for å gå til neste steg." },
+                new() { LanguageCode = "en", Value = "The submission must be confirmed to proceed to the next step." }
+            ],
+            InstanceDerivedStatus.AwaitingSignature => [
+                new() { LanguageCode = "nb", Value = "Innsendingen må signeres for å gå til neste steg." },
+                new() { LanguageCode = "nn", Value = "Innsendinga må signerast for å gå til neste steg." },
+                new() { LanguageCode = "en", Value = "The submission must be signed to proceed to the next step." }
+            ],
+            InstanceDerivedStatus.AwaitingAdditionalUserInput => [
+                new() { LanguageCode = "nb", Value = "Innsendingen er under arbeid og trenger flere opplysninger for å gå til neste steg." },
+                new() { LanguageCode = "nn", Value = "Innsendinga er under arbeid og treng fleire opplysningar for å gå til neste steg." },
+                new() { LanguageCode = "en", Value = "The submission is in progress and requires more information to proceed to the next step." }
+            ],
+            InstanceDerivedStatus.AwaitingInitialUserInput => [
+                new() { LanguageCode = "nb", Value = "Innsendingen er klar for å fylles ut." },
+                new() { LanguageCode = "nn", Value = "Innsendinga er klar til å fyllast ut." },
+                new() { LanguageCode = "en", Value = "The submission is ready to be filled out." }
+            ],
+            _ => [ // Default case
+                new() { LanguageCode = "nb", Value = "Innsendingen er klar for å fylles ut." },
+                new() { LanguageCode = "nn", Value = "Innsendinga er klar til å fyllast ut." },
+                new() { LanguageCode = "en", Value = "The submission is ready to be filled out." }
+            ]
+        };
+
+        return await Task.FromResult(summary);
     }
 
     private GuiActionDto CreateGoToAction(Guid dialogId, Instance instance)
@@ -349,4 +436,16 @@ internal sealed class StorageDialogportenDataMerger
 
         return result;
     }
+}
+
+internal enum InstanceDerivedStatus
+{
+    ArchivedUnconfirmed = 1,
+    ArchivedConfirmed = 2,
+    Rejected = 3,
+    AwaitingServiceOwnerFeedback = 4,
+    AwaitingConfirmation = 5,
+    AwaitingSignature = 6,
+    AwaitingAdditionalUserInput = 7,
+    AwaitingInitialUserInput = 8
 }
