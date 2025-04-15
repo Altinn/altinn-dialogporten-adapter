@@ -1,6 +1,7 @@
 using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
+using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Altinn.Platform.Storage.Interface.Models;
 
 namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
@@ -19,11 +20,12 @@ internal sealed class StorageDialogportenDataMerger
     public async Task<DialogDto> Merge(Guid dialogId,
         DialogDto? existing,
         Application application,
+        ApplicationTexts applicationTexts,
         Instance instance,
         InstanceEventList events,
         bool isMigration)
     {
-        var storageDialog = await ToDialogDto(dialogId, instance, application, events, isMigration);
+        var storageDialog = await ToDialogDto(dialogId, instance, application, applicationTexts, events, isMigration);
         if (existing is null)
         {
             return storageDialog;
@@ -48,7 +50,7 @@ internal sealed class StorageDialogportenDataMerger
         return existing;
     }
 
-    private async Task<DialogDto> ToDialogDto(Guid dialogId, Instance instance, Application application, InstanceEventList events, bool isMigration)
+    private async Task<DialogDto> ToDialogDto(Guid dialogId, Instance instance, Application application, ApplicationTexts applicationTexts, InstanceEventList events, bool isMigration)
     {
         var instanceDerivedStatus = GetInstanceDerivedStatus(instance, events);
         var status = instanceDerivedStatus switch
@@ -93,19 +95,12 @@ internal sealed class StorageDialogportenDataMerger
                 Title = new ContentValueDto
                 {
                     MediaType = MediaTypes.PlainText,
-                    Value = application.Title
-                        .Where(x => !string.IsNullOrWhiteSpace(x.Value))
-                        .Select(x => new LocalizationDto
-                        {
-                            LanguageCode = x.Key,
-                            Value = ToTitle(x.Value, instance.PresentationTexts?.Values)
-                        })
-                        .ToList()
+                    Value = GetTitle(instance, application, applicationTexts, instanceDerivedStatus)
                 },
                 Summary = new ContentValueDto
                 {
                     MediaType = MediaTypes.PlainText,
-                    Value = await GetSummary(instance, application, instanceDerivedStatus)
+                    Value = GetSummary(instance, applicationTexts, instanceDerivedStatus)
                 }
             },
             GuiActions =
@@ -151,24 +146,34 @@ internal sealed class StorageDialogportenDataMerger
             _ => InstanceDerivedStatus.AwaitingInitialUserInput
         };
 
-    /// <summary>
-    /// This method attempts to create a summary for the instance. This will employ the following heuristics:
-    /// 1. Check if there is a service owner supplied summary text for the active task for this app
-    /// 2. Check if there is a service owner supplied summary text for the app on the given instance status
-    /// 3. Check if there is a service owner supplied summary text for the app
-    /// 4. Derive a summary from the instance status alone
-    /// </summary>
-    /// <param name="instance"></param>
-    /// <param name="application"></param>
-    /// <param name="instanceDerivedStatus"></param>
-    /// <returns></returns>
-    /// <exception cref="NotImplementedException"></exception>
-    private async Task<List<LocalizationDto>> GetSummary(Instance instance, Application application, InstanceDerivedStatus instanceDerivedStatus)
+    private List<LocalizationDto> GetTitle(Instance instance, Application application, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
     {
-        // TODO! Check application texts! See https://github.com/Altinn/dialogporten/issues/2081
+        var title = GetLocalizationsFromApplicationTexts(nameof(DialogDto.Content.Title), instance, applicationTexts, instanceDerivedStatus);
+        return title.Count > 0 ? title :
+            GetTitleFallback(instance, application);
+    }
 
-        // Step 4: derive a summary from the derived instance status alone
-        List<LocalizationDto> summary = instanceDerivedStatus switch
+    private static List<LocalizationDto> GetTitleFallback(Instance instance, Application application)
+    {
+        return application.Title
+            .Where(x => !string.IsNullOrWhiteSpace(x.Value))
+            .Select(x => new LocalizationDto
+            {
+                LanguageCode = x.Key,
+                Value = ToTitle(x.Value, instance.PresentationTexts?.Values)
+            })
+            .ToList();
+    }
+
+    private List<LocalizationDto> GetSummary(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
+    {
+        var summary = GetLocalizationsFromApplicationTexts(nameof(DialogDto.Content.Summary), instance, applicationTexts, instanceDerivedStatus);
+        return summary.Count > 0 ? summary :
+            GetSummaryFallback(instanceDerivedStatus);
+    }
+
+    private static List<LocalizationDto> GetSummaryFallback(InstanceDerivedStatus instanceDerivedStatus) =>
+        instanceDerivedStatus switch
         {
             InstanceDerivedStatus.ArchivedUnconfirmed => [
                 new() { LanguageCode = "nb", Value = "Innsendingen er maskinelt kontrollert og formidlet, venter på endelig bekreftelse. Du kan åpne dialogen for å se en foreløpig kvittering." },
@@ -210,14 +215,71 @@ internal sealed class StorageDialogportenDataMerger
                 new() { LanguageCode = "nn", Value = "Innsendinga er klar til å fyllast ut." },
                 new() { LanguageCode = "en", Value = "The submission is ready to be filled out." }
             ],
-            _ => [ // Default case
+            _ => [
                 new() { LanguageCode = "nb", Value = "Innsendingen er klar for å fylles ut." },
                 new() { LanguageCode = "nn", Value = "Innsendinga er klar til å fyllast ut." },
                 new() { LanguageCode = "en", Value = "The submission is ready to be filled out." }
             ]
         };
 
-        return await Task.FromResult(summary);
+    /// <summary>
+    /// This will attempt to find a particular key from the application texts for this app. The order of keys are as follows:
+    /// 1. Active task for derived status
+    /// 2. Active task
+    /// 3. Any task for derived status
+    /// 4. Any task and any derived status
+    /// The keys have the following format (all lowercase): dp.＜content_type>[.＜task＞[.＜derived_status＞]]
+    /// </summary>
+    /// <example>
+    /// dp.title
+    /// dp.summary
+    /// dp.summary.Task_1
+    /// dp.summary.Task_1.archivedunconfirmed
+    /// dp.summary._any_.feedback
+    /// </example>
+    /// <param name="contentType">The requested content type. Should be Title, Summary or AdditionalInfo</param>
+    /// <param name="instance">The app instance</param>
+    /// <param name="applicationTexts">The application texts for all languages</param>
+    /// <param name="instanceDerivedStatus">The instance derived status</param>
+    /// <returns>A list of localizations (empty if not defined)</returns>
+    private List<LocalizationDto> GetLocalizationsFromApplicationTexts(
+        string contentType,
+        Instance instance,
+        ApplicationTexts applicationTexts,
+        InstanceDerivedStatus instanceDerivedStatus)
+    {
+        var keysToCheck = new List<string>(4);
+        var prefix = $"dp.{contentType.ToLower()}";
+        var instanceTask = instance.Process?.CurrentTask?.AltinnTaskType?.ToLower();
+        var instanceDerivedStatusString = instanceDerivedStatus.ToString().ToLower();
+        if (instanceTask is null)
+        {
+            keysToCheck.Add($"{prefix}.{instanceTask}.{instanceDerivedStatusString}");
+            keysToCheck.Add($"{prefix}.{instanceTask}");
+        }
+        keysToCheck.Add($"{prefix}.{instanceDerivedStatusString}");
+        keysToCheck.Add(prefix);
+
+        var localizations = new List<LocalizationDto>();
+        foreach (var translation in applicationTexts.Translations)
+        {
+            foreach (var key in keysToCheck)
+            {
+                if (!translation.Texts.TryGetValue(key, out var textResource))
+                {
+                    continue;
+                }
+
+                localizations.Add(new LocalizationDto
+                {
+                    LanguageCode = translation.Language,
+                    Value = textResource // TODO! Check for placeholders for presentation texts
+                });
+                break;
+            }
+        }
+
+        return localizations;
     }
 
     private GuiActionDto CreateGoToAction(Guid dialogId, Instance instance)

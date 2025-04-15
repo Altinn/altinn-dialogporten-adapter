@@ -3,11 +3,8 @@ using Refit;
 
 namespace Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 
-internal interface IStorageApi
+internal interface IInstancesApi
 {
-    [Get("/storage/api/v1/applications/{**appId}")]
-    Task<IApiResponse<Application>> GetApplication(string appId, CancellationToken cancellationToken = default);
-
     [Get("/storage/api/v1/instances/{partyId}/{instanceId}")]
     Task<IApiResponse<Instance>> GetInstance(int partyId, Guid instanceId, CancellationToken cancellationToken = default);
 

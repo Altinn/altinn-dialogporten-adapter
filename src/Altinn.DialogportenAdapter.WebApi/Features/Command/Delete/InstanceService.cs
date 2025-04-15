@@ -15,18 +15,18 @@ internal enum DeleteInstanceResult
 
 internal sealed class InstanceService
 {
-    private readonly IStorageApi _storageApi;
+    private readonly IInstancesApi _instancesApi;
     private readonly IDialogTokenValidator _dialogTokenValidator;
 
-    public InstanceService(IStorageApi storageApi, IDialogTokenValidator dialogTokenValidator)
+    public InstanceService(IInstancesApi instancesApi, IDialogTokenValidator dialogTokenValidator)
     {
-        _storageApi = storageApi ?? throw new ArgumentNullException(nameof(storageApi));
+        _instancesApi = instancesApi ?? throw new ArgumentNullException(nameof(instancesApi));
         _dialogTokenValidator = dialogTokenValidator ?? throw new ArgumentNullException(nameof(dialogTokenValidator));
     }
 
     public async Task<DeleteInstanceResult> Delete(DeleteInstanceDto request, CancellationToken cancellationToken)
     {
-        var instance = await _storageApi
+        var instance = await _instancesApi
             .GetInstance(request.PartyId, request.InstanceGuid, cancellationToken)
             .ContentOrDefault();
 
@@ -42,7 +42,7 @@ internal sealed class InstanceService
         }
 
         // TODO: Skal vi utlede hard delete i noen tilfeller? Basert på status = draft?
-        await _storageApi.DeleteInstance(request.PartyId, request.InstanceGuid, hard: false, cancellationToken);
+        await _instancesApi.DeleteInstance(request.PartyId, request.InstanceGuid, hard: false, cancellationToken);
         return DeleteInstanceResult.Success;
     }
 
