@@ -76,7 +76,7 @@ internal sealed class SyncInstanceToDialogService
             return;
         }
 
-        if (ShouldPurgeDialog(instance, existingDialog))
+        if (!SyncAdapterSettings.Instance.DisableDelete && ShouldPurgeDialog(instance, existingDialog))
         {
             await _dialogportenApi.Purge(
                 dialogId,
@@ -86,7 +86,7 @@ internal sealed class SyncInstanceToDialogService
             return;
         }
 
-        if (ShouldSoftDeleteDialog(instance, existingDialog))
+        if (!SyncAdapterSettings.Instance.DisableDelete && ShouldSoftDeleteDialog(instance, existingDialog))
         {
             await _dialogportenApi.Delete(
                 dialogId,
@@ -106,6 +106,11 @@ internal sealed class SyncInstanceToDialogService
         }
 
         EnsureNotNull(application, instance, events);
+
+        if (SyncAdapterSettings.Instance.DisableSync)
+        {
+            return;
+        }
 
         // Create or update the dialog with the fetched data
         var updatedDialog = await _dataMerger.Merge(dialogId, existingDialog, application, instance, events, dto.IsMigration);

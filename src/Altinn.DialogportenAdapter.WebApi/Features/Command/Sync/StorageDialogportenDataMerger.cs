@@ -29,22 +29,69 @@ internal sealed class StorageDialogportenDataMerger
             return storageDialog;
         }
 
-        existing.VisibleFrom = storageDialog.VisibleFrom;
-        existing.DueAt = storageDialog.DueAt;
+        if (!SyncAdapterSettings.Instance.DisableSyncVisibleFrom)
+        {
+            existing.VisibleFrom = storageDialog.VisibleFrom;
+        }
+
+        if (!SyncAdapterSettings.Instance.DisableSyncDueAt)
+        {
+            existing.DueAt = storageDialog.DueAt;
+        }
+
         existing.ExternalReference = storageDialog.ExternalReference;
-        existing.Status = storageDialog.Status;
+
+        if (!SyncAdapterSettings.Instance.DisableSyncStatus)
+        {
+            existing.Status = storageDialog.Status;
+        }
+
         existing.IsApiOnly = storageDialog.IsApiOnly;
+
+        // Transmissions?
+        // if (!SyncAdapterSettings.Instance.DisableAddTransmissions)
+        // {
+        //     ...
+        // }
         existing.Transmissions.Clear();
-        existing.Activities = storageDialog.Activities
-            .ExceptBy(existing.Activities.Select(x => x.Id), x => x.Id)
-            .ToList();
+
+        if (!SyncAdapterSettings.Instance.DisableAddActivities)
+        {
+            existing.Activities = storageDialog.Activities
+                .ExceptBy(existing.Activities.Select(x => x.Id), x => x.Id)
+                .ToList();
+        }
+
         // TODO: Attachements blir det duplikater av - hvorfor?
-        existing.Attachments =
-        [
-            ..existing.Attachments.ExceptBy(storageDialog.Attachments.Select(x => x.Id), x => x.Id),
-            ..storageDialog.Attachments
-        ];
-        existing.GuiActions = MergeGuiActions(existing.GuiActions, storageDialog.GuiActions);
+        if (!SyncAdapterSettings.Instance.DisableSyncAttachments)
+        {
+            existing.Attachments =
+            [
+                ..existing.Attachments.ExceptBy(storageDialog.Attachments.Select(x => x.Id), x => x.Id),
+                ..storageDialog.Attachments
+            ];
+        }
+
+        if (!SyncAdapterSettings.Instance.DisableSyncGuiActions)
+        {
+            existing.GuiActions = MergeGuiActions(existing.GuiActions, storageDialog.GuiActions);
+        }
+
+        // if (!SyncAdapterSettings.Instance.DisableSyncApiActions)
+        // {
+        //     ...
+        // }
+
+        if (!SyncAdapterSettings.Instance.DisableSyncContentSummary)
+        {
+            existing.Content.Summary = storageDialog.Content.Summary;
+        }
+
+        if (!SyncAdapterSettings.Instance.DisableSyncContentTitle)
+        {
+            existing.Content.Title = storageDialog.Content.Title;
+        }
+
         return existing;
     }
 
