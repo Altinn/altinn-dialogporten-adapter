@@ -1,0 +1,3 @@
+### Delete
+DELETE {{baseUri}}/api/v1/instance/51131495/4839f7ee-252f-4734-9444-f6bfa1b90361?hard=false
+Authorization: bearer mdspogfsjgpsdjpjgpse

@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
+using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Altinn.Platform.Storage.Interface.Models;
 
@@ -18,6 +19,7 @@ public record SyncInstanceToDialogDto(
 internal sealed class SyncInstanceToDialogService
 {
     private readonly IStorageApi _storageApi;
+    private readonly IRegisterRepository _registerRepository;
     private readonly IDialogportenApi _dialogportenApi;
     private readonly StorageDialogportenDataMerger _dataMerger;
     private readonly ILogger<SyncInstanceToDialogService> _logger;
@@ -26,12 +28,14 @@ internal sealed class SyncInstanceToDialogService
         IStorageApi storageApi,
         IDialogportenApi dialogportenApi,
         StorageDialogportenDataMerger dataMerger,
-        ILogger<SyncInstanceToDialogService> logger)
+        ILogger<SyncInstanceToDialogService> logger,
+        IRegisterRepository registerRepository)
     {
         _storageApi = storageApi ?? throw new ArgumentNullException(nameof(storageApi));
         _dialogportenApi = dialogportenApi ?? throw new ArgumentNullException(nameof(dialogportenApi));
         _dataMerger = dataMerger ?? throw new ArgumentNullException(nameof(dataMerger));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _registerRepository = registerRepository ?? throw new ArgumentNullException(nameof(registerRepository));
     }
 
     public async Task Sync(SyncInstanceToDialogDto dto, CancellationToken cancellationToken = default)
@@ -106,9 +110,16 @@ internal sealed class SyncInstanceToDialogService
         }
 
         EnsureNotNull(application, instance, events);
+        await _registerRepository.GetByUrn(
+            events.InstanceEvents
+                .DistinctBy(x => x.User.UserId)
+                .Select(x => $"urn:altinn:user:id:{x.User.UserId}")
+                .Append($"urn:altinn:party:id:{instance.InstanceOwner.PartyId}"),
+            cancellationToken);
 
         // Create or update the dialog with the fetched data
-        var updatedDialog = await _dataMerger.Merge(dialogId, existingDialog, application, instance, events, dto.IsMigration);
+        var mergeDto = new MergeDto(dialogId, existingDialog, application, instance, events, dto.IsMigration);
+        var updatedDialog = await _dataMerger.Merge(mergeDto, cancellationToken);
         await UpsertDialog(updatedDialog, isMigration: dto.IsMigration, cancellationToken);
     }
 

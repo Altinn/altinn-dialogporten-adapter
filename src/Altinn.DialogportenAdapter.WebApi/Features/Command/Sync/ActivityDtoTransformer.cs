@@ -1,21 +1,29 @@
+using System.Diagnostics;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
+using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
+using Microsoft.VisualBasic;
+using Constants = Altinn.DialogportenAdapter.WebApi.Common.Constants;
 
 namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 
 internal sealed class ActivityDtoTransformer
 {
-    public List<ActivityDto> GetActivities(InstanceEventList events)
-    {
-        var nationalIdentityNumberByUserId = events.InstanceEvents
-            .Where(x => !string.IsNullOrWhiteSpace(x.User.NationalIdentityNumber))
-            .GroupBy(x => x.User.UserId)
-            .ToDictionary(x => x.Key!.Value, x => x.Select(xx => xx.User.NationalIdentityNumber).First());
+    private readonly IRegisterRepository _registerRepository;
 
+    public ActivityDtoTransformer(IRegisterRepository registerRepository)
+    {
+        _registerRepository = registerRepository ?? throw new ArgumentNullException(nameof(registerRepository));
+    }
+
+    public async Task<List<ActivityDto>> GetActivities(InstanceEventList events, CancellationToken cancellationToken)
+    {
         var activities = new List<ActivityDto>();
         var createdFound = false;
+
+        var actorByUserId = await LookupUsers(events.InstanceEvents, cancellationToken);
 
         foreach (var @event in events.InstanceEvents.OrderBy(x => x.Created))
         {
@@ -45,38 +53,39 @@ internal sealed class ActivityDtoTransformer
             {
                 continue;
             }
-            
+
             createdFound = createdFound || activityType == DialogActivityType.DialogCreated;
-            
+
             activities.Add(new ActivityDto
             {
                 Id = @event.Id.Value.ToVersion7(@event.Created.Value),
                 Type = activityType.Value,
                 CreatedAt = @event.Created,
-                PerformedBy = GetPerformedBy(@event.User, nationalIdentityNumberByUserId),
+                PerformedBy = await GetPerformedBy(@event.User, cancellationToken),
                 Description = activityType == DialogActivityType.Information
                     ? [ new LocalizationDto { LanguageCode = "nb", Value = eventType.ToString() } ]
                     : [ ]
             });
         }
-        
+
         // TODO: Chunk within a time? What if the same user saves multiple times in a row over a long period? For example a user saves a form every day for a week.
         var savedEvents = events.InstanceEvents
             .OrderBy(x => x.Created)
             .Where(x => StringComparer.OrdinalIgnoreCase.Equals(x.EventType, "Saved"))
             .Aggregate((SavedActivities: new List<ActivityDto>(), Previous: (ActorDto?)null), (state, @event) =>
             {
-                var current = GetPerformedBy(@event.User, nationalIdentityNumberByUserId);
+
+                var current = await GetPerformedBy(@event.User, cancellationToken);
                 if (current.ActorId is null || current.ActorId == state.Previous?.ActorId)
                 {
                     return state;
                 }
-                
+
                 state.Previous = current;
                 state.SavedActivities.Add(new ActivityDto
                 {
                     Id = @event.Id.Value.ToVersion7(@event.Created.Value),
-                    Type = DialogActivityType.FormSaved, 
+                    Type = DialogActivityType.FormSaved,
                     CreatedAt = @event.Created,
                     PerformedBy = current
                 });
@@ -87,17 +96,37 @@ internal sealed class ActivityDtoTransformer
         return activities;
     }
 
-    private static ActorDto GetPerformedBy(PlatformUser user, Dictionary<int, string> nationalIdentityNumberByUserId)
+    private async Task<Dictionary<string, ActorDto>> LookupUsers(List<InstanceEvent> events, CancellationToken cancellationToken)
     {
-        if (!string.IsNullOrWhiteSpace(user.OrgId))
+        var invalidUserIds = events
+            .Select(x => x.User.UserId)
+            .Where(x => x is null)
+            .ToList();
+
+        if (invalidUserIds.Count > 0)
         {
-            return new ActorDto { ActorType = ActorType.ServiceOwner };
+            throw new UnreachableException("Assumption failed: UserId should not be null.");
         }
-        
-        // TODO: GetPerformedBy logic needs to be improved.
-        // We need to handle the case where the user is not found in the dictionary
-        if (!nationalIdentityNumberByUserId.TryGetValue(user.UserId.Value, out var nationalId))
+
+        var userUrns = await Task.WhenAll(events
+            .Select(x => x.User.UserId.ToString())
+            .Distinct()
+            .Select(async x => (UserId: x!, Actor: await GetPerformedBy(x!, cancellationToken))));
+        return userUrns.ToDictionary(x => x.UserId, x => x.Actor);
+    }
+
+    private async Task<ActorDto> GetPerformedBy(string? userId, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(userId))
         {
+            throw new UnreachableException("Should not get here...");
+        }
+
+        var userUrn = await _registerRepository.GetUserUrn(userId, cancellationToken);
+        if (userUrn is null)
+        {
+            // TODO: RegisterSupportsUserUrn: Throw an exception if the user is not found in the register?
+            // throw new InvalidOperationException($"User {userId} not found in register.");
             return new ActorDto
             {
                 ActorType = ActorType.PartyRepresentative,
@@ -105,16 +134,11 @@ internal sealed class ActivityDtoTransformer
             };
         }
 
+        // A userId is always a person or a system user (or a business user); it is never a service owner.
         return new ActorDto
         {
-            ActorType = ActorType.PartyRepresentative,
-            ActorId = ToPersonIdentifier(nationalId)
+            ActorId = userUrn,
+            ActorType = ActorType.PartyRepresentative
         };
-    }
-    
-    private static string? ToPersonIdentifier(string? personNumber)
-    {
-        const string personPrefix = "urn:altinn:person:identifier-no:";
-        return string.IsNullOrWhiteSpace(personNumber) ? null : $"{personPrefix}{personNumber}";
     }
 }

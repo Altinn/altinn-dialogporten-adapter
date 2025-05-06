@@ -1,29 +1,39 @@
 using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
+using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.Platform.Storage.Interface.Models;
 
 namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
+
+internal sealed record MergeDto(
+    Guid DialogId,
+    DialogDto? ExistingDialog,
+    Application Application,
+    Instance Instance,
+    InstanceEventList Events,
+    bool IsMigration);
 
 internal sealed class StorageDialogportenDataMerger
 {
     private readonly Settings _settings;
     private readonly ActivityDtoTransformer _activityDtoTransformer;
+    private readonly IRegisterRepository _registerRepository;
 
-    public StorageDialogportenDataMerger(Settings settings, ActivityDtoTransformer activityDtoTransformer)
+    public StorageDialogportenDataMerger(
+        Settings settings,
+        ActivityDtoTransformer activityDtoTransformer,
+        IRegisterRepository registerRepository)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _activityDtoTransformer = activityDtoTransformer ?? throw new ArgumentNullException(nameof(activityDtoTransformer));
+        _registerRepository = registerRepository ?? throw new ArgumentNullException(nameof(registerRepository));
     }
 
-    public async Task<DialogDto> Merge(Guid dialogId,
-        DialogDto? existing,
-        Application application,
-        Instance instance,
-        InstanceEventList events,
-        bool isMigration)
+    public async Task<DialogDto> Merge(MergeDto dto, CancellationToken cancellationToken)
     {
-        var storageDialog = await ToDialogDto(dialogId, instance, application, events, isMigration);
+        var existing = dto.ExistingDialog;
+        var storageDialog = await ToDialogDto(dto, cancellationToken);
         if (existing is null)
         {
             return storageDialog;
@@ -44,13 +54,13 @@ internal sealed class StorageDialogportenDataMerger
             ..existing.Attachments.ExceptBy(storageDialog.Attachments.Select(x => x.Id), x => x.Id),
             ..storageDialog.Attachments
         ];
-        existing.GuiActions = MergeGuiActions(existing.GuiActions, storageDialog.GuiActions);
+        existing.GuiActions = MergeGuiActions(dto.DialogId, existing.GuiActions, storageDialog.GuiActions);
         return existing;
     }
 
-    private async Task<DialogDto> ToDialogDto(Guid dialogId, Instance instance, Application application, InstanceEventList events, bool isMigration)
+    private async Task<DialogDto> ToDialogDto(MergeDto dto, CancellationToken cancellationToken)
     {
-        var instanceDerivedStatus = GetInstanceDerivedStatus(instance, events);
+        var instanceDerivedStatus = GetInstanceDerivedStatus(dto.Instance, dto.Events);
         var status = instanceDerivedStatus switch
         {
             InstanceDerivedStatus.ArchivedUnconfirmed => DialogStatus.Sent,
@@ -64,28 +74,31 @@ internal sealed class StorageDialogportenDataMerger
             _ => DialogStatus.InProgress
         };
 
-        var systemLabel = instance.Status switch
+        var systemLabel = dto.Instance.Status switch
         {
-            { IsArchived: true } when isMigration => SystemLabel.Archive,
+            { IsArchived: true } when dto.IsMigration => SystemLabel.Archive,
             _ => SystemLabel.Default
         };
 
         // TODO: Ta stilling til applicaiton.hideSettings https://docs.altinn.studio/altinn-studio/reference/configuration/messagebox/hide_instances/
         // TODO: Hva med om Attachments er for lang?
         // TODO: Hva med om Activities er for lang?
+        // TODO: Er instance.InstanceOwner mottaker av meldingen?
+        var party = await _registerRepository.GetPartyUrn(dto.Instance.InstanceOwner.PartyId, cancellationToken)
+            ?? throw new InvalidOperationException("Party not found.");
         return new DialogDto
         {
-            Id = dialogId,
+            Id = dto.DialogId,
             // TODO: Sett korrekt bool
-            IsApiOnly = application.ShouldBeHidden(instance),
-            Party = await ToParty(instance.InstanceOwner),
-            ServiceResource = ToServiceResource(instance.AppId),
+            IsApiOnly = dto.Application.ShouldBeHidden(dto.Instance),
+            Party = party,
+            ServiceResource = ToServiceResource(dto.Instance.AppId),
             SystemLabel = systemLabel,
-            CreatedAt = instance.Created,
-            UpdatedAt = instance.LastChanged,
-            VisibleFrom = instance.VisibleAfter > DateTimeOffset.UtcNow ? instance.VisibleAfter : null,
-            DueAt = instance.DueBefore > DateTimeOffset.UtcNow ? instance.DueBefore : null,
-            ExternalReference = $"urn:altinn:integration:storage:{instance.Id}",
+            CreatedAt = dto.Instance.Created,
+            UpdatedAt = dto.Instance.LastChanged,
+            VisibleFrom = dto.Instance.VisibleAfter > DateTimeOffset.UtcNow ? dto.Instance.VisibleAfter : null,
+            DueAt = dto.Instance.DueBefore > DateTimeOffset.UtcNow ? dto.Instance.DueBefore : null,
+            ExternalReference = $"urn:altinn:integration:storage:{dto.Instance.Id}",
             Status = status,
             Content = new ContentDto
             {
@@ -93,28 +106,28 @@ internal sealed class StorageDialogportenDataMerger
                 Title = new ContentValueDto
                 {
                     MediaType = MediaTypes.PlainText,
-                    Value = application.Title
+                    Value = dto.Application.Title
                         .Where(x => !string.IsNullOrWhiteSpace(x.Value))
                         .Select(x => new LocalizationDto
                         {
                             LanguageCode = x.Key,
-                            Value = ToTitle(x.Value, instance.PresentationTexts?.Values)
+                            Value = ToTitle(x.Value, dto.Instance.PresentationTexts?.Values)
                         })
                         .ToList()
                 },
                 Summary = new ContentValueDto
                 {
                     MediaType = MediaTypes.PlainText,
-                    Value = await GetSummary(instance, application, instanceDerivedStatus)
+                    Value = await GetSummary(dto.Instance, dto.Application, instanceDerivedStatus)
                 }
             },
             GuiActions =
             [
-                CreateGoToAction(dialogId, instance),
-                CreateDeleteAction(dialogId, instance),
-                ..CreateCopyAction(dialogId, instance, application)
+                CreateGoToAction(dto.DialogId, dto.Instance),
+                CreateDeleteAction(dto.DialogId, dto.Instance),
+                ..CreateCopyAction(dto.DialogId, dto.Instance, dto.Application)
             ],
-            Attachments = instance.Data
+            Attachments = dto.Instance.Data
                 .Select(x => new AttachmentDto
                 {
                     Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
@@ -129,7 +142,7 @@ internal sealed class StorageDialogportenDataMerger
                     }]
                 })
                 .ToList(),
-            Activities = _activityDtoTransformer.GetActivities(events)
+            Activities = await _activityDtoTransformer.GetActivities(dto.Events, cancellationToken)
         };
     }
 
@@ -222,6 +235,7 @@ internal sealed class StorageDialogportenDataMerger
 
     private GuiActionDto CreateGoToAction(Guid dialogId, Instance instance)
     {
+        var goToActionId = dialogId.CreateDeterministicSubUuidV7(GuiActionConstants.GoTo);
         if (instance.Status.IsArchived)
         {
             var platformBaseUri = _settings.DialogportenAdapter.Altinn
@@ -230,7 +244,7 @@ internal sealed class StorageDialogportenDataMerger
                 .TrimEnd('/');
             return new GuiActionDto
             {
-                Id = dialogId.CreateDeterministicSubUuidV7("DialogGuiActionGoTo"),
+                Id = goToActionId,
                 Action = "read",
                 Priority = DialogGuiActionPriority.Primary,
                 Title = [
@@ -248,7 +262,7 @@ internal sealed class StorageDialogportenDataMerger
             .TrimEnd('/');
         return new GuiActionDto
         {
-            Id = dialogId.CreateDeterministicSubUuidV7("DialogGuiActionGoTo"),
+            Id = goToActionId,
             Action = "write",
             AuthorizationAttribute = "urn:altinn:task:" + instance.Process.CurrentTask.ElementId,
             Priority = DialogGuiActionPriority.Primary,
@@ -268,7 +282,7 @@ internal sealed class StorageDialogportenDataMerger
             .TrimEnd('/');
         return new GuiActionDto
         {
-            Id = dialogId.CreateDeterministicSubUuidV7("DialogGuiActionDelete"),
+            Id = dialogId.CreateDeterministicSubUuidV7(GuiActionConstants.Delete),
             Action = "delete",
             Priority = DialogGuiActionPriority.Secondary,
             IsDeleteDialogAction = true,
@@ -296,7 +310,7 @@ internal sealed class StorageDialogportenDataMerger
             .TrimEnd('/');
         yield return new GuiActionDto
         {
-            Id = dialogId.CreateDeterministicSubUuidV7("DialogGuiActionCopy"),
+            Id = dialogId.CreateDeterministicSubUuidV7(GuiActionConstants.Copy),
             Action = "instantiate",
             Priority = DialogGuiActionPriority.Tertiary,
             Title = [
@@ -307,33 +321,6 @@ internal sealed class StorageDialogportenDataMerger
             Url = $"{appBaseUri}/legacy/instances/{instance.Id}/copy",
             HttpMethod = HttpVerb.GET
         };
-    }
-
-    private static async Task<string> ToParty(InstanceOwner instanceOwner)
-    {
-        return ToPersonIdentifier(instanceOwner.PersonNumber)
-            ?? ToOrgIdentifier(instanceOwner.OrganisationNumber)
-            ?? await ToFallbackIdentifier(instanceOwner.PartyId)
-            ?? throw new ArgumentException("Instance owner must have either a person number or an organisation number");
-    }
-
-    private static string? ToPersonIdentifier(string? personNumber)
-    {
-        const string personPrefix = "urn:altinn:person:identifier-no:";
-        return string.IsNullOrWhiteSpace(personNumber) ? null : $"{personPrefix}{personNumber}";
-    }
-
-    private static string? ToOrgIdentifier(string? organisationNumber)
-    {
-        const string orgPrefix = "urn:altinn:organization:identifier-no:";
-        return string.IsNullOrWhiteSpace(organisationNumber) ? null : $"{orgPrefix}{organisationNumber}";
-    }
-
-    private static Task<string> ToFallbackIdentifier(string? partyId)
-    {
-        // TODO: we need to lookup the party here
-        const string digdir = "urn:altinn:organization:identifier-no:991825827";
-        return Task.FromResult(digdir);
     }
 
     private static string ToServiceResource(ReadOnlySpan<char> appId)
@@ -388,7 +375,7 @@ internal sealed class StorageDialogportenDataMerger
     /// fill remaining GuiActionPriority with internal. Overflowing internal gui actions
     /// will be discarded.
     /// </summary>
-    private static List<GuiActionDto> MergeGuiActions(IEnumerable<GuiActionDto> existingGuiActions, IEnumerable<GuiActionDto> storageGuiActions)
+    private static List<GuiActionDto> MergeGuiActions(Guid dialogId, IEnumerable<GuiActionDto> existingGuiActions, IEnumerable<GuiActionDto> storageGuiActions)
     {
         var storageActions = new Queue<GuiActionDto>(storageGuiActions
             .OrderBy(x => x.Priority)
@@ -399,8 +386,12 @@ internal sealed class StorageDialogportenDataMerger
             return existingGuiActions as List<GuiActionDto> ?? existingGuiActions.ToList();
         }
 
+        var allPotentialInternalKeys = GuiActionConstants.Keys
+            .Select(x => dialogId.CreateDeterministicSubUuidV7(x))
+            .ToList();
+
         var result = existingGuiActions
-            .ExceptBy(storageActions.Select(x => x.Id), x => x.Id)
+            .ExceptBy(allPotentialInternalKeys, x => x.Id!.Value)
             .ToList();
 
         var priorityCapacity = Constants.PriorityLimits
