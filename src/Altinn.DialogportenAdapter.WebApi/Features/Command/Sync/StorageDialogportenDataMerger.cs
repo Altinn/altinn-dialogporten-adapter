@@ -137,7 +137,7 @@ internal sealed class StorageDialogportenDataMerger
         instance.Process?.CurrentTask?.AltinnTaskType?.ToLower() switch
         {
             // Hvis vi har CompleteConfirmations etter arkivering kan vi regne denne som "ferdig", før det er den bare sent
-            _ when instance.Status.IsArchived => instance.CompleteConfirmations.Count != 0
+            _ when instance.Status.IsArchived => (instance.CompleteConfirmations?.Count ?? 0) != 0
                 ? InstanceDerivedStatus.ArchivedConfirmed : InstanceDerivedStatus.ArchivedUnconfirmed,
             "reject" => InstanceDerivedStatus.Rejected,
             "feedback" => InstanceDerivedStatus.AwaitingServiceOwnerFeedback,
