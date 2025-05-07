@@ -82,7 +82,9 @@ internal sealed class StorageDialogportenDataMerger
             ServiceResource = ToServiceResource(instance.AppId),
             SystemLabel = systemLabel,
             CreatedAt = instance.Created,
-            UpdatedAt = instance.LastChanged,
+            UpdatedAt = instance.LastChanged > instance.Created
+                ? instance.LastChanged
+                : instance.Created,
             VisibleFrom = instance.VisibleAfter > DateTimeOffset.UtcNow ? instance.VisibleAfter : null,
             DueAt = instance.DueBefore > DateTimeOffset.UtcNow ? instance.DueBefore : null,
             ExternalReference = $"urn:altinn:integration:storage:{instance.Id}",
