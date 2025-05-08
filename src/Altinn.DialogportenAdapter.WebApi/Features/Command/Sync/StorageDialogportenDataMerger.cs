@@ -33,7 +33,6 @@ internal sealed class StorageDialogportenDataMerger
         existing.DueAt = storageDialog.DueAt;
         existing.ExternalReference = storageDialog.ExternalReference;
         existing.Status = storageDialog.Status;
-        existing.IsApiOnly = storageDialog.IsApiOnly;
         existing.Transmissions.Clear();
         existing.Activities = storageDialog.Activities
             .ExceptBy(existing.Activities.Select(x => x.Id), x => x.Id)
