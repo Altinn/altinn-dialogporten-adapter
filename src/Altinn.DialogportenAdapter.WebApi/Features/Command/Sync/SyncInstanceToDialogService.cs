@@ -17,18 +17,21 @@ public record SyncInstanceToDialogDto(
 
 internal sealed class SyncInstanceToDialogService
 {
-    private readonly IStorageApi _storageApi;
+    private readonly IInstancesApi _instancesApi;
+    private readonly ICachingApplicationsApi _applicationsApi;
     private readonly IDialogportenApi _dialogportenApi;
     private readonly StorageDialogportenDataMerger _dataMerger;
     private readonly ILogger<SyncInstanceToDialogService> _logger;
 
     public SyncInstanceToDialogService(
-        IStorageApi storageApi,
+        IInstancesApi instancesApi,
+        ICachingApplicationsApi applicationsApi,
         IDialogportenApi dialogportenApi,
         StorageDialogportenDataMerger dataMerger,
         ILogger<SyncInstanceToDialogService> logger)
     {
-        _storageApi = storageApi ?? throw new ArgumentNullException(nameof(storageApi));
+        _instancesApi = instancesApi ?? throw new ArgumentNullException(nameof(instancesApi));
+        _applicationsApi = applicationsApi ?? throw new ArgumentNullException(nameof(applicationsApi));
         _dialogportenApi = dialogportenApi ?? throw new ArgumentNullException(nameof(dialogportenApi));
         _dataMerger = dataMerger ?? throw new ArgumentNullException(nameof(dataMerger));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -40,11 +43,12 @@ internal sealed class SyncInstanceToDialogService
         var dialogId = dto.InstanceId.ToVersion7(dto.InstanceCreatedAt);
 
         // Fetch events, application, instance and existing dialog in parallel
-        var (existingDialog, application, instance, events) = await (
+        var (existingDialog, application, applicationTexts, instance, events) = await (
             _dialogportenApi.Get(dialogId, cancellationToken).ContentOrDefault(),
-            _storageApi.GetApplication(dto.AppId, cancellationToken).ContentOrDefault(),
-            _storageApi.GetInstance(dto.PartyId, dto.InstanceId, cancellationToken).ContentOrDefault(),
-            _storageApi.GetInstanceEvents(dto.PartyId, dto.InstanceId, Constants.SupportedEventTypes, cancellationToken).ContentOrDefault()
+            _applicationsApi.GetApplication(dto.AppId, cancellationToken),
+            _applicationsApi.GetApplicationTexts(dto.AppId, cancellationToken),
+            _instancesApi.GetInstance(dto.PartyId, dto.InstanceId, cancellationToken).ContentOrDefault(),
+            _instancesApi.GetInstanceEvents(dto.PartyId, dto.InstanceId, Constants.SupportedEventTypes, cancellationToken).ContentOrDefault()
         );
 
         if (instance is null && existingDialog is null)
@@ -108,7 +112,7 @@ internal sealed class SyncInstanceToDialogService
         EnsureNotNull(application, instance, events);
 
         // Create or update the dialog with the fetched data
-        var updatedDialog = await _dataMerger.Merge(dialogId, existingDialog, application, instance, events, dto.IsMigration);
+        var updatedDialog = await _dataMerger.Merge(dialogId, existingDialog, application, applicationTexts, instance, events, dto.IsMigration);
         await UpsertDialog(updatedDialog, isMigration: dto.IsMigration, cancellationToken);
     }
 
@@ -205,7 +209,7 @@ internal sealed class SyncInstanceToDialogService
     private Task UpdateInstanceWithDialogId(SyncInstanceToDialogDto dto, Guid dialogId,
         CancellationToken cancellationToken)
     {
-        return _storageApi.UpdateDataValues(dto.PartyId, dto.InstanceId, new()
+        return _instancesApi.UpdateDataValues(dto.PartyId, dto.InstanceId, new()
         {
             Values = new()
             {
