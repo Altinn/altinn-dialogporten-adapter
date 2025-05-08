@@ -1,7 +1,5 @@
-using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using Altinn.ApiClients.Maskinporten.Config;
-using Newtonsoft.Json;
 
 namespace Altinn.DialogportenAdapter.WebApi;
 
