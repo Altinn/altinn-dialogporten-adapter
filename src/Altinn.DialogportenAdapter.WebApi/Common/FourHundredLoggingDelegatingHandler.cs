@@ -23,30 +23,44 @@ internal sealed class FourHundredLoggingDelegatingHandler : DelegatingHandler
     private async Task<HttpResponseMessage> SendAsync_Internal(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         await (request.Content?.LoadIntoBufferAsync(cancellationToken) ?? Task.CompletedTask);
-        var response = await base.SendAsync(request, cancellationToken);
-        if ((int)response.StatusCode is 404 || 
-            (int)response.StatusCode is < 400 or > 499)
+        var requestContent = new Lazy<Task<string>>(() =>
+            request.Content?.ReadAsStringAsync(cancellationToken) ?? Task.FromResult(string.Empty));
+        HttpResponseMessage? response;
+
+        try
+        {
+            response = await base.SendAsync(request, cancellationToken);
+        }
+        catch (Refit.ApiException e)
+        {
+            if (ShouldLog(e.StatusCode))
+            {
+                _logger.LogRequestError(e, request.Method, request.RequestUri, await requestContent.Value, e.StatusCode, e.Content);
+            }
+            throw;
+        }
+
+        if (!ShouldLog(response.StatusCode))
         {
             return response;
         }
 
         await response.Content.LoadIntoBufferAsync(cancellationToken);
         var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
-        var requestContent = await (request.Content?.ReadAsStringAsync(cancellationToken) ?? Task.FromResult(string.Empty));
-        
-        _logger.Log400Response(request.Method, 
-            request.RequestUri, 
-            response.StatusCode,
-            requestContent,
-            responseContent);
-        
+        _logger.Log400Response(request.Method, request.RequestUri, await requestContent.Value, response.StatusCode, responseContent);
         return response;
     }
+
+    private static bool ShouldLog(HttpStatusCode statusCode) =>
+        (int)statusCode is >= 400 and < 500 and not 404;
 }
 
 
 internal static partial class LogMessages
 {
     [LoggerMessage(EventId = 0, Level = LogLevel.Information, Message = "{Method} {RequestUri} resulted in {StatusCode}.\nRequest: {Request}\nResponse: {Response}")]
-    public static partial void Log400Response(this ILogger logger, HttpMethod method, Uri? requestUri, HttpStatusCode statusCode, string? request, string? response);
+    public static partial void Log400Response(this ILogger logger, HttpMethod method, Uri? requestUri, string? request, HttpStatusCode statusCode, string? response);
+
+    [LoggerMessage(EventId = 0, Level = LogLevel.Information, Message = "{Method} {RequestUri} resulted in {StatusCode}.\nRequest: {Request}\nResponse: {Response}")]
+    public static partial void LogRequestError(this ILogger logger, Exception exception, HttpMethod method, Uri? requestUri, string? request, HttpStatusCode statusCode, string? response);
 }

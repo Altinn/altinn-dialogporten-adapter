@@ -14,7 +14,7 @@ internal static class StorageTypeExtensions
 
         var currentTask = instance.Process?.CurrentTask?.ElementId;
         return hideSettings.HideAlways ||
-               hideSettings.HideOnTask.Any(x => x == currentTask);
+               (hideSettings.HideOnTask?.Any(x => x == currentTask) ?? false);
     }
 
     public static SyncAdapterSettings GetSyncAdapterSettings(this Application? application)
