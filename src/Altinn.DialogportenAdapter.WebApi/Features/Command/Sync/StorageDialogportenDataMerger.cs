@@ -29,21 +29,62 @@ internal sealed class StorageDialogportenDataMerger
             return storageDialog;
         }
 
-        existing.VisibleFrom = storageDialog.VisibleFrom;
-        existing.DueAt = storageDialog.DueAt;
+        var syncAdapterSettings = application.GetSyncAdapterSettings();
+        if (!syncAdapterSettings.DisableSyncDueAt)
+        {
+            existing.DueAt = storageDialog.DueAt;
+        }
+
         existing.ExternalReference = storageDialog.ExternalReference;
-        existing.Status = storageDialog.Status;
+
+        if (!syncAdapterSettings.DisableSyncStatus)
+        {
+            existing.Status = storageDialog.Status;
+        }
+
+        // Transmissions?
+        // if (!syncAdapterSettings.DisableAddTransmissions)
+        // {
+        //     ...
+        // }
         existing.Transmissions.Clear();
-        existing.Activities = storageDialog.Activities
-            .ExceptBy(existing.Activities.Select(x => x.Id), x => x.Id)
-            .ToList();
-        // TODO: Attachements blir det duplikater av - hvorfor?
-        existing.Attachments =
-        [
-            ..existing.Attachments.ExceptBy(storageDialog.Attachments.Select(x => x.Id), x => x.Id),
-            ..storageDialog.Attachments
-        ];
-        existing.GuiActions = MergeGuiActions(existing.GuiActions, storageDialog.GuiActions);
+
+        if (!syncAdapterSettings.DisableAddActivities)
+        {
+            existing.Activities = storageDialog.Activities
+                .ExceptBy(existing.Activities.Select(x => x.Id), x => x.Id)
+                .ToList();
+        }
+
+        if (!syncAdapterSettings.DisableSyncAttachments)
+        {
+            existing.Attachments =
+            [
+                ..existing.Attachments.ExceptBy(storageDialog.Attachments.Select(x => x.Id), x => x.Id),
+                ..storageDialog.Attachments
+            ];
+        }
+
+        if (!syncAdapterSettings.DisableSyncGuiActions)
+        {
+            existing.GuiActions = MergeGuiActions(existing.GuiActions, storageDialog.GuiActions);
+        }
+
+        // if (!syncAdapterSettings.DisableSyncApiActions)
+        // {
+        //     ...
+        // }
+
+        if (!syncAdapterSettings.DisableSyncContentSummary)
+        {
+            existing.Content.Summary = storageDialog.Content.Summary;
+        }
+
+        if (!syncAdapterSettings.DisableSyncContentTitle)
+        {
+            existing.Content.Title = storageDialog.Content.Title;
+        }
+
         return existing;
     }
 
