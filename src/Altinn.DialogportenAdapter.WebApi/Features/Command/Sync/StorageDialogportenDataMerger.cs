@@ -39,22 +39,62 @@ internal sealed class StorageDialogportenDataMerger
             return storageDialog;
         }
 
-        existing.VisibleFrom = storageDialog.VisibleFrom;
-        existing.DueAt = storageDialog.DueAt;
+        var syncAdapterSettings = dto.Application.GetSyncAdapterSettings();
+        if (!syncAdapterSettings.DisableSyncDueAt)
+        {
+            existing.DueAt = storageDialog.DueAt;
+        }
+
         existing.ExternalReference = storageDialog.ExternalReference;
-        existing.Status = storageDialog.Status;
-        existing.IsApiOnly = storageDialog.IsApiOnly;
+
+        if (!syncAdapterSettings.DisableSyncStatus)
+        {
+            existing.Status = storageDialog.Status;
+        }
+
+        // Transmissions?
+        // if (!syncAdapterSettings.DisableAddTransmissions)
+        // {
+        //     ...
+        // }
         existing.Transmissions.Clear();
-        existing.Activities = storageDialog.Activities
-            .ExceptBy(existing.Activities.Select(x => x.Id), x => x.Id)
-            .ToList();
-        // TODO: Attachements blir det duplikater av - hvorfor?
-        existing.Attachments =
-        [
-            ..existing.Attachments.ExceptBy(storageDialog.Attachments.Select(x => x.Id), x => x.Id),
-            ..storageDialog.Attachments
-        ];
-        existing.GuiActions = MergeGuiActions(dto.DialogId, existing.GuiActions, storageDialog.GuiActions);
+
+        if (!syncAdapterSettings.DisableAddActivities)
+        {
+            existing.Activities = storageDialog.Activities
+                .ExceptBy(existing.Activities.Select(x => x.Id), x => x.Id)
+                .ToList();
+        }
+
+        if (!syncAdapterSettings.DisableSyncAttachments)
+        {
+            existing.Attachments =
+            [
+                ..existing.Attachments.ExceptBy(storageDialog.Attachments.Select(x => x.Id), x => x.Id),
+                ..storageDialog.Attachments
+            ];
+        }
+
+        if (!syncAdapterSettings.DisableSyncGuiActions)
+        {
+            existing.GuiActions = MergeGuiActions(dto.DialogId, existing.GuiActions, storageDialog.GuiActions);
+        }
+
+        // if (!syncAdapterSettings.DisableSyncApiActions)
+        // {
+        //     ...
+        // }
+
+        if (!syncAdapterSettings.DisableSyncContentSummary)
+        {
+            existing.Content.Summary = storageDialog.Content.Summary;
+        }
+
+        if (!syncAdapterSettings.DisableSyncContentTitle)
+        {
+            existing.Content.Title = storageDialog.Content.Title;
+        }
+
         return existing;
     }
 
@@ -95,7 +135,9 @@ internal sealed class StorageDialogportenDataMerger
             ServiceResource = ToServiceResource(dto.Instance.AppId),
             SystemLabel = systemLabel,
             CreatedAt = dto.Instance.Created,
-            UpdatedAt = dto.Instance.LastChanged,
+            UpdatedAt = dto.Instance.LastChanged > dto.Instance.Created
+                ? dto.Instance.LastChanged
+                : dto.Instance.Created,
             VisibleFrom = dto.Instance.VisibleAfter > DateTimeOffset.UtcNow ? dto.Instance.VisibleAfter : null,
             DueAt = dto.Instance.DueBefore > DateTimeOffset.UtcNow ? dto.Instance.DueBefore : null,
             ExternalReference = $"urn:altinn:integration:storage:{dto.Instance.Id}",
@@ -150,7 +192,7 @@ internal sealed class StorageDialogportenDataMerger
         instance.Process?.CurrentTask?.AltinnTaskType?.ToLower() switch
         {
             // Hvis vi har CompleteConfirmations etter arkivering kan vi regne denne som "ferdig", før det er den bare sent
-            _ when instance.Status.IsArchived => instance.CompleteConfirmations.Count != 0
+            _ when instance.Status.IsArchived => (instance.CompleteConfirmations?.Count ?? 0) != 0
                 ? InstanceDerivedStatus.ArchivedConfirmed : InstanceDerivedStatus.ArchivedUnconfirmed,
             "reject" => InstanceDerivedStatus.Rejected,
             "feedback" => InstanceDerivedStatus.AwaitingServiceOwnerFeedback,
