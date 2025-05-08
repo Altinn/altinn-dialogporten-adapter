@@ -29,41 +29,34 @@ internal sealed class StorageDialogportenDataMerger
             return storageDialog;
         }
 
-        if (!SyncAdapterSettings.Instance.DisableSyncVisibleFrom)
-        {
-            existing.VisibleFrom = storageDialog.VisibleFrom;
-        }
-
-        if (!SyncAdapterSettings.Instance.DisableSyncDueAt)
+        var syncAdapterSettings = application.GetSyncAdapterSettings();
+        if (!syncAdapterSettings.DisableSyncDueAt)
         {
             existing.DueAt = storageDialog.DueAt;
         }
 
         existing.ExternalReference = storageDialog.ExternalReference;
 
-        if (!SyncAdapterSettings.Instance.DisableSyncStatus)
+        if (!syncAdapterSettings.DisableSyncStatus)
         {
             existing.Status = storageDialog.Status;
         }
 
-        existing.IsApiOnly = storageDialog.IsApiOnly;
-
         // Transmissions?
-        // if (!SyncAdapterSettings.Instance.DisableAddTransmissions)
+        // if (!syncAdapterSettings.DisableAddTransmissions)
         // {
         //     ...
         // }
         existing.Transmissions.Clear();
 
-        if (!SyncAdapterSettings.Instance.DisableAddActivities)
+        if (!syncAdapterSettings.DisableAddActivities)
         {
             existing.Activities = storageDialog.Activities
                 .ExceptBy(existing.Activities.Select(x => x.Id), x => x.Id)
                 .ToList();
         }
 
-        // TODO: Attachements blir det duplikater av - hvorfor?
-        if (!SyncAdapterSettings.Instance.DisableSyncAttachments)
+        if (!syncAdapterSettings.DisableSyncAttachments)
         {
             existing.Attachments =
             [
@@ -72,22 +65,22 @@ internal sealed class StorageDialogportenDataMerger
             ];
         }
 
-        if (!SyncAdapterSettings.Instance.DisableSyncGuiActions)
+        if (!syncAdapterSettings.DisableSyncGuiActions)
         {
             existing.GuiActions = MergeGuiActions(existing.GuiActions, storageDialog.GuiActions);
         }
 
-        // if (!SyncAdapterSettings.Instance.DisableSyncApiActions)
+        // if (!syncAdapterSettings.DisableSyncApiActions)
         // {
         //     ...
         // }
 
-        if (!SyncAdapterSettings.Instance.DisableSyncContentSummary)
+        if (!syncAdapterSettings.DisableSyncContentSummary)
         {
             existing.Content.Summary = storageDialog.Content.Summary;
         }
 
-        if (!SyncAdapterSettings.Instance.DisableSyncContentTitle)
+        if (!syncAdapterSettings.DisableSyncContentTitle)
         {
             existing.Content.Title = storageDialog.Content.Title;
         }

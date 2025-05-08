@@ -57,11 +57,6 @@ internal sealed class SyncInstanceToDialogService
             return;
         }
 
-        if (BothIsDeleted(instance, existingDialog))
-        {
-            return;
-        }
-
         if (ShouldUpdateInstanceWithDialogId(instance, dialogId))
         {
             // Update the instance with the dialogId before we start to modify the dialog
@@ -71,12 +66,18 @@ internal sealed class SyncInstanceToDialogService
             await UpdateInstanceWithDialogId(dto, dialogId, cancellationToken);
         }
 
-        if (IsDialogSyncDisabled(instance))
+        if (BothIsDeleted(instance, existingDialog))
         {
             return;
         }
 
-        if (!SyncAdapterSettings.Instance.DisableDelete && ShouldPurgeDialog(instance, existingDialog))
+        var syncAdapterSettings = application.GetSyncAdapterSettings();
+        if (syncAdapterSettings.DisableSync || IsDialogSyncDisabled(instance))
+        {
+            return;
+        }
+
+        if (!syncAdapterSettings.DisableDelete && ShouldPurgeDialog(instance, existingDialog))
         {
             await _dialogportenApi.Purge(
                 dialogId,
@@ -86,7 +87,7 @@ internal sealed class SyncInstanceToDialogService
             return;
         }
 
-        if (!SyncAdapterSettings.Instance.DisableDelete && ShouldSoftDeleteDialog(instance, existingDialog))
+        if (!syncAdapterSettings.DisableDelete && ShouldSoftDeleteDialog(instance, existingDialog))
         {
             await _dialogportenApi.Delete(
                 dialogId,
@@ -107,14 +108,9 @@ internal sealed class SyncInstanceToDialogService
 
         EnsureNotNull(application, instance, events);
 
-        if (SyncAdapterSettings.Instance.DisableSync)
-        {
-            return;
-        }
-
         // Create or update the dialog with the fetched data
         var updatedDialog = await _dataMerger.Merge(dialogId, existingDialog, application, instance, events, dto.IsMigration);
-        await UpsertDialog(updatedDialog, isMigration: dto.IsMigration, cancellationToken);
+        await UpsertDialog(updatedDialog, syncAdapterSettings, dto.IsMigration, cancellationToken);
     }
 
     private static void EnsureNotNull(
@@ -172,17 +168,32 @@ internal sealed class SyncInstanceToDialogService
 
     private static bool ShouldUpdateInstanceWithDialogId([NotNullWhen(true)] Instance? instance, Guid dialogId)
     {
-        return instance?.DataValues is null
+        if (instance is null)
+        {
+            return false;
+        }
+
+        return instance.DataValues is null
            || !instance.DataValues.TryGetValue(Constants.InstanceDataValueDialogIdKey, out var dialogIdString)
            || !Guid.TryParse(dialogIdString, out var instanceDialogId)
            || instanceDialogId != dialogId;
     }
 
-    private Task UpsertDialog(DialogDto dialog, bool isMigration, CancellationToken cancellationToken)
+    private Task UpsertDialog(DialogDto dialog, SyncAdapterSettings settings, bool isMigration, CancellationToken cancellationToken)
     {
-        return !dialog.Revision.HasValue
-            ? _dialogportenApi.Create(dialog, isSilentUpdate: isMigration, cancellationToken: cancellationToken)
-            : _dialogportenApi.Update(dialog, dialog.Revision!.Value, isSilentUpdate: isMigration, cancellationToken: cancellationToken);
+        if (dialog.Revision.HasValue)
+        {
+            return _dialogportenApi.Update(dialog, dialog.Revision!.Value,
+                isSilentUpdate: isMigration,
+                cancellationToken: cancellationToken);
+        }
+
+        // If the dialog has no revision, it means it is a new dialog,
+        // and we should create it instead of updating it.
+        // However, if the setting is set to disable creation, we should not create it.
+        return settings.DisableCreate
+            ? Task.CompletedTask
+            : _dialogportenApi.Create(dialog, isSilentUpdate: isMigration, cancellationToken: cancellationToken);
     }
 
     private async Task<Guid> RestoreDialog(Guid dialogId,

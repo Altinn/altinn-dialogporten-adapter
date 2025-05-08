@@ -16,4 +16,12 @@ internal static class StorageTypeExtensions
         return hideSettings.HideAlways ||
                hideSettings.HideOnTask.Any(x => x == currentTask);
     }
+
+    public static SyncAdapterSettings GetSyncAdapterSettings(this Application? application)
+    {
+        return application?
+           .MessageBoxConfig?
+           .SyncAdapterSettings
+            ?? new SyncAdapterSettings();
+    }
 }
