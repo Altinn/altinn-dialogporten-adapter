@@ -43,4 +43,13 @@ internal static class Constants
         (DialogGuiActionPriority.Secondary, 1),
         (DialogGuiActionPriority.Tertiary, 5 )
     ];
+    
+    internal static class GuiAction
+    {
+        public const string GoTo = "DialogGuiActionGoTo";
+        public const string Delete = "DialogGuiActionDelete";
+        public const string Copy = "DialogGuiActionCopy";
+
+        public static readonly List<string> Keys = [ GoTo, Delete, Copy ];
+    }
 }

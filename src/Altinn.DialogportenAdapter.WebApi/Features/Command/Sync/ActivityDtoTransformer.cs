@@ -4,8 +4,6 @@ using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
-using Microsoft.VisualBasic;
-using Constants = Altinn.DialogportenAdapter.WebApi.Common.Constants;
 
 namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 

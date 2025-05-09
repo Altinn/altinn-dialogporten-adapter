@@ -38,26 +38,23 @@ internal sealed class StorageDialogportenDataMerger
         {
             return storageDialog;
         }
+        
+        // TODO: Replace this when https://github.com/Altinn/dialogporten/issues/1157 is ready
+        existing.ExternalReference = storageDialog.ExternalReference;
+        existing.Transmissions.Clear();
 
         var syncAdapterSettings = dto.Application.GetSyncAdapterSettings();
+        // Respect syncAdapterSettings.DisableAddTransmissions when dealing with Transmissions
+        // Respect syncAdapterSettings.DisableSyncApiActions when dealing with ApiActions
         if (!syncAdapterSettings.DisableSyncDueAt)
         {
             existing.DueAt = storageDialog.DueAt;
         }
 
-        existing.ExternalReference = storageDialog.ExternalReference;
-
         if (!syncAdapterSettings.DisableSyncStatus)
         {
             existing.Status = storageDialog.Status;
         }
-
-        // Transmissions?
-        // if (!syncAdapterSettings.DisableAddTransmissions)
-        // {
-        //     ...
-        // }
-        existing.Transmissions.Clear();
 
         if (!syncAdapterSettings.DisableAddActivities)
         {
@@ -79,11 +76,6 @@ internal sealed class StorageDialogportenDataMerger
         {
             existing.GuiActions = MergeGuiActions(dto.DialogId, existing.GuiActions, storageDialog.GuiActions);
         }
-
-        // if (!syncAdapterSettings.DisableSyncApiActions)
-        // {
-        //     ...
-        // }
 
         if (!syncAdapterSettings.DisableSyncContentSummary)
         {
@@ -277,7 +269,7 @@ internal sealed class StorageDialogportenDataMerger
 
     private GuiActionDto CreateGoToAction(Guid dialogId, Instance instance)
     {
-        var goToActionId = dialogId.CreateDeterministicSubUuidV7(GuiActionConstants.GoTo);
+        var goToActionId = dialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.GoTo);
         if (instance.Status.IsArchived)
         {
             var platformBaseUri = _settings.DialogportenAdapter.Altinn
@@ -324,7 +316,7 @@ internal sealed class StorageDialogportenDataMerger
             .TrimEnd('/');
         return new GuiActionDto
         {
-            Id = dialogId.CreateDeterministicSubUuidV7(GuiActionConstants.Delete),
+            Id = dialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.Delete),
             Action = "delete",
             Priority = DialogGuiActionPriority.Secondary,
             IsDeleteDialogAction = true,
@@ -352,7 +344,7 @@ internal sealed class StorageDialogportenDataMerger
             .TrimEnd('/');
         yield return new GuiActionDto
         {
-            Id = dialogId.CreateDeterministicSubUuidV7(GuiActionConstants.Copy),
+            Id = dialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.Copy),
             Action = "instantiate",
             Priority = DialogGuiActionPriority.Tertiary,
             Title = [
@@ -428,7 +420,7 @@ internal sealed class StorageDialogportenDataMerger
             return existingGuiActions as List<GuiActionDto> ?? existingGuiActions.ToList();
         }
 
-        var allPotentialInternalKeys = GuiActionConstants.Keys
+        var allPotentialInternalKeys = Constants.GuiAction.Keys
             .Select(x => dialogId.CreateDeterministicSubUuidV7(x))
             .ToList();
 
