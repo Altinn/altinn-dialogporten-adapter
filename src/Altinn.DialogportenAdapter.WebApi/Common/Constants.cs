@@ -13,8 +13,8 @@ internal static class Constants
 
     public const string PartyIdUrnPrefix = "urn:altinn:party:id:";
     public const string UserIdUrnPrefix = "urn:altinn:user:id:";
-    public const string PersonNoIdUrnPrefix = "urn:altinn:person:identifier-no:";
-    public const string OrganizationNoIdUrnPrefix = "urn:altinn:organization:identifier-no:";
+    public const string PersonUrnPrefix = "urn:altinn:person:identifier-no:";
+    public const string OrganizationUrnPrefix = "urn:altinn:organization:identifier-no:";
 
     public const string DefaultMaskinportenClientDefinitionKey = "DefaultMaskinportenClientDefinitionKey";
 
@@ -43,7 +43,7 @@ internal static class Constants
         (DialogGuiActionPriority.Secondary, 1),
         (DialogGuiActionPriority.Tertiary, 5 )
     ];
-    
+
     internal static class GuiAction
     {
         public const string GoTo = "DialogGuiActionGoTo";

@@ -1,3 +1,4 @@
+using Altinn.DialogportenAdapter.WebApi.Common;
 using System.Diagnostics;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
@@ -137,6 +138,38 @@ internal sealed class ActivityDtoTransformer
         {
             ActorId = userUrn,
             ActorType = ActorType.PartyRepresentative
+        };
+    }
+
+    private static ActorDto GetPerformedBy(PlatformUser user, Dictionary<int, string> nationalIdentityNumberByUserId)
+    {
+        if (!string.IsNullOrWhiteSpace(user.OrgId))
+        {
+            return new ActorDto { ActorType = ActorType.ServiceOwner,  };
+        }
+
+        if (user.UserId.HasValue && nationalIdentityNumberByUserId.TryGetValue(user.UserId.Value, out var nationalId))
+        {
+            return new ActorDto
+            {
+                ActorType = ActorType.PartyRepresentative,
+                ActorId = $"{Constants.PersonUrnPrefix}{nationalId}"
+            };
+        }
+
+        if (!string.IsNullOrWhiteSpace(user.SystemUserOwnerOrgNo))
+        {
+            return new ActorDto
+            {
+                ActorType = ActorType.PartyRepresentative,
+                ActorId = $"{Constants.OrganizationUrnPrefix}{user.SystemUserOwnerOrgNo}"
+            };
+        }
+
+        return new ActorDto
+        {
+            ActorType = ActorType.PartyRepresentative,
+            ActorName = "Unknown user"
         };
     }
 }
