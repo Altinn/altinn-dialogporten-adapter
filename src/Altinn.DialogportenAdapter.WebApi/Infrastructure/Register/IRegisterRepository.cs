@@ -40,22 +40,8 @@ internal sealed class RegisterRepository : IRegisterRepository
                 .AsTask());
         var results = await Task.WhenAll(fetchTasks);
         return results
-            .Where(x => x.identifier is not null)
-            .ToDictionary(x => x.Urn, x => x.identifier!);
-    }
-
-    private async Task<(string Urn, PartyIdentifier? identifier)> FetchUrn(string urn,
-        CancellationToken cancellationToken)
-    {
-        // TODO: RegisterSupportsUserUrn: Remove this if
-        if (urn.StartsWith(Constants.UserIdUrnPrefix))
-        {
-            return (urn, null);
-        }
-
-        var results = await _registerApi.GetPartiesByUrns(new PartyQueryRequest([urn]), cancellationToken);
-        var result = results.Data.FirstOrDefault();
-        return (urn, result);
+            .Where(x => x.Identifier is not null)
+            .ToDictionary(x => x.Urn, x => x.Identifier!);
     }
 
     private async Task<string?> GetUrn(string id, CancellationToken cancellationToken)
@@ -70,14 +56,28 @@ internal sealed class RegisterRepository : IRegisterRepository
 
         if (result.OrganizationIdentifier is not null)
         {
-            return Constants.OrganizationNoIdUrnPrefix + result.OrganizationIdentifier;
+            return Constants.OrganizationUrnPrefix + result.OrganizationIdentifier;
         }
 
         if (result.PersonIdentifier is not null)
         {
-            return Constants.PersonNoIdUrnPrefix + result.PersonIdentifier;
+            return Constants.PersonUrnPrefix + result.PersonIdentifier;
         }
 
         throw new UnreachableException("Unknown party id.");
+    }
+
+    private async Task<(string Urn, PartyIdentifier? Identifier)> FetchUrn(string urn,
+        CancellationToken cancellationToken)
+    {
+        // TODO: Remove this if when register supports user urn
+        if (urn.StartsWith(Constants.UserIdUrnPrefix))
+        {
+            return (urn, null);
+        }
+
+        var results = await _registerApi.GetPartiesByUrns(new PartyQueryRequest([urn]), cancellationToken);
+        var result = results.Data.FirstOrDefault();
+        return (urn, result);
     }
 }

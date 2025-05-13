@@ -38,7 +38,7 @@ internal sealed class StorageDialogportenDataMerger
         {
             return storageDialog;
         }
-        
+
         // TODO: Replace this when https://github.com/Altinn/dialogporten/issues/1157 is ready
         existing.ExternalReference = storageDialog.ExternalReference;
         existing.Transmissions.Clear();
@@ -112,16 +112,12 @@ internal sealed class StorageDialogportenDataMerger
             _ => SystemLabel.Default
         };
 
-        // TODO: Ta stilling til applicaiton.hideSettings https://docs.altinn.studio/altinn-studio/reference/configuration/messagebox/hide_instances/
-        // TODO: Hva med om Attachments er for lang?
-        // TODO: Hva med om Activities er for lang?
-        // TODO: Er instance.InstanceOwner mottaker av meldingen?
         var party = await _registerRepository.GetPartyUrn(dto.Instance.InstanceOwner.PartyId, cancellationToken)
             ?? throw new InvalidOperationException("Party not found.");
         return new DialogDto
         {
             Id = dto.DialogId,
-            // TODO: Sett korrekt bool
+            // TODO: Sett korrekt bool (https://github.com/Altinn/altinn-studio/issues/12229#issuecomment-2862114988)
             IsApiOnly = dto.Application.ShouldBeHidden(dto.Instance),
             Party = party,
             ServiceResource = ToServiceResource(dto.Instance.AppId),
@@ -136,7 +132,6 @@ internal sealed class StorageDialogportenDataMerger
             Status = status,
             Content = new ContentDto
             {
-                // TODO: Skal vi bruke non-sensitive title?
                 Title = new ContentValueDto
                 {
                     MediaType = MediaTypes.PlainText,
