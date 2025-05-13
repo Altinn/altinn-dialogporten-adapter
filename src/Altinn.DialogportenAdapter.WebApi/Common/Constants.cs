@@ -7,11 +7,14 @@ namespace Altinn.DialogportenAdapter.WebApi.Common;
 internal static class Constants
 {
     public const int DefaultMaxStringLength = 255;
-    
+
     public const string InstanceDataValueDialogIdKey = "dialog.id";
     public const string InstanceDataValueDisableSyncKey = "dialog.disableAutomaticSync";
-    
+
     public const string DefaultMaskinportenClientDefinitionKey = "DefaultMaskinportenClientDefinitionKey";
+
+    public const string PersonUrnPrefix = "urn:altinn:person:identifier-no:";
+    public const string OrganizationUrnPrefix = "urn:altinn:organization:identifier-no:";
 
     public static readonly ImmutableArray<string> SupportedEventTypes =
     [
@@ -32,7 +35,7 @@ internal static class Constants
         InstanceEventType.MessageArchived.ToString(),
         InstanceEventType.MessageRead.ToString(),
     ];
-    
+
     public static readonly ImmutableArray<(DialogGuiActionPriority Priority, int Limit)> PriorityLimits = [
         (DialogGuiActionPriority.Primary, 1),
         (DialogGuiActionPriority.Secondary, 1),

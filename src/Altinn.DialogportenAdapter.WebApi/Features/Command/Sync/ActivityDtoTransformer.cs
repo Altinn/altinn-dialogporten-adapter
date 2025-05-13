@@ -1,3 +1,4 @@
+using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.Platform.Storage.Interface.Enums;
@@ -45,9 +46,9 @@ internal sealed class ActivityDtoTransformer
             {
                 continue;
             }
-            
+
             createdFound = createdFound || activityType == DialogActivityType.DialogCreated;
-            
+
             activities.Add(new ActivityDto
             {
                 Id = @event.Id.Value.ToVersion7(@event.Created.Value),
@@ -59,7 +60,7 @@ internal sealed class ActivityDtoTransformer
                     : [ ]
             });
         }
-        
+
         // TODO: Chunk within a time? What if the same user saves multiple times in a row over a long period? For example a user saves a form every day for a week.
         var savedEvents = events.InstanceEvents
             .OrderBy(x => x.Created)
@@ -71,12 +72,12 @@ internal sealed class ActivityDtoTransformer
                 {
                     return state;
                 }
-                
+
                 state.Previous = current;
                 state.SavedActivities.Add(new ActivityDto
                 {
                     Id = @event.Id.Value.ToVersion7(@event.Created.Value),
-                    Type = DialogActivityType.FormSaved, 
+                    Type = DialogActivityType.FormSaved,
                     CreatedAt = @event.Created,
                     PerformedBy = current
                 });
@@ -91,30 +92,31 @@ internal sealed class ActivityDtoTransformer
     {
         if (!string.IsNullOrWhiteSpace(user.OrgId))
         {
-            return new ActorDto { ActorType = ActorType.ServiceOwner };
+            return new ActorDto { ActorType = ActorType.ServiceOwner,  };
         }
-        
-        // TODO: GetPerformedBy logic needs to be improved.
-        // We need to handle the case where the user is not found in the dictionary
-        if (!nationalIdentityNumberByUserId.TryGetValue(user.UserId.Value, out var nationalId))
+
+        if (user.UserId.HasValue && nationalIdentityNumberByUserId.TryGetValue(user.UserId.Value, out var nationalId))
         {
             return new ActorDto
             {
                 ActorType = ActorType.PartyRepresentative,
-                ActorName = "Unknown user"
+                ActorId = $"{Constants.PersonUrnPrefix}{nationalId}"
+            };
+        }
+
+        if (!string.IsNullOrWhiteSpace(user.SystemUserOwnerOrgNo))
+        {
+            return new ActorDto
+            {
+                ActorType = ActorType.PartyRepresentative,
+                ActorId = $"{Constants.OrganizationUrnPrefix}{user.SystemUserOwnerOrgNo}"
             };
         }
 
         return new ActorDto
         {
             ActorType = ActorType.PartyRepresentative,
-            ActorId = ToPersonIdentifier(nationalId)
+            ActorName = "Unknown user"
         };
-    }
-    
-    private static string? ToPersonIdentifier(string? personNumber)
-    {
-        const string personPrefix = "urn:altinn:person:identifier-no:";
-        return string.IsNullOrWhiteSpace(personNumber) ? null : $"{personPrefix}{personNumber}";
     }
 }
