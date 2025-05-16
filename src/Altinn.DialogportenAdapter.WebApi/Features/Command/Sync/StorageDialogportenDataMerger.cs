@@ -92,28 +92,15 @@ internal sealed class StorageDialogportenDataMerger
 
     private async Task<DialogDto> ToDialogDto(MergeDto dto, CancellationToken cancellationToken)
     {
-        var instanceDerivedStatus = GetInstanceDerivedStatus(dto.Instance, dto.Events);
-        var status = instanceDerivedStatus switch
-        {
-            InstanceDerivedStatus.ArchivedUnconfirmed => DialogStatus.Sent,
-            InstanceDerivedStatus.ArchivedConfirmed => DialogStatus.Completed,
-            InstanceDerivedStatus.Rejected => DialogStatus.RequiresAttention,
-            InstanceDerivedStatus.AwaitingServiceOwnerFeedback => DialogStatus.Sent,
-            InstanceDerivedStatus.AwaitingConfirmation => DialogStatus.InProgress,
-            InstanceDerivedStatus.AwaitingSignature => DialogStatus.InProgress,
-            InstanceDerivedStatus.AwaitingAdditionalUserInput => DialogStatus.InProgress,
-            InstanceDerivedStatus.AwaitingInitialUserInput => DialogStatus.Draft,
-            _ => DialogStatus.InProgress
-        };
+        var (instanceDerivedStatus, dialogStatus) = GetStatus(dto.Instance, dto.Events);
+        var systemLabel = dto.Instance.Status.IsArchived && dto.IsMigration
+            ? SystemLabel.Archive
+            : SystemLabel.Default;
+        var (party, activities) = await (
+            GetPartyUrn(dto.Instance.InstanceOwner.PartyId, cancellationToken),
+            _activityDtoTransformer.GetActivities(dto.Events, cancellationToken)
+        );
 
-        var systemLabel = dto.Instance.Status switch
-        {
-            { IsArchived: true } when dto.IsMigration => SystemLabel.Archive,
-            _ => SystemLabel.Default
-        };
-
-        var party = await _registerRepository.GetPartyUrn(dto.Instance.InstanceOwner.PartyId, cancellationToken)
-            ?? throw new InvalidOperationException("Party not found.");
         return new DialogDto
         {
             Id = dto.DialogId,
@@ -129,7 +116,7 @@ internal sealed class StorageDialogportenDataMerger
             VisibleFrom = dto.Instance.VisibleAfter > DateTimeOffset.UtcNow ? dto.Instance.VisibleAfter : null,
             DueAt = dto.Instance.DueBefore > DateTimeOffset.UtcNow ? dto.Instance.DueBefore : null,
             ExternalReference = $"urn:altinn:integration:storage:{dto.Instance.Id}",
-            Status = status,
+            Status = dialogStatus,
             Content = new ContentDto
             {
                 Title = new ContentValueDto
@@ -171,16 +158,25 @@ internal sealed class StorageDialogportenDataMerger
                     }]
                 })
                 .ToList(),
-            Activities = await _activityDtoTransformer.GetActivities(dto.Events, cancellationToken)
+            Activities = activities
         };
     }
 
-    private static InstanceDerivedStatus GetInstanceDerivedStatus(Instance instance, InstanceEventList events) =>
-        instance.Process?.CurrentTask?.AltinnTaskType?.ToLower() switch
+    private async Task<string> GetPartyUrn(string partyId, CancellationToken cancellationToken)
+    {
+        var response = await _registerRepository.GetActorUrnByPartyId([partyId], cancellationToken);
+        return response.TryGetValue(partyId, out var actorUrn) ? actorUrn
+            : throw new InvalidOperationException($"Party with id {partyId} not found.");
+    }
+
+    private static (InstanceDerivedStatus, DialogStatus) GetStatus(Instance instance, InstanceEventList events)
+    {
+        var instanceDerivedStatus = instance.Process?.CurrentTask?.AltinnTaskType?.ToLower() switch
         {
             // Hvis vi har CompleteConfirmations etter arkivering kan vi regne denne som "ferdig", før det er den bare sent
             _ when instance.Status.IsArchived => (instance.CompleteConfirmations?.Count ?? 0) != 0
-                ? InstanceDerivedStatus.ArchivedConfirmed : InstanceDerivedStatus.ArchivedUnconfirmed,
+                ? InstanceDerivedStatus.ArchivedConfirmed
+                : InstanceDerivedStatus.ArchivedUnconfirmed,
             "reject" => InstanceDerivedStatus.Rejected,
             "feedback" => InstanceDerivedStatus.AwaitingServiceOwnerFeedback,
             "confirmation" => InstanceDerivedStatus.AwaitingConfirmation,
@@ -192,6 +188,22 @@ internal sealed class StorageDialogportenDataMerger
                 .AltinnTaskType, "Feedback")) => InstanceDerivedStatus.AwaitingAdditionalUserInput,
             _ => InstanceDerivedStatus.AwaitingInitialUserInput
         };
+
+        var dialogStatus = instanceDerivedStatus switch
+        {
+            InstanceDerivedStatus.ArchivedUnconfirmed => DialogStatus.Sent,
+            InstanceDerivedStatus.ArchivedConfirmed => DialogStatus.Completed,
+            InstanceDerivedStatus.Rejected => DialogStatus.RequiresAttention,
+            InstanceDerivedStatus.AwaitingServiceOwnerFeedback => DialogStatus.Sent,
+            InstanceDerivedStatus.AwaitingConfirmation => DialogStatus.InProgress,
+            InstanceDerivedStatus.AwaitingSignature => DialogStatus.InProgress,
+            InstanceDerivedStatus.AwaitingAdditionalUserInput => DialogStatus.InProgress,
+            InstanceDerivedStatus.AwaitingInitialUserInput => DialogStatus.Draft,
+            _ => DialogStatus.InProgress
+        };
+
+        return (instanceDerivedStatus, dialogStatus);
+    }
 
     /// <summary>
     /// This method attempts to create a summary for the instance. This will employ the following heuristics:

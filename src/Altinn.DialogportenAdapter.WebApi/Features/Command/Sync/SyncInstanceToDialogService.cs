@@ -19,7 +19,6 @@ public record SyncInstanceToDialogDto(
 internal sealed class SyncInstanceToDialogService
 {
     private readonly IStorageApi _storageApi;
-    private readonly IRegisterRepository _registerRepository;
     private readonly IDialogportenApi _dialogportenApi;
     private readonly StorageDialogportenDataMerger _dataMerger;
     private readonly ILogger<SyncInstanceToDialogService> _logger;
@@ -28,14 +27,12 @@ internal sealed class SyncInstanceToDialogService
         IStorageApi storageApi,
         IDialogportenApi dialogportenApi,
         StorageDialogportenDataMerger dataMerger,
-        ILogger<SyncInstanceToDialogService> logger,
-        IRegisterRepository registerRepository)
+        ILogger<SyncInstanceToDialogService> logger)
     {
         _storageApi = storageApi ?? throw new ArgumentNullException(nameof(storageApi));
         _dialogportenApi = dialogportenApi ?? throw new ArgumentNullException(nameof(dialogportenApi));
         _dataMerger = dataMerger ?? throw new ArgumentNullException(nameof(dataMerger));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _registerRepository = registerRepository ?? throw new ArgumentNullException(nameof(registerRepository));
     }
 
     public async Task Sync(SyncInstanceToDialogDto dto, CancellationToken cancellationToken = default)
@@ -111,12 +108,6 @@ internal sealed class SyncInstanceToDialogService
         }
 
         EnsureNotNull(application, instance, events);
-        await _registerRepository.GetByUrn(
-            events.InstanceEvents
-                .DistinctBy(x => x.User.UserId)
-                .Select(x => $"urn:altinn:user:id:{x.User.UserId}")
-                .Append($"urn:altinn:party:id:{instance.InstanceOwner.PartyId}"),
-            cancellationToken);
 
         // Create or update the dialog with the fetched data
         var mergeDto = new MergeDto(dialogId, existingDialog, application, instance, events, dto.IsMigration);
@@ -192,6 +183,7 @@ internal sealed class SyncInstanceToDialogService
 
     private Task UpsertDialog(DialogDto dialog, SyncAdapterSettings settings, bool isMigration, CancellationToken cancellationToken)
     {
+        // If the dialog has a revision, it means it is an existing dialog and should be updated.
         if (dialog.Revision.HasValue)
         {
             return _dialogportenApi.Update(dialog, dialog.Revision!.Value,
@@ -199,12 +191,12 @@ internal sealed class SyncInstanceToDialogService
                 cancellationToken: cancellationToken);
         }
 
-        // If the dialog has no revision, it means it is a new dialog,
-        // and we should create it instead of updating it.
-        // However, if the setting is set to disable creation, we should not create it.
-        return settings.DisableCreate
-            ? Task.CompletedTask
-            : _dialogportenApi.Create(dialog, isSilentUpdate: isMigration, cancellationToken: cancellationToken);
+        if (settings.DisableCreate)
+        {
+            return Task.CompletedTask;
+        }
+
+        return _dialogportenApi.Create(dialog, isSilentUpdate: isMigration, cancellationToken: cancellationToken);
     }
 
     private async Task<Guid> RestoreDialog(Guid dialogId,

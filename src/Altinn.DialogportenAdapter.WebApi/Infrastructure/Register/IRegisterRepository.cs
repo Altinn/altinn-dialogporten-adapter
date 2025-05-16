@@ -6,9 +6,9 @@ namespace Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 
 internal interface IRegisterRepository
 {
-    Task<Dictionary<string, PartyIdentifier>> GetByUrn(IEnumerable<string> urns, CancellationToken cancellationToken);
-    Task<string?> GetUserUrn(string userId, CancellationToken cancellationToken);
-    Task<string?> GetPartyUrn(string partyId, CancellationToken cancellationToken);
+    Task<Dictionary<string, string>> GetActorUrnByRegisterUrn(IEnumerable<string> registerUrns, CancellationToken cancellationToken);
+    Task<Dictionary<string, string>> GetActorUrnByUserId(IEnumerable<string> userIds, CancellationToken cancellationToken);
+    Task<Dictionary<string, string>> GetActorUrnByPartyId(IEnumerable<string> partyIds, CancellationToken cancellationToken);
 }
 
 internal sealed class RegisterRepository : IRegisterRepository
@@ -22,62 +22,66 @@ internal sealed class RegisterRepository : IRegisterRepository
         _cache = cache;
     }
 
-    public Task<string?> GetPartyUrn(string partyId, CancellationToken cancellationToken) =>
-        GetUrn(Constants.PartyIdUrnPrefix + partyId, cancellationToken);
-
-    public Task<string?> GetUserUrn(string userId, CancellationToken cancellationToken) =>
-        GetUrn(Constants.UserIdUrnPrefix + userId, cancellationToken);
-
-    public async Task<Dictionary<string, PartyIdentifier>> GetByUrn(IEnumerable<string> urns, CancellationToken cancellationToken)
+    public async Task<Dictionary<string, string>> GetActorUrnByUserId(IEnumerable<string> userIds,
+        CancellationToken cancellationToken)
     {
-        var fetchTasks = urns
+        var results = await FetchUrns(
+            userIds.Select(x => Constants.UserIdUrnPrefix + x),
+            cancellationToken);
+        return results
+            .Where(x => x.AktorUrn is not null)
+            .ToDictionary(x => x.RegisterUrn[Constants.UserIdUrnPrefix.Length..], x => x.AktorUrn!);
+    }
+
+    public async Task<Dictionary<string, string>> GetActorUrnByPartyId(IEnumerable<string> partyIds,
+        CancellationToken cancellationToken)
+    {
+        var results = await FetchUrns(
+            partyIds.Select(x => Constants.PartyIdUrnPrefix + x),
+            cancellationToken);
+        return results
+            .Where(x => x.AktorUrn is not null)
+            .ToDictionary(x => x.RegisterUrn[Constants.PartyIdUrnPrefix.Length..], x => x.AktorUrn!);
+    }
+
+    public async Task<Dictionary<string, string>> GetActorUrnByRegisterUrn(IEnumerable<string> registerUrns,
+        CancellationToken cancellationToken)
+    {
+        var results = await FetchUrns(registerUrns, cancellationToken);
+        return results
+            .Where(x => x.AktorUrn is not null)
+            .ToDictionary(x => x.RegisterUrn, x => x.AktorUrn!);
+    }
+
+    private Task<(string RegisterUrn, string? AktorUrn)[]> FetchUrns(
+        IEnumerable<string> registerUrns,
+        CancellationToken cancellationToken) =>
+        Task.WhenAll(registerUrns
             .Distinct()
             .Select(urn => _cache
                 .GetOrSetAsync(
                     key: urn,
                     factory: ct => FetchUrn(urn, ct),
                     token: cancellationToken)
-                .AsTask());
-        var results = await Task.WhenAll(fetchTasks);
-        return results
-            .Where(x => x.Identifier is not null)
-            .ToDictionary(x => x.Urn, x => x.Identifier!);
-    }
+                .AsTask()));
 
-    private async Task<string?> GetUrn(string id, CancellationToken cancellationToken)
-    {
-        var results = await GetByUrn([id], cancellationToken);
-        if (!results.TryGetValue(id, out var result))
-        {
-            return null;
-        }
-
-        Debug.Assert(result.OrganizationIdentifier is not null != result.PersonIdentifier is not null);
-
-        if (result.OrganizationIdentifier is not null)
-        {
-            return Constants.OrganizationUrnPrefix + result.OrganizationIdentifier;
-        }
-
-        if (result.PersonIdentifier is not null)
-        {
-            return Constants.PersonUrnPrefix + result.PersonIdentifier;
-        }
-
-        throw new UnreachableException("Unknown party id.");
-    }
-
-    private async Task<(string Urn, PartyIdentifier? Identifier)> FetchUrn(string urn,
+    private async Task<(string RegisterUrn, string? ActorUrn)> FetchUrn(string registerUrn,
         CancellationToken cancellationToken)
     {
-        // TODO: Remove this if when register supports user urn
-        if (urn.StartsWith(Constants.UserIdUrnPrefix))
+        // TODO: Remove this if, when register supports user urn
+        if (registerUrn.StartsWith(Constants.UserIdUrnPrefix))
         {
-            return (urn, null);
+            return (registerUrn, null);
         }
 
-        var results = await _registerApi.GetPartiesByUrns(new PartyQueryRequest([urn]), cancellationToken);
-        var result = results.Data.FirstOrDefault();
-        return (urn, result);
+        var results = await _registerApi.GetPartiesByUrns(new PartyQueryRequest([registerUrn]), cancellationToken);
+        return results.Data.FirstOrDefault() switch
+        {
+            null => (registerUrn, null),
+            { OrganizationIdentifier: { } organizationId } => (registerUrn,
+                Constants.OrganizationUrnPrefix + organizationId),
+            { PersonIdentifier: { } personId } => (registerUrn, Constants.PersonUrnPrefix + personId),
+            _ => throw new UnreachableException("Invalid response from register.")
+        };
     }
 }

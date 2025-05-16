@@ -1,5 +1,5 @@
 using Altinn.DialogportenAdapter.WebApi.Common;
-using System.Diagnostics;
+using System.Text.Json;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
@@ -21,8 +21,7 @@ internal sealed class ActivityDtoTransformer
     {
         var activities = new List<ActivityDto>();
         var createdFound = false;
-
-        var actorByUserId = await LookupUsers(events.InstanceEvents, cancellationToken);
+        var actorUrnByUserId = await LookupUsers(events.InstanceEvents, cancellationToken);
 
         foreach (var @event in events.InstanceEvents.OrderBy(x => x.Created))
         {
@@ -60,7 +59,7 @@ internal sealed class ActivityDtoTransformer
                 Id = @event.Id.Value.ToVersion7(@event.Created.Value),
                 Type = activityType.Value,
                 CreatedAt = @event.Created,
-                PerformedBy = await GetPerformedBy(@event.User, cancellationToken),
+                PerformedBy = GetPerformedBy(@event.User, actorUrnByUserId),
                 Description = activityType == DialogActivityType.Information
                     ? [ new LocalizationDto { LanguageCode = "nb", Value = eventType.ToString() } ]
                     : [ ]
@@ -73,8 +72,7 @@ internal sealed class ActivityDtoTransformer
             .Where(x => StringComparer.OrdinalIgnoreCase.Equals(x.EventType, "Saved"))
             .Aggregate((SavedActivities: new List<ActivityDto>(), Previous: (ActorDto?)null), (state, @event) =>
             {
-
-                var current = await GetPerformedBy(@event.User, cancellationToken);
+                var current = GetPerformedBy(@event.User, actorUrnByUserId);
                 if (current.ActorId is null || current.ActorId == state.Previous?.ActorId)
                 {
                     return state;
@@ -95,81 +93,35 @@ internal sealed class ActivityDtoTransformer
         return activities;
     }
 
-    private async Task<Dictionary<string, ActorDto>> LookupUsers(List<InstanceEvent> events, CancellationToken cancellationToken)
+    private async Task<Dictionary<int, string>> LookupUsers(List<InstanceEvent> events, CancellationToken cancellationToken)
     {
-        var invalidUserIds = events
-            .Select(x => x.User.UserId)
-            .Where(x => x is null)
-            .ToList();
+        var actorUrnByUserUrn = await _registerRepository.GetActorUrnByUserId(
+            events.Where(x => x.User.UserId.HasValue)
+                .Select(x => x.User.UserId!.Value.ToString())
+                .Distinct(),
+            cancellationToken
+        );
 
-        if (invalidUserIds.Count > 0)
-        {
-            throw new UnreachableException("Assumption failed: UserId should not be null.");
-        }
-
-        var userUrns = await Task.WhenAll(events
-            .Select(x => x.User.UserId.ToString())
-            .Distinct()
-            .Select(async x => (UserId: x!, Actor: await GetPerformedBy(x!, cancellationToken))));
-        return userUrns.ToDictionary(x => x.UserId, x => x.Actor);
+        return actorUrnByUserUrn.ToDictionary(x => int.Parse(x.Key), x => x.Value);
     }
 
-    private async Task<ActorDto> GetPerformedBy(string? userId, CancellationToken cancellationToken)
+    private static ActorDto GetPerformedBy(PlatformUser user, Dictionary<int, string> actorUrnByUserId)
     {
-        if (string.IsNullOrWhiteSpace(userId))
-        {
-            throw new UnreachableException("Should not get here...");
-        }
+        var actor = new ActorDto { ActorType = ActorType.PartyRepresentative };
 
-        var userUrn = await _registerRepository.GetUserUrn(userId, cancellationToken);
-        if (userUrn is null)
+        if (user.UserId.HasValue && actorUrnByUserId.TryGetValue(user.UserId.Value, out var actorUrn))
         {
-            // TODO: RegisterSupportsUserUrn: Throw an exception if the user is not found in the register?
-            // throw new InvalidOperationException($"User {userId} not found in register.");
-            return new ActorDto
-            {
-                ActorType = ActorType.PartyRepresentative,
-                ActorName = "Unknown user"
-            };
-        }
-
-        // A userId is always a person or a system user (or a business user); it is never a service owner.
-        return new ActorDto
-        {
-            ActorId = userUrn,
-            ActorType = ActorType.PartyRepresentative
-        };
-    }
-
-    private static ActorDto GetPerformedBy(PlatformUser user, Dictionary<int, string> nationalIdentityNumberByUserId)
-    {
-        if (!string.IsNullOrWhiteSpace(user.OrgId))
-        {
-            return new ActorDto { ActorType = ActorType.ServiceOwner,  };
-        }
-
-        if (user.UserId.HasValue && nationalIdentityNumberByUserId.TryGetValue(user.UserId.Value, out var nationalId))
-        {
-            return new ActorDto
-            {
-                ActorType = ActorType.PartyRepresentative,
-                ActorId = $"{Constants.PersonUrnPrefix}{nationalId}"
-            };
+            actor.ActorId = actorUrn;
+            return actor;
         }
 
         if (!string.IsNullOrWhiteSpace(user.SystemUserOwnerOrgNo))
         {
-            return new ActorDto
-            {
-                ActorType = ActorType.PartyRepresentative,
-                ActorId = $"{Constants.OrganizationUrnPrefix}{user.SystemUserOwnerOrgNo}"
-            };
+            actor.ActorId = $"{Constants.OrganizationUrnPrefix}{user.SystemUserOwnerOrgNo}";
+            return actor;
         }
 
-        return new ActorDto
-        {
-            ActorType = ActorType.PartyRepresentative,
-            ActorName = "Unknown user"
-        };
+        throw new InvalidOperationException($"{nameof(PlatformUser)} could not be converted to {nameof(ActorDto)}: {JsonSerializer.Serialize(user)}.");
+
     }
 }
