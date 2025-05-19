@@ -68,7 +68,7 @@ internal sealed class RegisterRepository : IRegisterRepository
     private async Task<(string RegisterUrn, string? ActorUrn)> FetchUrn(string registerUrn,
         CancellationToken cancellationToken)
     {
-        // TODO: Remove this if, when register supports user urn
+        // TODO: Remove this when register supports user urn
         if (registerUrn.StartsWith(Constants.UserIdUrnPrefix))
         {
             return (registerUrn, null);

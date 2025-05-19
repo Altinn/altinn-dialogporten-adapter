@@ -107,21 +107,27 @@ internal sealed class ActivityDtoTransformer
 
     private static ActorDto GetPerformedBy(PlatformUser user, Dictionary<int, string> actorUrnByUserId)
     {
-        var actor = new ActorDto { ActorType = ActorType.PartyRepresentative };
-
         if (user.UserId.HasValue && actorUrnByUserId.TryGetValue(user.UserId.Value, out var actorUrn))
         {
-            actor.ActorId = actorUrn;
-            return actor;
+            return new ActorDto { ActorType = ActorType.PartyRepresentative, ActorId = actorUrn };
+        }
+
+        // TODO: Remove this when register supports user urn
+        if (user.UserId.HasValue)
+        {
+            return new ActorDto { ActorType = ActorType.PartyRepresentative, ActorId = "Unknown user." };
         }
 
         if (!string.IsNullOrWhiteSpace(user.SystemUserOwnerOrgNo))
         {
-            actor.ActorId = $"{Constants.OrganizationUrnPrefix}{user.SystemUserOwnerOrgNo}";
-            return actor;
+            return new ActorDto { ActorType = ActorType.PartyRepresentative, ActorId = $"{Constants.OrganizationUrnPrefix}{user.SystemUserOwnerOrgNo}" };
+        }
+
+        if (!string.IsNullOrWhiteSpace(user.OrgId))
+        {
+            return new ActorDto { ActorType = ActorType.ServiceOwner };
         }
 
         throw new InvalidOperationException($"{nameof(PlatformUser)} could not be converted to {nameof(ActorDto)}: {JsonSerializer.Serialize(user)}.");
-
     }
 }
