@@ -68,19 +68,13 @@ internal sealed class RegisterRepository : IRegisterRepository
     private async Task<(string RegisterUrn, string? ActorUrn)> FetchUrn(string registerUrn,
         CancellationToken cancellationToken)
     {
-        // TODO: Remove this when register supports user urn
-        if (registerUrn.StartsWith(Constants.UserIdUrnPrefix))
-        {
-            return (registerUrn, null);
-        }
-
         var results = await _registerApi.GetPartiesByUrns(new PartyQueryRequest([registerUrn]), cancellationToken);
         return results.Data.FirstOrDefault() switch
         {
             null => (registerUrn, null),
-            { OrganizationIdentifier: { } organizationId } => (registerUrn,
-                Constants.OrganizationUrnPrefix + organizationId),
+            { OrganizationIdentifier: { } organizationId } => (registerUrn, Constants.OrganizationUrnPrefix + organizationId),
             { PersonIdentifier: { } personId } => (registerUrn, Constants.PersonUrnPrefix + personId),
+            { DisplayName: { } displayName } => (registerUrn, Constants.DisplayNameUrnPrefix + displayName),
             _ => throw new UnreachableException("Invalid response from register.")
         };
     }

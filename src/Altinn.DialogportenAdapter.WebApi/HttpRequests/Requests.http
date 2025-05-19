@@ -15,16 +15,15 @@ Authorization: Basic {{username}} {{password}}
 %}
 
 ### Lookup party and user
-POST https://platform.tt02.altinn.no/register/api/v1/dialogporten/parties/query?fields=org
-//POST https://platform.at22.altinn.cloud/register/api/v1/dialogporten/parties/query
+POST https://platform.tt02.altinn.no/register/api/v1/dialogporten/parties/query?fields=identifiers,display-name
 Authorization: Bearer {{auth_token}}
 Ocp-Apim-Subscription-Key: {{subscriptionKey}}
 Content-Type: application/json
 
 {
     "data": [
-        "urn:altinn:party:id:50055202",
-        "urn:altinn:party:id:50164686"
+        "urn:altinn:user:id:92496",
+        "urn:altinn:user:id:1433493"
     ]
 }
 

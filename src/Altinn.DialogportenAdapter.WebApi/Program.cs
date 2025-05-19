@@ -84,7 +84,7 @@ static void BuildAndRun(string[] args)
             x.FailSafeThrottleDuration = TimeSpan.FromMinutes(30);
 
             // Factory timeouts
-            x.FactorySoftTimeout = TimeSpan.FromMilliseconds(300);
+             x.FactorySoftTimeout = TimeSpan.FromSeconds(1);
             // Disabling hard timeouts as we don't want to handle SyntheticTimeoutException.
             // x.FactoryHardTimeout = TimeSpan.FromSeconds(2);
         });

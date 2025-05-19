@@ -165,8 +165,15 @@ internal sealed class StorageDialogportenDataMerger
     private async Task<string> GetPartyUrn(string partyId, CancellationToken cancellationToken)
     {
         var response = await _registerRepository.GetActorUrnByPartyId([partyId], cancellationToken);
-        return response.TryGetValue(partyId, out var actorUrn) ? actorUrn
-            : throw new InvalidOperationException($"Party with id {partyId} not found.");
+
+        if (!response.TryGetValue(partyId, out var actorUrn))
+        {
+            throw new InvalidOperationException($"Party with id {partyId} not found.");
+        }
+
+        return actorUrn.StartsWith(Constants.DisplayNameUrnPrefix)
+            ? actorUrn[Constants.DisplayNameUrnPrefix.Length..]
+            : actorUrn;
     }
 
     private static (InstanceDerivedStatus, DialogStatus) GetStatus(Instance instance, InstanceEventList events)

@@ -109,13 +109,9 @@ internal sealed class ActivityDtoTransformer
     {
         if (user.UserId.HasValue && actorUrnByUserId.TryGetValue(user.UserId.Value, out var actorUrn))
         {
-            return new ActorDto { ActorType = ActorType.PartyRepresentative, ActorId = actorUrn };
-        }
-
-        // TODO: Remove this when register supports user urn
-        if (user.UserId.HasValue)
-        {
-            return new ActorDto { ActorType = ActorType.PartyRepresentative, ActorId = "Unknown user." };
+            return actorUrn.StartsWith(Constants.DisplayNameUrnPrefix)
+                ? new ActorDto { ActorType = ActorType.PartyRepresentative, ActorName = actorUrn[Constants.DisplayNameUrnPrefix.Length..] }
+                : new ActorDto { ActorType = ActorType.PartyRepresentative, ActorId = actorUrn };
         }
 
         if (!string.IsNullOrWhiteSpace(user.SystemUserOwnerOrgNo))
