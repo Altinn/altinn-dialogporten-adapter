@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
+using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Altinn.Platform.Storage.Interface.Models;
 
@@ -109,7 +110,8 @@ internal sealed class SyncInstanceToDialogService
         EnsureNotNull(application, instance, events);
 
         // Create or update the dialog with the fetched data
-        var updatedDialog = await _dataMerger.Merge(dialogId, existingDialog, application, instance, events, dto.IsMigration);
+        var mergeDto = new MergeDto(dialogId, existingDialog, application, instance, events, dto.IsMigration);
+        var updatedDialog = await _dataMerger.Merge(mergeDto, cancellationToken);
         await UpsertDialog(updatedDialog, syncAdapterSettings, dto.IsMigration, cancellationToken);
     }
 
@@ -181,6 +183,7 @@ internal sealed class SyncInstanceToDialogService
 
     private Task UpsertDialog(DialogDto dialog, SyncAdapterSettings settings, bool isMigration, CancellationToken cancellationToken)
     {
+        // If the dialog has a revision, it means it is an existing dialog and should be updated.
         if (dialog.Revision.HasValue)
         {
             return _dialogportenApi.Update(dialog, dialog.Revision!.Value,
@@ -188,12 +191,12 @@ internal sealed class SyncInstanceToDialogService
                 cancellationToken: cancellationToken);
         }
 
-        // If the dialog has no revision, it means it is a new dialog,
-        // and we should create it instead of updating it.
-        // However, if the setting is set to disable creation, we should not create it.
-        return settings.DisableCreate
-            ? Task.CompletedTask
-            : _dialogportenApi.Create(dialog, isSilentUpdate: isMigration, cancellationToken: cancellationToken);
+        if (settings.DisableCreate)
+        {
+            return Task.CompletedTask;
+        }
+
+        return _dialogportenApi.Create(dialog, isSilentUpdate: isMigration, cancellationToken: cancellationToken);
     }
 
     private async Task<Guid> RestoreDialog(Guid dialogId,

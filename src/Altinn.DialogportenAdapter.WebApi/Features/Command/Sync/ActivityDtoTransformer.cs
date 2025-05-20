@@ -1,6 +1,8 @@
 using Altinn.DialogportenAdapter.WebApi.Common;
+using System.Text.Json;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
+using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 
@@ -8,15 +10,18 @@ namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 
 internal sealed class ActivityDtoTransformer
 {
-    public List<ActivityDto> GetActivities(InstanceEventList events)
-    {
-        var nationalIdentityNumberByUserId = events.InstanceEvents
-            .Where(x => !string.IsNullOrWhiteSpace(x.User.NationalIdentityNumber))
-            .GroupBy(x => x.User.UserId)
-            .ToDictionary(x => x.Key!.Value, x => x.Select(xx => xx.User.NationalIdentityNumber).First());
+    private readonly IRegisterRepository _registerRepository;
 
+    public ActivityDtoTransformer(IRegisterRepository registerRepository)
+    {
+        _registerRepository = registerRepository ?? throw new ArgumentNullException(nameof(registerRepository));
+    }
+
+    public async Task<List<ActivityDto>> GetActivities(InstanceEventList events, CancellationToken cancellationToken)
+    {
         var activities = new List<ActivityDto>();
         var createdFound = false;
+        var actorUrnByUserId = await LookupUsers(events.InstanceEvents, cancellationToken);
 
         foreach (var @event in events.InstanceEvents.OrderBy(x => x.Created))
         {
@@ -54,7 +59,7 @@ internal sealed class ActivityDtoTransformer
                 Id = @event.Id.Value.ToVersion7(@event.Created.Value),
                 Type = activityType.Value,
                 CreatedAt = @event.Created,
-                PerformedBy = GetPerformedBy(@event.User, nationalIdentityNumberByUserId),
+                PerformedBy = GetPerformedBy(@event.User, actorUrnByUserId),
                 Description = activityType == DialogActivityType.Information
                     ? [ new LocalizationDto { LanguageCode = "nb", Value = eventType.ToString() } ]
                     : [ ]
@@ -67,7 +72,7 @@ internal sealed class ActivityDtoTransformer
             .Where(x => StringComparer.OrdinalIgnoreCase.Equals(x.EventType, "Saved"))
             .Aggregate((SavedActivities: new List<ActivityDto>(), Previous: (ActorDto?)null), (state, @event) =>
             {
-                var current = GetPerformedBy(@event.User, nationalIdentityNumberByUserId);
+                var current = GetPerformedBy(@event.User, actorUrnByUserId);
                 if (current.ActorId is null || current.ActorId == state.Previous?.ActorId)
                 {
                     return state;
@@ -88,35 +93,37 @@ internal sealed class ActivityDtoTransformer
         return activities;
     }
 
-    private static ActorDto GetPerformedBy(PlatformUser user, Dictionary<int, string> nationalIdentityNumberByUserId)
+    private async Task<Dictionary<int, string>> LookupUsers(List<InstanceEvent> events, CancellationToken cancellationToken)
     {
-        if (!string.IsNullOrWhiteSpace(user.OrgId))
-        {
-            return new ActorDto { ActorType = ActorType.ServiceOwner,  };
-        }
+        var actorUrnByUserUrn = await _registerRepository.GetActorUrnByUserId(
+            events.Where(x => x.User.UserId.HasValue)
+                .Select(x => x.User.UserId!.Value.ToString())
+                .Distinct(),
+            cancellationToken
+        );
 
-        if (user.UserId.HasValue && nationalIdentityNumberByUserId.TryGetValue(user.UserId.Value, out var nationalId))
+        return actorUrnByUserUrn.ToDictionary(x => int.Parse(x.Key), x => x.Value);
+    }
+
+    private static ActorDto GetPerformedBy(PlatformUser user, Dictionary<int, string> actorUrnByUserId)
+    {
+        if (user.UserId.HasValue && actorUrnByUserId.TryGetValue(user.UserId.Value, out var actorUrn))
         {
-            return new ActorDto
-            {
-                ActorType = ActorType.PartyRepresentative,
-                ActorId = $"{Constants.PersonUrnPrefix}{nationalId}"
-            };
+            return actorUrn.StartsWith(Constants.DisplayNameUrnPrefix)
+                ? new ActorDto { ActorType = ActorType.PartyRepresentative, ActorName = actorUrn[Constants.DisplayNameUrnPrefix.Length..] }
+                : new ActorDto { ActorType = ActorType.PartyRepresentative, ActorId = actorUrn };
         }
 
         if (!string.IsNullOrWhiteSpace(user.SystemUserOwnerOrgNo))
         {
-            return new ActorDto
-            {
-                ActorType = ActorType.PartyRepresentative,
-                ActorId = $"{Constants.OrganizationUrnPrefix}{user.SystemUserOwnerOrgNo}"
-            };
+            return new ActorDto { ActorType = ActorType.PartyRepresentative, ActorId = $"{Constants.OrganizationUrnPrefix}{user.SystemUserOwnerOrgNo}" };
         }
 
-        return new ActorDto
+        if (!string.IsNullOrWhiteSpace(user.OrgId))
         {
-            ActorType = ActorType.PartyRepresentative,
-            ActorName = "Unknown user"
-        };
+            return new ActorDto { ActorType = ActorType.ServiceOwner };
+        }
+
+        throw new InvalidOperationException($"{nameof(PlatformUser)} could not be converted to {nameof(ActorDto)}: {JsonSerializer.Serialize(user)}.");
     }
 }

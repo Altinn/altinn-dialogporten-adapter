@@ -8,6 +8,7 @@ using Altinn.DialogportenAdapter.WebApi.Common.Health;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Delete;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
+using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -17,6 +18,7 @@ using Microsoft.IdentityModel.Tokens;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Refit;
+using ZiggyCreatures.Caching.Fusion;
 
 using var loggerFactory = CreateBootstrapLoggerFactory();
 var bootstrapLogger = loggerFactory.CreateLogger<Program>();
@@ -70,6 +72,23 @@ static void BuildAndRun(string[] args)
         Constants.DefaultMaskinportenClientDefinitionKey,
         settings.DialogportenAdapter.Maskinporten);
 
+    builder.Services.AddMemoryCache();
+    builder.Services.AddFusionCache()
+        .WithDefaultEntryOptions(x =>
+        {
+            x.Duration = TimeSpan.FromMinutes(5);
+
+            // Fail-safe options
+            x.IsFailSafeEnabled = true;
+            x.FailSafeMaxDuration = TimeSpan.FromHours(2);
+            x.FailSafeThrottleDuration = TimeSpan.FromMinutes(30);
+
+            // Factory timeouts
+             x.FactorySoftTimeout = TimeSpan.FromSeconds(1);
+            // Disabling hard timeouts as we don't want to handle SyntheticTimeoutException.
+            // x.FactoryHardTimeout = TimeSpan.FromSeconds(2);
+        });
+
     builder.Services
         .AddCors(x => x.AddDefaultPolicy(policy => policy
             .AllowAnyOrigin()
@@ -110,6 +129,7 @@ static void BuildAndRun(string[] args)
             x.BaseUri = settings.DialogportenAdapter.Dialogporten.BaseUri.ToString();
             x.ThrowOnPublicKeyFetchInit = false;
         })
+        .AddTransient<IRegisterRepository, NullRegisterRepository>()
         .AddTransient<SyncInstanceToDialogService>()
         .AddTransient<StorageDialogportenDataMerger>()
         .AddTransient<ActivityDtoTransformer>()
@@ -128,6 +148,15 @@ static void BuildAndRun(string[] args)
             .Services
         .AddRefitClient<IDialogportenApi>()
             .ConfigureHttpClient(x => x.BaseAddress = settings.DialogportenAdapter.Dialogporten.BaseUri)
+            .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
+            .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>()
+            .Services
+        .AddRefitClient<IRegisterApi>()
+            .ConfigureHttpClient(x =>
+            {
+                x.BaseAddress = settings.DialogportenAdapter.Altinn.GetPlatformUri();
+                x.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", settings.DialogportenAdapter.Altinn.SubscriptionKey);
+            })
             .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
             .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>()
             .Services
