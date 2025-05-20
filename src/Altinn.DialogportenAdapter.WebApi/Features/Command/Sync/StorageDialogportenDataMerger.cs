@@ -105,7 +105,7 @@ internal sealed class StorageDialogportenDataMerger
         {
             Id = dto.DialogId,
             // TODO: Sett korrekt bool (https://github.com/Altinn/altinn-studio/issues/12229#issuecomment-2862114988)
-            IsApiOnly = dto.Application.ShouldBeHidden(dto.Instance),
+            IsApiOnly = dto.Application.ShouldBeHidden(),
             Party = party,
             ServiceResource = ToServiceResource(dto.Instance.AppId),
             SystemLabel = systemLabel,
