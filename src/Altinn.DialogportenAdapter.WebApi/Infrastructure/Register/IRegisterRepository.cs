@@ -6,9 +6,17 @@ namespace Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 
 internal interface IRegisterRepository
 {
-    Task<Dictionary<string, string>> GetActorUrnByRegisterUrn(IEnumerable<string> registerUrns, CancellationToken cancellationToken);
     Task<Dictionary<string, string>> GetActorUrnByUserId(IEnumerable<string> userIds, CancellationToken cancellationToken);
     Task<Dictionary<string, string>> GetActorUrnByPartyId(IEnumerable<string> partyIds, CancellationToken cancellationToken);
+}
+
+internal sealed class NullRegisterRepository : IRegisterRepository
+{
+    public Task<Dictionary<string, string>> GetActorUrnByUserId(IEnumerable<string> userIds, CancellationToken cancellationToken)
+        => Task.FromResult(userIds.ToDictionary(x => x, x => Constants.DisplayNameUrnPrefix + x));
+
+    public Task<Dictionary<string, string>> GetActorUrnByPartyId(IEnumerable<string> partyIds, CancellationToken cancellationToken)
+        => Task.FromResult(partyIds.ToDictionary(x => x, x => Constants.DisplayNameUrnPrefix + x));
 }
 
 internal sealed class RegisterRepository : IRegisterRepository
@@ -44,7 +52,7 @@ internal sealed class RegisterRepository : IRegisterRepository
             .ToDictionary(x => x.RegisterUrn[Constants.PartyIdUrnPrefix.Length..], x => x.AktorUrn!);
     }
 
-    public async Task<Dictionary<string, string>> GetActorUrnByRegisterUrn(IEnumerable<string> registerUrns,
+    private async Task<Dictionary<string, string>> GetActorUrnByRegisterUrn(IEnumerable<string> registerUrns,
         CancellationToken cancellationToken)
     {
         var results = await FetchUrns(registerUrns, cancellationToken);
