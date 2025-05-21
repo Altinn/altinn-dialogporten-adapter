@@ -477,6 +477,12 @@ public enum DialogActivityType
 public sealed class ApiActionDto
 {
     /// <summary>
+    /// A self-defined UUIDv7 may be provided to support idempotent additions of Api Actions. If not provided, a new UUIDv7 will be generated.
+    /// </summary>
+    /// <example>01913cd5-784f-7d3b-abef-4c77b1f0972d</example>
+    public Guid? Id { get; set; }
+
+    /// <summary>
     /// String identifier for the action, corresponding to the "action" attributeId used in the XACML service policy,
     /// which by default is the policy belonging to the service referred to by "serviceResource" in the dialog.
     /// </summary>

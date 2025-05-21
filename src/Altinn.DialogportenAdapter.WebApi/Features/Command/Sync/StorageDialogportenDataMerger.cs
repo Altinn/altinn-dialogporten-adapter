@@ -41,51 +41,54 @@ internal sealed class StorageDialogportenDataMerger
 
         // TODO: Replace this when https://github.com/Altinn/dialogporten/issues/1157 is ready
         existing.ExternalReference = storageDialog.ExternalReference;
-        existing.Transmissions.Clear();
 
         var syncAdapterSettings = dto.Application.GetSyncAdapterSettings();
-        // Respect syncAdapterSettings.DisableAddTransmissions when dealing with Transmissions
-        // Respect syncAdapterSettings.DisableSyncApiActions when dealing with ApiActions
-        if (!syncAdapterSettings.DisableSyncDueAt)
-        {
-            existing.DueAt = storageDialog.DueAt;
-        }
 
-        if (!syncAdapterSettings.DisableSyncStatus)
-        {
-            existing.Status = storageDialog.Status;
-        }
+        existing.DueAt = syncAdapterSettings.DisableSyncDueAt
+            ? existing.DueAt
+            : storageDialog.DueAt;
 
-        if (!syncAdapterSettings.DisableAddActivities)
-        {
-            existing.Activities = storageDialog.Activities
+        existing.Status = syncAdapterSettings.DisableSyncStatus
+            ? existing.Status
+            : storageDialog.Status;
+
+        existing.Content.Title = syncAdapterSettings.DisableSyncContentTitle
+            ? existing.Content.Title
+            : storageDialog.Content.Title;
+
+        existing.Content.Summary = syncAdapterSettings.DisableSyncContentSummary
+            ? existing.Content.Summary
+            : storageDialog.Content.Summary;
+
+        existing.Transmissions = syncAdapterSettings.DisableAddTransmissions
+            ? []
+            : storageDialog.Transmissions
+                .ExceptBy(existing.Transmissions.Select(x => x.Id), x => x.Id)
+                .ToList();
+
+        existing.Activities = syncAdapterSettings.DisableAddActivities
+            ? []
+            : storageDialog.Activities
                 .ExceptBy(existing.Activities.Select(x => x.Id), x => x.Id)
                 .ToList();
-        }
 
-        if (!syncAdapterSettings.DisableSyncAttachments)
-        {
-            existing.Attachments =
-            [
-                ..existing.Attachments.ExceptBy(storageDialog.Attachments.Select(x => x.Id), x => x.Id),
-                ..storageDialog.Attachments
-            ];
-        }
+        existing.Attachments = syncAdapterSettings.DisableSyncAttachments
+            ? existing.Attachments
+            : existing.Attachments
+                .ExceptBy(storageDialog.Attachments.Select(x => x.Id), x => x.Id)
+                .Concat(storageDialog.Attachments)
+                .ToList();
 
-        if (!syncAdapterSettings.DisableSyncGuiActions)
-        {
-            existing.GuiActions = MergeGuiActions(dto.DialogId, existing.GuiActions, storageDialog.GuiActions);
-        }
+        existing.ApiActions = syncAdapterSettings.DisableSyncApiActions
+            ? existing.ApiActions
+            : existing.ApiActions
+                .ExceptBy(storageDialog.ApiActions.Select(x => x.Id), x => x.Id)
+                .Concat(storageDialog.ApiActions)
+                .ToList();
 
-        if (!syncAdapterSettings.DisableSyncContentSummary)
-        {
-            existing.Content.Summary = storageDialog.Content.Summary;
-        }
-
-        if (!syncAdapterSettings.DisableSyncContentTitle)
-        {
-            existing.Content.Title = storageDialog.Content.Title;
-        }
+        existing.GuiActions = syncAdapterSettings.DisableSyncGuiActions
+            ? existing.GuiActions
+            : MergeGuiActions(dto.DialogId, existing.GuiActions, storageDialog.GuiActions);
 
         return existing;
     }

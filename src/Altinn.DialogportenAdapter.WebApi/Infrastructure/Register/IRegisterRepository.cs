@@ -16,7 +16,7 @@ internal sealed class NullRegisterRepository : IRegisterRepository
         => Task.FromResult(userIds.ToDictionary(x => x, x => Constants.DisplayNameUrnPrefix + x));
 
     public Task<Dictionary<string, string>> GetActorUrnByPartyId(IEnumerable<string> partyIds, CancellationToken cancellationToken)
-        => Task.FromResult(partyIds.ToDictionary(x => x, x => Constants.DisplayNameUrnPrefix + x));
+        => Task.FromResult(partyIds.ToDictionary(x => x, x => Constants.OrganizationUrnPrefix + "924203617"));
 }
 
 internal sealed class RegisterRepository : IRegisterRepository
