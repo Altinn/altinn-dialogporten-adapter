@@ -10,15 +10,6 @@ internal interface IRegisterRepository
     Task<Dictionary<string, string>> GetActorUrnByPartyId(IEnumerable<string> partyIds, CancellationToken cancellationToken);
 }
 
-internal sealed class NullRegisterRepository : IRegisterRepository
-{
-    public Task<Dictionary<string, string>> GetActorUrnByUserId(IEnumerable<string> userIds, CancellationToken cancellationToken)
-        => Task.FromResult(userIds.ToDictionary(x => x, x => Constants.DisplayNameUrnPrefix + x));
-
-    public Task<Dictionary<string, string>> GetActorUrnByPartyId(IEnumerable<string> partyIds, CancellationToken cancellationToken)
-        => Task.FromResult(partyIds.ToDictionary(x => x, x => Constants.OrganizationUrnPrefix + "924203617"));
-}
-
 internal sealed class RegisterRepository : IRegisterRepository
 {
     private readonly IRegisterApi _registerApi;
@@ -50,15 +41,6 @@ internal sealed class RegisterRepository : IRegisterRepository
         return results
             .Where(x => x.AktorUrn is not null)
             .ToDictionary(x => x.RegisterUrn[Constants.PartyIdUrnPrefix.Length..], x => x.AktorUrn!);
-    }
-
-    private async Task<Dictionary<string, string>> GetActorUrnByRegisterUrn(IEnumerable<string> registerUrns,
-        CancellationToken cancellationToken)
-    {
-        var results = await FetchUrns(registerUrns, cancellationToken);
-        return results
-            .Where(x => x.AktorUrn is not null)
-            .ToDictionary(x => x.RegisterUrn, x => x.AktorUrn!);
     }
 
     private Task<(string RegisterUrn, string? AktorUrn)[]> FetchUrns(

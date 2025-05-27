@@ -129,7 +129,7 @@ static void BuildAndRun(string[] args)
             x.BaseUri = settings.DialogportenAdapter.Dialogporten.BaseUri.ToString();
             x.ThrowOnPublicKeyFetchInit = false;
         })
-        .AddTransient<IRegisterRepository, NullRegisterRepository>()
+        .AddTransient<IRegisterRepository, RegisterRepository>()
         .AddTransient<SyncInstanceToDialogService>()
         .AddTransient<StorageDialogportenDataMerger>()
         .AddTransient<ActivityDtoTransformer>()
