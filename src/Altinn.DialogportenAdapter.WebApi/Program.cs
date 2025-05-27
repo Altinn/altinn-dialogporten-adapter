@@ -140,7 +140,7 @@ static void BuildAndRun(string[] args)
         .AddRefitClient<IStorageApi>()
             .ConfigureHttpClient(x =>
             {
-                x.BaseAddress = settings.DialogportenAdapter.Altinn.ApiStorageEndpoint;
+                x.BaseAddress = settings.DialogportenAdapter.Altinn.InternalStorageEndpoint;
                 x.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", settings.DialogportenAdapter.Altinn.SubscriptionKey);
             })
             .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
@@ -154,7 +154,7 @@ static void BuildAndRun(string[] args)
         .AddRefitClient<IRegisterApi>()
             .ConfigureHttpClient(x =>
             {
-                x.BaseAddress = new(settings.DialogportenAdapter.Altinn.ApiStorageEndpoint.ToString().Replace("altinn-storage", "altinn-register"));
+                x.BaseAddress = settings.DialogportenAdapter.Altinn.InternalRegisterEndpoint;
                 x.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", settings.DialogportenAdapter.Altinn.SubscriptionKey);
             })
             .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
