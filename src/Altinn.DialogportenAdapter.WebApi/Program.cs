@@ -154,7 +154,7 @@ static void BuildAndRun(string[] args)
         .AddRefitClient<IRegisterApi>()
             .ConfigureHttpClient(x =>
             {
-                x.BaseAddress = settings.DialogportenAdapter.Altinn.GetPlatformUri();
+                x.BaseAddress = settings.DialogportenAdapter.Altinn.ApiStorageEndpoint;
                 x.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", settings.DialogportenAdapter.Altinn.SubscriptionKey);
             })
             .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
