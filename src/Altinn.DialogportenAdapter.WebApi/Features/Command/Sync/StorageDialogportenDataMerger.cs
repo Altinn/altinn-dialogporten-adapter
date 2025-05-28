@@ -182,7 +182,6 @@ internal sealed class StorageDialogportenDataMerger
     {
         var instanceDerivedStatus = instance.Process?.CurrentTask?.AltinnTaskType?.ToLower() switch
         {
-            // Hvis vi har CompleteConfirmations etter arkivering kan vi regne denne som "ferdig", før det er den bare sent
             _ when instance.Status.IsArchived => (instance.CompleteConfirmations?.Count ?? 0) != 0
                 ? InstanceDerivedStatus.ArchivedConfirmed
                 : InstanceDerivedStatus.ArchivedUnconfirmed,
@@ -201,7 +200,7 @@ internal sealed class StorageDialogportenDataMerger
         var dialogStatus = instanceDerivedStatus switch
         {
             InstanceDerivedStatus.ArchivedUnconfirmed => DialogStatus.Sent,
-            InstanceDerivedStatus.ArchivedConfirmed => DialogStatus.Completed,
+            InstanceDerivedStatus.ArchivedConfirmed => DialogStatus.Sent, // We do not have enough information to determine if the dialog is in a final state or not, so we leave it as Sent
             InstanceDerivedStatus.Rejected => DialogStatus.RequiresAttention,
             InstanceDerivedStatus.AwaitingServiceOwnerFeedback => DialogStatus.Sent,
             InstanceDerivedStatus.AwaitingConfirmation => DialogStatus.InProgress,
