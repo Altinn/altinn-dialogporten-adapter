@@ -35,8 +35,8 @@ internal sealed class ActivityDtoTransformer
                 // When DataId is null the event refers to the instance itself
                 InstanceEventType.Created when @event.DataId is null && !createdFound => DialogActivityType.DialogCreated,
                 InstanceEventType.Submited => DialogActivityType.FormSubmitted,
-                InstanceEventType.Deleted => DialogActivityType.DialogDeleted,
-                InstanceEventType.Undeleted => DialogActivityType.DialogRestored,
+                InstanceEventType.Deleted when @event.DataId is null => DialogActivityType.DialogDeleted,
+                InstanceEventType.Undeleted when @event.DataId is null => DialogActivityType.DialogRestored,
                 InstanceEventType.Signed => DialogActivityType.SignatureProvided,
                 InstanceEventType.MessageArchived => DialogActivityType.DialogClosed,
                 InstanceEventType.MessageRead => DialogActivityType.DialogOpened,
