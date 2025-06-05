@@ -7,7 +7,10 @@ internal interface IOrganizationRepository
 
 internal class OrganizationRepository : IOrganizationRepository
 {
+    private static readonly SemaphoreSlim Semaphore = new SemaphoreSlim(1, 1);
+
     private readonly IStorageApi _storageApi;
+    private static List<string>? _cachedOrganizations;
 
     public OrganizationRepository(IStorageApi storageApi)
     {
@@ -16,10 +19,27 @@ internal class OrganizationRepository : IOrganizationRepository
 
     public async ValueTask<List<string>> GetOrganizations(CancellationToken cancellationToken)
     {
-        var apps = await _storageApi.GetApplications(cancellationToken);
-        return apps.Applications
-            .Select(x => x.Org)
-            .Distinct()
-            .ToList();
+        if (_cachedOrganizations is not null)
+        {
+            return _cachedOrganizations;
+        }
+        await Semaphore.WaitAsync(cancellationToken);
+        try
+        {
+            if (_cachedOrganizations is not null)
+            {
+                return _cachedOrganizations;
+            }
+
+            var apps = await _storageApi.GetApplications(cancellationToken);
+            return _cachedOrganizations = apps.Applications
+                .Select(x => x.Org)
+                .Distinct()
+                .ToList();
+        }
+        finally
+        {
+            Semaphore.Release();
+        }
     }
 }
