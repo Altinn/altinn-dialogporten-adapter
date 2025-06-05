@@ -26,7 +26,7 @@ internal sealed class MigrationPartitionService
 
         var partitionEntities = Enumerable
             .Range(0, command.To.DayNumber - command.From.DayNumber + 1)
-            .Select(offset => command.From.AddDays(offset))
+            .Select(offset => command.To.AddDays(-offset))
             .SelectMany(_ => organizations, (day, org) => new MigrationPartitionEntity(day, org))
             .ToList();
 

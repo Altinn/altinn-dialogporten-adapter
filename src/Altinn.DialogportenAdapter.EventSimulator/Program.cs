@@ -45,7 +45,7 @@ static void BuildAndRun(string[] args)
     builder.Services.AddSingleton(settings);
     builder.Services.AddChannelConsumer<InstanceEventConsumer, InstanceEvent>(consumers: 10, capacity: 1000);
     builder.Services.AddChannelConsumer<OrgSyncConsumer, OrgSyncEvent>(consumers: 1, capacity: 10);
-    builder.Services.AddChannelConsumer<MigrationPartitionCommandConsumer, MigrationPartitionCommand>(consumers: 1);
+    builder.Services.AddChannelConsumer<FakeMigrationPartitionCommandConsumer, MigrationPartitionCommand>(consumers: 1);
     // builder.Services.AddHostedService<InstanceUpdateStreamBackgroundService>();
     builder.Services.AddStartupLoaders();
     builder.Services.AddTransient<InstanceStreamer>();

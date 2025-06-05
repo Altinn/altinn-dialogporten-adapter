@@ -18,10 +18,10 @@ internal sealed class InstanceStreamer
         TimeSpan.FromMinutes(5),
         TimeSpan.FromMinutes(10)
     ];
-    
+
     private readonly IHttpClientFactory _clientFactory;
     private readonly ILogger<InstanceStreamer> _logger;
-    
+
     public InstanceStreamer(IHttpClientFactory clientFactory, ILogger<InstanceStreamer> logger)
     {
         _clientFactory = clientFactory ?? throw new ArgumentNullException(nameof(clientFactory));
@@ -40,8 +40,8 @@ internal sealed class InstanceStreamer
         while (!cancellationToken.IsCancellationRequested)
         {
             await foreach (var instanceDto in InstanceStream(
-               org: org, 
-               from: from, 
+               org: org,
+               from: from,
                sortOrder: Order.Ascending,
                cancellationToken: cancellationToken))
             {
@@ -58,7 +58,7 @@ internal sealed class InstanceStreamer
     public async IAsyncEnumerable<InstanceDto> InstanceStream(
         string? org = null,
         string? appId = null,
-        string? partyId = null,
+        List<string>? partyIds = null,
         DateTimeOffset? from = null,
         DateTimeOffset? to = null,
         int pageSize = 100,
@@ -75,7 +75,7 @@ internal sealed class InstanceStreamer
             Order.Descending => "desc",
             _ => throw new ArgumentOutOfRangeException(nameof(sortOrder), sortOrder, null)
         };
-        
+
         var client = _clientFactory.CreateClient(Constants.MaskinportenClientDefinitionKey);
         var queryString = QueryString
             .Create("order", $"{order}:lastChanged")
@@ -83,15 +83,19 @@ internal sealed class InstanceStreamer
             .AddIf(from.HasValue, "lastChanged", $"gt:{from?.ToUniversalTime():O}")
             .AddIf(to.HasValue, "lastChanged", $"lt:{to?.ToUniversalTime():O}")
             .AddIf(org is not null, "org", org!)
-            .AddIf(appId is not null, "org", appId!)
-            .AddIf(partyId is not null, "instanceOwner.partyId", partyId!);
+            .AddIf(appId is not null, "org", appId!);
+
+        foreach (var partyId in partyIds ?? [])
+        {
+            queryString = queryString.Add("instanceOwner.partyId", partyId);
+        }
         var next = $"storage/api/v1/instances{queryString}";
-        
+
         while (next is not null)
         {
             InstanceQueryResponse? result;
             try
-            { 
+            {
                 result = await client.GetFromJsonAsync<InstanceQueryResponse>(next, cancellationToken);
             }
             catch (Exception e)
