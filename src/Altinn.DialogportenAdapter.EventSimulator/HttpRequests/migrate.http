@@ -1,0 +1,14 @@
+@eventsimulator = https://localhost:7242
+
+### MIGRATE
+POST {{eventsimulator}}/api/migrate
+Content-Type: application/json
+
+{
+    "From": "2024-01-01",
+    "To": "2024-05-01"
+}
+
+### DELETE
+DELETE {{eventsimulator}}/api/table/truncate
+Content-Type: application/json

@@ -1,5 +1,6 @@
 using Altinn.DialogportenAdapter.EventSimulator.Common.Channels;
 using Altinn.DialogportenAdapter.EventSimulator.Common.Extensions;
+using Altinn.DialogportenAdapter.EventSimulator.Features.Migration;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
 
 namespace Altinn.DialogportenAdapter.EventSimulator.Features;
@@ -11,7 +12,7 @@ internal sealed class OrgSyncConsumer : IChannelConsumer<OrgSyncEvent>
     private readonly IChannelPublisher<InstanceEvent> _publisher;
     private readonly InstanceStreamer _instanceStreamer;
     private readonly ILogger _logger;
-    
+
     public OrgSyncConsumer(ILogger<OrgSyncConsumer> logger,
         InstanceStreamer instanceStreamer,
         IChannelPublisher<InstanceEvent> publisher)
@@ -50,5 +51,14 @@ internal sealed class OrgSyncConsumer : IChannelConsumer<OrgSyncEvent>
 
             return;
         }
+    }
+}
+
+internal sealed class MigrationPartitionCommandConsumer : IChannelConsumer<MigrationPartitionCommand>
+{
+    public Task Consume(MigrationPartitionCommand item, int taskNumber, CancellationToken cancellationToken)
+    {
+        Console.WriteLine($"{item.Organization} {item.Partition}");
+        return Task.CompletedTask;
     }
 }

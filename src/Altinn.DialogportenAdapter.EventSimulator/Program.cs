@@ -5,7 +5,10 @@ using Altinn.DialogportenAdapter.EventSimulator.Common;
 using Altinn.DialogportenAdapter.EventSimulator.Common.Channels;
 using Altinn.DialogportenAdapter.EventSimulator.Common.Extensions;
 using Altinn.DialogportenAdapter.EventSimulator.Features;
+using Altinn.DialogportenAdapter.EventSimulator.Features.Migration;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
+using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
+using Azure.Data.Tables;
 using Microsoft.AspNetCore.Mvc;
 using Refit;
 
@@ -27,22 +30,30 @@ return;
 static void BuildAndRun(string[] args)
 {
     var builder = WebApplication.CreateBuilder(args);
-    
+
     builder.Logging
         .ClearProviders()
         .AddConsole();
-    
+
     builder.Configuration
         .AddCoreClusterSettings()
         .AddAzureKeyVault();
-    
+
     var settings = builder.Configuration.Get<Settings>()!;
-    
+
+    builder.Services.AddSingleton(settings);
     builder.Services.AddChannelConsumer<InstanceEventConsumer, InstanceEvent>(consumers: 10, capacity: 1000);
     builder.Services.AddChannelConsumer<OrgSyncConsumer, OrgSyncEvent>(consumers: 1, capacity: 10);
-    builder.Services.AddHostedService<InstanceUpdateStreamBackgroundService>();
+    builder.Services.AddChannelConsumer<MigrationPartitionCommandConsumer, MigrationPartitionCommand>(consumers: 1);
+    // builder.Services.AddHostedService<InstanceUpdateStreamBackgroundService>();
+    builder.Services.AddHostedService<AzureTableMigrator>();
     builder.Services.AddTransient<InstanceStreamer>();
-    
+    builder.Services.AddTransient<MigrationPartitionService>();
+    builder.Services.AddSingleton(new TableClient(
+        settings.DialogportenAdapter.AzureStorage.ConnectionString,
+        AzureStorageSettings.GetTableName(builder.Environment)));
+    builder.Services.AddSingleton<MigrationPartitionRepository>();
+    builder.Services.AddSingleton<IOrganizationRepository, OrganizationRepository>();
     // Health checks
     builder.Services.AddHealthChecks()
         .AddCheck<HealthCheck>("event_simulator_health_check");
@@ -75,6 +86,16 @@ static void BuildAndRun(string[] args)
         => publisher.TryPublish(orgSyncEvent)
             ? Results.Ok()
             : Results.BadRequest("Queue is full, YO!"));
+    app.MapPost("/api/migrate", (
+            [FromBody] MigrationCommand command,
+            [FromServices] MigrationPartitionService migrationPartitionService,
+            CancellationToken cancellationToken) =>
+        migrationPartitionService.Handle(command, cancellationToken));
+    app.MapDelete("/api/table/truncate", (
+            [FromServices] MigrationPartitionRepository repo,
+            CancellationToken cancellationToken) =>
+        repo.Truncate(cancellationToken))
+        .ExcludeFromDescription();
 
     app.Run();
 }

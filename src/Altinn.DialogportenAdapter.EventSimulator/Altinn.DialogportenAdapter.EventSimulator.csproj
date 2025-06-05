@@ -9,6 +9,7 @@
 
     <ItemGroup>
       <PackageReference Include="Altinn.Platform.Storage.Interface" Version="4.0.10" />
+      <PackageReference Include="Azure.Data.Tables" Version="12.11.0" />
       <PackageReference Include="Refit.HttpClientFactory" Version="8.0.0" />
       <PackageReference Include="Altinn.ApiClients.Maskinporten" Version="9.2.1" />
       <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.4" />
