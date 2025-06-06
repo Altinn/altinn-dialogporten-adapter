@@ -4,8 +4,13 @@ using Altinn.DialogportenAdapter.EventSimulator;
 using Altinn.DialogportenAdapter.EventSimulator.Common;
 using Altinn.DialogportenAdapter.EventSimulator.Common.Channels;
 using Altinn.DialogportenAdapter.EventSimulator.Common.Extensions;
+using Altinn.DialogportenAdapter.EventSimulator.Common.StartupLoaders;
 using Altinn.DialogportenAdapter.EventSimulator.Features;
+using Altinn.DialogportenAdapter.EventSimulator.Features.HistoryStream;
+using Altinn.DialogportenAdapter.EventSimulator.Features.UpdateStream;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
+using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
+using Azure.Data.Tables;
 using Microsoft.AspNetCore.Mvc;
 using Refit;
 
@@ -27,22 +32,29 @@ return;
 static void BuildAndRun(string[] args)
 {
     var builder = WebApplication.CreateBuilder(args);
-    
+
     builder.Logging
         .ClearProviders()
         .AddConsole();
-    
+
     builder.Configuration
         .AddCoreClusterSettings()
         .AddAzureKeyVault();
-    
+
     var settings = builder.Configuration.Get<Settings>()!;
-    
-    builder.Services.AddChannelConsumer<InstanceEventConsumer, InstanceEvent>(consumers: 10, capacity: 1000);
-    builder.Services.AddChannelConsumer<OrgSyncConsumer, OrgSyncEvent>(consumers: 1, capacity: 10);
+
+    builder.Services.AddSingleton(settings);
+    builder.Services.AddChannelConsumer<InstanceEventConsumer, InstanceEvent>(consumers: 100);
+    builder.Services.AddChannelConsumer<MigrationPartitionCommandConsumer, MigrationPartitionCommand>(consumers: 100);
     builder.Services.AddHostedService<InstanceUpdateStreamBackgroundService>();
+    builder.Services.AddStartupLoaders();
     builder.Services.AddTransient<InstanceStreamer>();
-    
+    builder.Services.AddTransient<MigrationPartitionService>();
+    builder.Services.AddSingleton(new TableClient(
+        settings.DialogportenAdapter.AzureStorage.ConnectionString,
+        AzureStorageSettings.GetTableName(builder.Environment)));
+    builder.Services.AddSingleton<MigrationPartitionRepository>();
+    builder.Services.AddSingleton<IOrganizationRepository, OrganizationRepository>();
     // Health checks
     builder.Services.AddHealthChecks()
         .AddCheck<HealthCheck>("event_simulator_health_check");
@@ -69,12 +81,16 @@ static void BuildAndRun(string[] args)
     app.UseHttpsRedirection();
     app.MapHealthChecks("/health");
     app.MapOpenApi();
-    app.MapPost("/api/v1/orgSync", (
-            [FromBody] OrgSyncEvent orgSyncEvent,
-            [FromServices] IChannelPublisher<OrgSyncEvent> publisher)
-        => publisher.TryPublish(orgSyncEvent)
-            ? Results.Ok()
-            : Results.BadRequest("Queue is full, YO!"));
+    app.MapPost("/api/migrate", (
+            [FromBody] MigrationCommand command,
+            [FromServices] MigrationPartitionService migrationPartitionService,
+            CancellationToken cancellationToken) =>
+        migrationPartitionService.Handle(command, cancellationToken));
+    app.MapDelete("/api/table/truncate", (
+            [FromServices] MigrationPartitionRepository repo,
+            CancellationToken cancellationToken) =>
+        repo.Truncate(cancellationToken))
+        .ExcludeFromDescription();
 
     app.Run();
 }

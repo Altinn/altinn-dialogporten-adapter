@@ -2,7 +2,7 @@ using Altinn.DialogportenAdapter.EventSimulator.Common.Channels;
 using Altinn.DialogportenAdapter.EventSimulator.Common.Extensions;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
 
-namespace Altinn.DialogportenAdapter.EventSimulator.Features;
+namespace Altinn.DialogportenAdapter.EventSimulator.Features.UpdateStream;
 
 internal sealed class InstanceUpdateStreamBackgroundService : BackgroundService
 {
@@ -15,7 +15,7 @@ internal sealed class InstanceUpdateStreamBackgroundService : BackgroundService
     public InstanceUpdateStreamBackgroundService(
         IChannelPublisher<InstanceEvent> channelPublisher,
         InstanceStreamer instanceStreamer,
-        IServiceScopeFactory serviceScopeFactory, 
+        IServiceScopeFactory serviceScopeFactory,
         ILogger<InstanceEventConsumer> logger)
     {
         _channelPublisher = channelPublisher ?? throw new ArgumentNullException(nameof(channelPublisher));
@@ -37,7 +37,7 @@ internal sealed class InstanceUpdateStreamBackgroundService : BackgroundService
         {
             throw new InvalidOperationException("No orgs were found.");
         }
-        
+
         var from = DateTimeOffset.UtcNow.AddMinutes(-10);
         await Task.WhenAll(_orgs.Select(org => Produce(org, from, cancellationToken)));
     }
