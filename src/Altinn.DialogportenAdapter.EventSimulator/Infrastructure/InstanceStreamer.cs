@@ -80,8 +80,8 @@ internal sealed class InstanceStreamer
         var queryString = QueryString
             .Create("order", $"{order}:lastChanged")
             .Add("size", pageSize.ToString(CultureInfo.InvariantCulture))
-            .AddIf(from.HasValue, "lastChanged", $"gt:{from?.ToUniversalTime():O}")
-            .AddIf(to.HasValue, "lastChanged", $"lt:{to?.ToUniversalTime():O}")
+            .AddIf(from.HasValue, "lastChanged", $"gte:{from?.ToUniversalTime():O}")
+            .AddIf(to.HasValue, "lastChanged", $"lte:{to?.ToUniversalTime():O}")
             .AddIf(org is not null, "org", org!)
             .AddIf(appId is not null, "org", appId!)
             .AddIf(partyId is not null, "instanceOwner.partyId", partyId);

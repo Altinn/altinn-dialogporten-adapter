@@ -6,7 +6,8 @@ using Altinn.DialogportenAdapter.EventSimulator.Common.Channels;
 using Altinn.DialogportenAdapter.EventSimulator.Common.Extensions;
 using Altinn.DialogportenAdapter.EventSimulator.Common.StartupLoaders;
 using Altinn.DialogportenAdapter.EventSimulator.Features;
-using Altinn.DialogportenAdapter.EventSimulator.Features.Migration;
+using Altinn.DialogportenAdapter.EventSimulator.Features.HistoryStream;
+using Altinn.DialogportenAdapter.EventSimulator.Features.UpdateStream;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
 using Azure.Data.Tables;
@@ -43,10 +44,9 @@ static void BuildAndRun(string[] args)
     var settings = builder.Configuration.Get<Settings>()!;
 
     builder.Services.AddSingleton(settings);
-    builder.Services.AddChannelConsumer<InstanceEventConsumer, InstanceEvent>(consumers: 10, capacity: 1000);
-    builder.Services.AddChannelConsumer<OrgSyncConsumer, OrgSyncEvent>(consumers: 1, capacity: 10);
-    builder.Services.AddChannelConsumer<FakeMigrationPartitionCommandConsumer, MigrationPartitionCommand>(consumers: 1);
-    // builder.Services.AddHostedService<InstanceUpdateStreamBackgroundService>();
+    builder.Services.AddChannelConsumer<InstanceEventConsumer, InstanceEvent>(consumers: 100);
+    builder.Services.AddChannelConsumer<MigrationPartitionCommandConsumer, MigrationPartitionCommand>(consumers: 100);
+    builder.Services.AddHostedService<InstanceUpdateStreamBackgroundService>();
     builder.Services.AddStartupLoaders();
     builder.Services.AddTransient<InstanceStreamer>();
     builder.Services.AddTransient<MigrationPartitionService>();
@@ -81,12 +81,6 @@ static void BuildAndRun(string[] args)
     app.UseHttpsRedirection();
     app.MapHealthChecks("/health");
     app.MapOpenApi();
-    app.MapPost("/api/v1/orgSync", (
-            [FromBody] OrgSyncEvent orgSyncEvent,
-            [FromServices] IChannelPublisher<OrgSyncEvent> publisher)
-        => publisher.TryPublish(orgSyncEvent)
-            ? Results.Ok()
-            : Results.BadRequest("Queue is full, YO!"));
     app.MapPost("/api/migrate", (
             [FromBody] MigrationCommand command,
             [FromServices] MigrationPartitionService migrationPartitionService,

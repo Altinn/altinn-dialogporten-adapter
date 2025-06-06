@@ -13,7 +13,7 @@ internal sealed class MigrationPartitionEntity(DateOnly partition, string organi
     public string Organization { get; private set; } = organization ?? throw new ArgumentNullException(nameof(organization));
     // public TimeOnly? CheckpointTime { get; set; }
     // public Guid? CheckpointId { get; set; }
-    public uint? TotalAmount { get; set; }
+    public int? TotalAmount { get; set; }
 
 
     public string PartitionKey

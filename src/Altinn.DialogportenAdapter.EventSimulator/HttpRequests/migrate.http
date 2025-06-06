@@ -1,15 +1,24 @@
 @eventsimulator = https://localhost:7242
 
 ### MIGRATE
+# @timeout 10000 m
 POST {{eventsimulator}}/api/migrate
 Content-Type: application/json
 
 {
     "From": "2024-01-01",
-    "To": "2024-05-01",
-    "Organizations": ["digdir"],
+    "To": "2025-01-01",
     "Force": true
 }
+
+###
+
+//{
+//  "From": "2024-01-01",
+//  "To": "2024-01-01",
+//  "Organizations": ["digdir"],
+//  "Force": true
+//}
 
 ### DELETE
 DELETE {{eventsimulator}}/api/table/truncate

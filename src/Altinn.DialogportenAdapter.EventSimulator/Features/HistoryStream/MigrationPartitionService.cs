@@ -2,7 +2,7 @@ using Altinn.DialogportenAdapter.EventSimulator.Common.Channels;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
 
-namespace Altinn.DialogportenAdapter.EventSimulator.Features.Migration;
+namespace Altinn.DialogportenAdapter.EventSimulator.Features.HistoryStream;
 
 internal sealed class MigrationPartitionService
 {
@@ -86,11 +86,6 @@ internal sealed record MigrationCommand(
     List<string>? Organizations,
     string? Party,
     bool Force = false)
-{
-    public bool IsTest => Party is not null;
-}
-
-internal sealed record MigrationPartitionCommand(DateOnly Partition, string Organization, string? Party)
 {
     public bool IsTest => Party is not null;
 }
