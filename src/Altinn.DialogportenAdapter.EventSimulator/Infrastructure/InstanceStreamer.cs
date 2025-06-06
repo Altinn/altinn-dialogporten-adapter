@@ -76,11 +76,12 @@ internal sealed class InstanceStreamer
             _ => throw new ArgumentOutOfRangeException(nameof(sortOrder), sortOrder, null)
         };
 
+        if (from > to) yield break;
         var client = _clientFactory.CreateClient(Constants.MaskinportenClientDefinitionKey);
         var queryString = QueryString
             .Create("order", $"{order}:lastChanged")
             .Add("size", pageSize.ToString(CultureInfo.InvariantCulture))
-            .AddIf(from.HasValue, "lastChanged", $"gte:{from?.ToUniversalTime():O}")
+            .AddIf(from.HasValue, "lastChanged", $"gt:{from?.ToUniversalTime():O}")
             .AddIf(to.HasValue, "lastChanged", $"lte:{to?.ToUniversalTime():O}")
             .AddIf(org is not null, "org", org!)
             .AddIf(appId is not null, "org", appId!)

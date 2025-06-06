@@ -6,8 +6,9 @@ POST {{eventsimulator}}/api/migrate
 Content-Type: application/json
 
 {
-    "From": "2024-01-01",
-    "To": "2025-01-01",
+    "From": "2025-01-01",
+    "To": "2025-03-01",
+    "Organizations": ["skd"],
     "Force": true
 }
 

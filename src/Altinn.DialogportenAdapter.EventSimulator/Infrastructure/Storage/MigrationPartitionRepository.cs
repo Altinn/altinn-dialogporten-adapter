@@ -48,6 +48,15 @@ internal sealed class MigrationPartitionRepository
         return result;
     }
 
+    public async Task<MigrationPartitionEntity?> Get(DateOnly partition, string organization, CancellationToken cancellationToken)
+    {
+        var entity = await _tableClient.GetEntityIfExistsAsync<MigrationPartitionEntity>(
+            partitionKey: partition.ToString(),
+            rowKey: organization,
+            cancellationToken: cancellationToken);
+        return entity.Value;
+    }
+
     public async Task Upsert(List<MigrationPartitionEntity> partitionEntities, CancellationToken cancellationToken)
     {
         if (partitionEntities.Count == 0)

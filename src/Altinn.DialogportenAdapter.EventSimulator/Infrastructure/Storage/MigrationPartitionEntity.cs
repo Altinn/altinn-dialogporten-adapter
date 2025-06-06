@@ -4,16 +4,28 @@ using Azure.Data.Tables;
 
 namespace Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
 
-internal sealed class MigrationPartitionEntity(DateOnly partition, string organization) : ITableEntity
+internal sealed class MigrationPartitionEntity : ITableEntity
 {
-    [IgnoreDataMember]
-    public DateOnly Partition { get; private set; } = partition;
+    [Obsolete("Used by Table Storage SDK, do not use directly.", error: true)]
+    public MigrationPartitionEntity() { }
+
+    public MigrationPartitionEntity(DateOnly partition, string organization)
+    {
+        Partition = partition;
+        Organization = organization ?? throw new ArgumentNullException(nameof(organization));
+    }
 
     [IgnoreDataMember]
-    public string Organization { get; private set; } = organization ?? throw new ArgumentNullException(nameof(organization));
-    // public TimeOnly? CheckpointTime { get; set; }
-    // public Guid? CheckpointId { get; set; }
+    public DateOnly Partition { get; private set; }
+
+    [IgnoreDataMember]
+    public string Organization { get; private set; }
+
+    public DateTimeOffset? Checkpoint { get; set; }
+
     public int? TotalAmount { get; set; }
+
+    public bool Complete { get; set; }
 
 
     public string PartitionKey
@@ -28,4 +40,10 @@ internal sealed class MigrationPartitionEntity(DateOnly partition, string organi
     }
     public DateTimeOffset? Timestamp { get; set; }
     public ETag ETag { get; set; }
+
+    public void InstanceHandled(DateTimeOffset lastChanged)
+    {
+        Checkpoint = lastChanged < Checkpoint ? lastChanged : Checkpoint;
+        TotalAmount = TotalAmount is null ? 1 : TotalAmount + 1;
+    }
 }

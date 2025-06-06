@@ -28,36 +28,75 @@ internal sealed class MigrationPartitionCommandConsumer : IChannelConsumer<Migra
         _migrationPartitionRepository = migrationPartitionRepository ?? throw new ArgumentNullException(nameof(migrationPartitionRepository));
     }
 
-    public async Task Consume(MigrationPartitionCommand item, int taskNumber, CancellationToken cancellationToken)
+    public async Task Consume(MigrationPartitionCommand command, int taskNumber, CancellationToken cancellationToken)
     {
-        var counter = 0;
-        var from = (DateTimeOffset)item.Partition.ToDateTime(TimeOnly.MinValue);
-        var to = (DateTimeOffset)item.Partition.ToDateTime(TimeOnly.MaxValue);
-        await RetryPolicy.ExecuteAsync(async cancellationToken =>
-        {
-            await foreach (var instanceDto in _instanceStreamer.InstanceStream(
-                               org: item.Organization,
-                               partyId: item.Party,
-                               from: from,
-                               to: to,
-                               sortOrder: InstanceStreamer.Order.Descending,
-                               cancellationToken: cancellationToken))
-            {
-                await _publisher.Publish(instanceDto.ToInstanceEvent(isMigration: true), cancellationToken);
-                counter++;
-                to = instanceDto.LastChanged < to
-                    ? instanceDto.LastChanged
-                    : to;
-            }
-        }, cancellationToken);
+        var entity = !command.IsTest
+            ? await _migrationPartitionRepository.Get(command.Partition, command.Organization, cancellationToken) ?? ToEntity(command)
+            : ToEntity(command);
 
-        if (!item.IsTest)
+        if (entity.Complete)
         {
-            await _migrationPartitionRepository.Upsert(
-                [new(item.Partition, item.Organization) { TotalAmount = counter }],
-                cancellationToken);
+            return;
         }
+
+        DateTimeOffset from = command.Partition.ToDateTime(TimeOnly.MinValue, DateTimeKind.Local);
+        entity.Checkpoint ??= command.Partition.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Local);
+        try
+        {
+            await RetryPolicy.ExecuteAsync(async cancellationToken =>
+            {
+                await foreach (var instanceDto in _instanceStreamer.InstanceStream(
+                                   org: command.Organization,
+                                   partyId: command.Party,
+                                   from: from,
+                                   to: entity.Checkpoint,
+                                   sortOrder: InstanceStreamer.Order.Descending,
+                                   cancellationToken: cancellationToken))
+                {
+                    await _publisher.Publish(instanceDto.ToInstanceEvent(isMigration: true), cancellationToken);
+                    entity.InstanceHandled(instanceDto.LastChanged);
+                }
+            }, cancellationToken);
+        }
+        catch (Exception)
+        {
+            await SaveCheckpoint(command, entity, cancellationToken);
+            throw;
+        }
+
+        await MarkAsComplete(command, entity, cancellationToken);
     }
+
+    private Task MarkAsComplete(
+        MigrationPartitionCommand command,
+        MigrationPartitionEntity entity,
+        CancellationToken cancellationToken)
+    {
+        entity.Complete = true;
+        return command.IsTest
+            ? Task.CompletedTask
+            : _migrationPartitionRepository.Upsert([entity], cancellationToken);
+    }
+
+    private Task SaveCheckpoint(
+        MigrationPartitionCommand command,
+        MigrationPartitionEntity entity,
+        CancellationToken cancellationToken)
+    {
+        // There is a chance that the same instance will be counted multiple times due to using lte instead of lt
+        // in the instance streamer. However, if we were to use lt we run the risk of missing instances with equal
+        // LastChanged timestamps on error recovery. It is better to count instances multiple times, than to skip
+        // some of them.
+        // We could use the continuation token of the instance api to resume from the last succeeded instance if the
+        // instance api were to expose their internal instance ids. That is because the format for the continuation
+        // token is $"{lastChanged.Ticks};{id}" url encoded twice, where id is the internal instance id.
+        return command.IsTest
+            ? Task.CompletedTask
+            : _migrationPartitionRepository.Upsert([entity], cancellationToken);
+    }
+
+    private static MigrationPartitionEntity ToEntity(MigrationPartitionCommand item) =>
+        new(item.Partition, item.Organization);
 }
 
 internal sealed record MigrationPartitionCommand(DateOnly Partition, string Organization, string? Party)
