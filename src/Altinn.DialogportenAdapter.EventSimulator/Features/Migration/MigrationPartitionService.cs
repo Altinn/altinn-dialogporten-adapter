@@ -22,6 +22,11 @@ internal sealed class MigrationPartitionService
 
     public async Task Handle(MigrationCommand command, CancellationToken cancellationToken)
     {
+        if (command.Party is not null && string.IsNullOrWhiteSpace(command.Party))
+        {
+            throw new ArgumentException("Party cannot be empty when provided.", nameof(command));
+        }
+
         var organizations = await GetOrganizations(command, cancellationToken);
 
         var partitionEntities = Enumerable
@@ -43,7 +48,7 @@ internal sealed class MigrationPartitionService
         }
 
         await Task.WhenAll(partitionEntities
-            .Select(x => new MigrationPartitionCommand(x.Partition, x.Organization, command.Parties))
+            .Select(x => new MigrationPartitionCommand(x.Partition, x.Organization, command.Party))
             .Select(x => _channelPublisher
                 .Publish(x, cancellationToken)
                 .AsTask()));
@@ -79,13 +84,13 @@ internal sealed record MigrationCommand(
     DateOnly From,
     DateOnly To,
     List<string>? Organizations,
-    List<string>? Parties,
+    string? Party,
     bool Force = false)
 {
-    internal bool IsTest => Parties?.Count > 0;
+    public bool IsTest => Party is not null;
 }
 
-internal sealed record MigrationPartitionCommand(DateOnly Partition, string Organization, List<string>? Parties)
+internal sealed record MigrationPartitionCommand(DateOnly Partition, string Organization, string? Party)
 {
-    public bool IsTest => Parties?.Count > 0;
+    public bool IsTest => Party is not null;
 }

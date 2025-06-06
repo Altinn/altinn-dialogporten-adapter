@@ -58,7 +58,7 @@ internal sealed class InstanceStreamer
     public async IAsyncEnumerable<InstanceDto> InstanceStream(
         string? org = null,
         string? appId = null,
-        List<string>? partyIds = null,
+        string? partyId = null,
         DateTimeOffset? from = null,
         DateTimeOffset? to = null,
         int pageSize = 100,
@@ -83,12 +83,9 @@ internal sealed class InstanceStreamer
             .AddIf(from.HasValue, "lastChanged", $"gt:{from?.ToUniversalTime():O}")
             .AddIf(to.HasValue, "lastChanged", $"lt:{to?.ToUniversalTime():O}")
             .AddIf(org is not null, "org", org!)
-            .AddIf(appId is not null, "org", appId!);
+            .AddIf(appId is not null, "org", appId!)
+            .AddIf(partyId is not null, "instanceOwner.partyId", partyId);
 
-        foreach (var partyId in partyIds ?? [])
-        {
-            queryString = queryString.Add("instanceOwner.partyId", partyId);
-        }
         var next = $"storage/api/v1/instances{queryString}";
 
         while (next is not null)
