@@ -7,9 +7,9 @@ internal sealed class InstanceEventConsumer : IChannelConsumer<InstanceEvent>
 {
     private readonly IStorageAdapterApi _storageAdapterApi;
     private readonly ILogger<InstanceEventConsumer>  _logger;
-    
+
     public InstanceEventConsumer(
-        IStorageAdapterApi storageAdapterApi, 
+        IStorageAdapterApi storageAdapterApi,
         ILogger<InstanceEventConsumer> logger)
     {
         _storageAdapterApi = storageAdapterApi ?? throw new ArgumentNullException(nameof(storageAdapterApi));
