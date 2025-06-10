@@ -7,7 +7,7 @@ internal interface IOrganizationRepository
 
 internal class OrganizationRepository : IOrganizationRepository
 {
-    private static readonly SemaphoreSlim Semaphore = new SemaphoreSlim(1, 1);
+    private static readonly SemaphoreSlim Semaphore = new(1, 1);
 
     private readonly IStorageApi _storageApi;
     private static List<string>? _cachedOrganizations;
