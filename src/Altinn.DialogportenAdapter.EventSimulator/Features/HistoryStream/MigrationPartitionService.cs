@@ -1,4 +1,5 @@
 using Altinn.DialogportenAdapter.EventSimulator.Common.Channels;
+using Altinn.DialogportenAdapter.EventSimulator.Common.StartupLoaders;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
 
@@ -25,6 +26,11 @@ internal sealed class MigrationPartitionService
         if (command.Party is not null && string.IsNullOrWhiteSpace(command.Party))
         {
             throw new ArgumentException("Party cannot be empty when provided.", nameof(command));
+        }
+
+        if (OrganizationStartupLoader.LocalLoadDate < command.To)
+        {
+            throw new InvalidOperationException($"Cannot migrate instances after {OrganizationStartupLoader.LocalLoadDate}.");
         }
 
         var organizations = await GetOrganizations(command, cancellationToken);
