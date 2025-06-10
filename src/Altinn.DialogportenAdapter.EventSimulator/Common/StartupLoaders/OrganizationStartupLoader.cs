@@ -11,7 +11,7 @@ internal sealed class OrganizationStartupLoader : IStartupLoader
         _organizationRepository = organizationRepository ?? throw new ArgumentNullException(nameof(organizationRepository));
     }
 
-    public  static DateOnly LocalLoadDate { get; private set; } = DateOnly.MinValue;
+    public static DateOnly LocalLoadDate { get; private set; } = DateOnly.MinValue;
 
     public async Task Load(CancellationToken cancellationToken)
     {
