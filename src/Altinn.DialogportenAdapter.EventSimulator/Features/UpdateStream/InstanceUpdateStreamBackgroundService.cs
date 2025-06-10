@@ -6,40 +6,34 @@ namespace Altinn.DialogportenAdapter.EventSimulator.Features.UpdateStream;
 
 internal sealed class InstanceUpdateStreamBackgroundService : BackgroundService
 {
+    private readonly IOrganizationRepository _organizationRepository;
     private readonly IChannelPublisher<InstanceEvent> _channelPublisher;
     private readonly InstanceStreamer _instanceStreamer;
-    private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly ILogger<InstanceEventConsumer> _logger;
-    private List<string>? _orgs;
 
     public InstanceUpdateStreamBackgroundService(
         IChannelPublisher<InstanceEvent> channelPublisher,
         InstanceStreamer instanceStreamer,
-        IServiceScopeFactory serviceScopeFactory,
-        ILogger<InstanceEventConsumer> logger)
+        ILogger<InstanceEventConsumer> logger,
+        IOrganizationRepository organizationRepository)
     {
         _channelPublisher = channelPublisher ?? throw new ArgumentNullException(nameof(channelPublisher));
         _instanceStreamer = instanceStreamer ?? throw new ArgumentNullException(nameof(instanceStreamer));
-        _serviceScopeFactory = serviceScopeFactory ?? throw new ArgumentNullException(nameof(serviceScopeFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-    }
-
-    public override async Task StartAsync(CancellationToken cancellationToken)
-    {
-        _orgs = await GetDistinctStorageOrgs(cancellationToken);
-        _logger.LogInformation("Found {OrgCount} orgs.", _orgs.Count);
-        await base.StartAsync(cancellationToken);
+        _organizationRepository = organizationRepository ?? throw new ArgumentNullException(nameof(organizationRepository));
     }
 
     protected override async Task ExecuteAsync(CancellationToken cancellationToken)
     {
-        if (_orgs is null || _orgs.Count == 0)
+        var orgs = await _organizationRepository.GetOrganizations(cancellationToken);
+        _logger.LogInformation("Found {OrgCount} orgs.", orgs.Count);
+        if (orgs is null || orgs.Count == 0)
         {
             throw new InvalidOperationException("No orgs were found.");
         }
 
         var from = DateTimeOffset.UtcNow.AddMinutes(-10);
-        await Task.WhenAll(_orgs.Select(org => Produce(org, from, cancellationToken)));
+        await Task.WhenAll(orgs.Select(org => Produce(org, from, cancellationToken)));
     }
 
     private async Task Produce(string org, DateTimeOffset from, CancellationToken cancellationToken)
@@ -64,17 +58,5 @@ internal sealed class InstanceUpdateStreamBackgroundService : BackgroundService
                 await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
             }
         }
-    }
-
-    private async Task<List<string>> GetDistinctStorageOrgs(CancellationToken cancellationToken)
-    {
-        using var scope = _serviceScopeFactory.CreateScope();
-        var apps = await scope.ServiceProvider
-            .GetRequiredService<IStorageApi>()
-            .GetApplications(cancellationToken);
-        return apps.Applications
-            .Select(x => x.Org)
-            .Distinct()
-            .ToList();
     }
 }
