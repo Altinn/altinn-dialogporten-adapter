@@ -13,7 +13,7 @@ public sealed record DialogportenAdapterSettings(
 
 public record AzureStorageSettings(string ConnectionString)
 {
-    public static string GetTableName(IHostEnvironment hostEnvironment, int? counter = null) =>
+    public static string GetTableName(IHostEnvironment hostEnvironment) =>
         $"{hostEnvironment.EnvironmentName}{nameof(MigrationPartitionEntity)}";
 }
 
