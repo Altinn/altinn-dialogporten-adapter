@@ -107,7 +107,7 @@ internal sealed class StorageDialogportenDataMerger
         return new DialogDto
         {
             Id = dto.DialogId,
-            IsApiOnly = dto.Application.ShouldBeHidden(),
+            IsApiOnly = dto.Application.ShouldBeHidden(dto.Instance),
             Party = party,
             ServiceResource = ToServiceResource(dto.Instance.AppId),
             SystemLabel = systemLabel,
