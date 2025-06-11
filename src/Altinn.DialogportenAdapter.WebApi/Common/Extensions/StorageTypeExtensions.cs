@@ -7,7 +7,7 @@ internal static class StorageTypeExtensions
     public static bool ShouldBeHidden(this Application application, Instance instance)
     {
         var hideSettings = application.MessageBoxConfig?.HideSettings;
-        if (hideSettings == null)
+        if (hideSettings is null)
         {
             return false;
         }
