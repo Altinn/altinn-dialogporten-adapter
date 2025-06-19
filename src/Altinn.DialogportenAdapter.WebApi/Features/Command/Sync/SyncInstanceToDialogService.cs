@@ -180,22 +180,27 @@ internal sealed class SyncInstanceToDialogService
            || instanceDialogId != dialogId;
     }
 
-    private Task UpsertDialog(DialogDto dialog, SyncAdapterSettings settings, bool isMigration, CancellationToken cancellationToken)
+    private async Task UpsertDialog(DialogDto dialog, SyncAdapterSettings settings, bool isMigration, CancellationToken cancellationToken)
     {
         // If the dialog has a revision, it means it is an existing dialog and should be updated.
         if (dialog.Revision.HasValue)
         {
-            return _dialogportenApi.Update(dialog, dialog.Revision!.Value,
+            await _dialogportenApi.Update(dialog, dialog.Revision!.Value,
                 isSilentUpdate: isMigration,
                 cancellationToken: cancellationToken);
+
+            return;
         }
 
         if (settings.DisableCreate)
         {
-            return Task.CompletedTask;
+            return;
         }
 
-        return _dialogportenApi.Create(dialog, isSilentUpdate: isMigration, cancellationToken: cancellationToken);
+        await _dialogportenApi.Create(dialog, isSilentUpdate: isMigration, cancellationToken: cancellationToken);
+
+        // We set the service owner context labels only once after the dialog is created
+        await _dialogportenApi.SetLabel(dialog.Id!.Value, dialog.ServiceOwnerContext!.ServiceOwnerLabels.First(), cancellationToken);
     }
 
     private async Task<Guid> RestoreDialog(Guid dialogId,

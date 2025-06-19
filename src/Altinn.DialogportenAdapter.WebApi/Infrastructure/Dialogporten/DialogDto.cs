@@ -104,6 +104,12 @@ public class DialogDto
     /// Set the system label of the dialog Migration purposes.
     /// </summary>
     public SystemLabel? SystemLabel { get; set; }
+
+    /// <summary>
+    /// Metadata about the dialog owned by the service owner.
+    /// </summary>
+    public ServiceOwnerContext? ServiceOwnerContext { get; set; }
+
     /// <summary>
     /// The dialog unstructured text content.
     /// </summary>
@@ -140,6 +146,27 @@ public class DialogDto
     public List<ActivityDto> Activities { get; set; } = [];
 
     public bool Deleted { get; set; }
+}
+
+public record ServiceOwnerContext
+{
+    /// <summary>
+    /// The unique identifier for the service owner context revision in UUIDv4 format.
+    /// </summary>
+    public Guid Revision { get; set; }
+
+    /// <summary>
+    /// A list of labels, not visible in end-user APIs.
+    /// </summary>
+    public List<ServiceOwnerLabel> ServiceOwnerLabels { get; set; } = [];
+}
+
+public class ServiceOwnerLabel
+{
+    /// <summary>
+    /// A label value.
+    /// </summary>
+    public string Value { get; set; } = null!;
 }
 
 public enum SystemLabel

@@ -1,3 +1,4 @@
+
 using Refit;
 
 namespace Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
@@ -24,4 +25,7 @@ internal interface IDialogportenApi
 
     [Post("/api/v1/serviceowner/dialogs/{dialogId}/actions/restore")]
     Task<IApiResponse> Restore(Guid dialogId, [Header(IfMatchHeader)] Guid revision, [Query] bool isSilentUpdate = false, CancellationToken cancellationToken = default);
+
+    [Post("/api/v1/serviceowner/dialogs/{dialogId}/context/labels")]
+    Task<IApiResponse> SetLabel(Guid dialogId, [Body]ServiceOwnerLabel label, CancellationToken cancellationToken = default);
 }
