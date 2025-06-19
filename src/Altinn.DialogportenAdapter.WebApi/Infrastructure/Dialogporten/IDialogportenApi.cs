@@ -1,3 +1,4 @@
+
 using Refit;
 
 namespace Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
