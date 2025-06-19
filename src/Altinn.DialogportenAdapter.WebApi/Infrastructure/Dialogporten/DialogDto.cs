@@ -151,11 +151,6 @@ public class DialogDto
 public record ServiceOwnerContext
 {
     /// <summary>
-    /// The unique identifier for the service owner context revision in UUIDv4 format.
-    /// </summary>
-    public Guid Revision { get; set; }
-
-    /// <summary>
     /// A list of labels, not visible in end-user APIs.
     /// </summary>
     public List<ServiceOwnerLabel> ServiceOwnerLabels { get; set; } = [];

@@ -45,9 +45,4 @@ internal sealed class MockDialogportenApi : IDialogportenApi
     {
         throw new NotImplementedException();
     }
-
-    public Task<IApiResponse> SetLabel(Guid dialogId, ServiceOwnerLabel label, CancellationToken cancellationToken = default)
-    {
-        throw new NotImplementedException();
-    }
 }
