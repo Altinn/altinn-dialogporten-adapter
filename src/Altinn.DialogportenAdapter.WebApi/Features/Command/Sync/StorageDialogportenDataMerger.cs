@@ -152,6 +152,7 @@ internal sealed class StorageDialogportenDataMerger
                     DisplayName = [new() {LanguageCode = "nb", Value = x.Filename ?? x.DataType}],
                     Urls = [new()
                     {
+                        Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
                         ConsumerType = x.Filename is not null
                             ? AttachmentUrlConsumerType.Gui
                             : AttachmentUrlConsumerType.Api,
