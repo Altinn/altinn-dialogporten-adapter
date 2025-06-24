@@ -193,8 +193,8 @@ static void BuildAndRun(string[] args)
     })
     .RequireAuthorization();
 
-    v1Route.MapPost("syncDialog/simple/{partyId:int}/{instanceGuid:guid}", async (
-            [FromRoute] int partyId,
+    v1Route.MapPost("syncDialog/simple/{partyId}/{instanceGuid:guid}", async (
+            [FromRoute] string partyId,
             [FromRoute] Guid instanceGuid,
             [FromQuery] bool? isMigration,
             [FromServices] SyncInstanceToDialogService syncService,
@@ -216,8 +216,8 @@ static void BuildAndRun(string[] args)
         .RequireAuthorization()
         .ExcludeFromDescription();
 
-    v1Route.MapDelete("instance/{instanceOwner:int}/{instanceGuid:guid}", async (
-            [FromRoute] int instanceOwner,
+    v1Route.MapDelete("instance/{instanceOwner}/{instanceGuid:guid}", async (
+            [FromRoute] string instanceOwner,
             [FromRoute] Guid instanceGuid,
             [FromHeader(Name = "Authorization")] string authorization,
             [FromServices] InstanceService instanceService,
