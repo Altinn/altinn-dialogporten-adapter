@@ -8,13 +8,13 @@ namespace Altinn.DialogportenAdapter.EventSimulator.Features.HistoryStream;
 internal sealed class MigrationPartitionService
 {
     private readonly IOrganizationRepository _organizationRepository;
-    private readonly MigrationPartitionRepository _migrationPartitionRepository;
+    private readonly IMigrationPartitionRepository _migrationPartitionRepository;
     private readonly IChannelPublisher<MigrationPartitionCommand> _channelPublisher;
 
     public MigrationPartitionService(
         IChannelPublisher<MigrationPartitionCommand> channelPublisher,
         IOrganizationRepository organizationRepository,
-        MigrationPartitionRepository migrationPartitionRepository)
+        IMigrationPartitionRepository migrationPartitionRepository)
     {
         _channelPublisher = channelPublisher ?? throw new ArgumentNullException(nameof(channelPublisher));
         _organizationRepository = organizationRepository ?? throw new ArgumentNullException(nameof(organizationRepository));
