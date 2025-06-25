@@ -23,7 +23,8 @@ try
 }
 catch (Exception e)
 {
-    bootstrapLogger.LogCritical(e, "Application terminated unexpectedly"); throw;
+    bootstrapLogger.LogCritical(e, "Application terminated unexpectedly");
+    throw;
 }
 
 return;
