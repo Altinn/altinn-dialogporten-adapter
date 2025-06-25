@@ -15,13 +15,13 @@ internal sealed class MigrationPartitionCommandConsumer : IChannelConsumer<Migra
         .WaitAndRetryAsync(Backoff.DecorrelatedJitterBackoffV2(TimeSpan.FromSeconds(1), 5));
 
     private readonly IChannelPublisher<InstanceEvent> _publisher;
-    private readonly MigrationPartitionRepository _migrationPartitionRepository;
+    private readonly IMigrationPartitionRepository _migrationPartitionRepository;
     private readonly InstanceStreamer _instanceStreamer;
 
     public MigrationPartitionCommandConsumer(
         IChannelPublisher<InstanceEvent> publisher,
         InstanceStreamer instanceStreamer,
-        MigrationPartitionRepository migrationPartitionRepository)
+        IMigrationPartitionRepository migrationPartitionRepository)
     {
         _publisher = publisher ?? throw new ArgumentNullException(nameof(publisher));
         _instanceStreamer = instanceStreamer ?? throw new ArgumentNullException(nameof(instanceStreamer));

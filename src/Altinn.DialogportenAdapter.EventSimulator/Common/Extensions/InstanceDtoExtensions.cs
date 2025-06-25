@@ -10,7 +10,7 @@ internal static class InstanceDtoExtensions
         return new InstanceEvent(instance.AppId, partyId, instanceId, instance.Created, isMigration);
     }
 
-    private static (int PartyId, Guid InstanceId) ParseInstanceId(ReadOnlySpan<char> id)
+    private static (string PartyId, Guid InstanceId) ParseInstanceId(ReadOnlySpan<char> id)
     {
         var partsEnumerator = id.Split("/");
         if (!partsEnumerator.MoveNext() || !int.TryParse(id[partsEnumerator.Current], out var party))
@@ -23,6 +23,6 @@ internal static class InstanceDtoExtensions
             throw new InvalidOperationException("Invalid instance id");
         }
 
-        return (party, instance);
+        return (party.ToString(), instance);
     }
 }

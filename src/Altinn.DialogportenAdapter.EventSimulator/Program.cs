@@ -39,7 +39,8 @@ static void BuildAndRun(string[] args)
 
     builder.Configuration
         .AddCoreClusterSettings()
-        .AddAzureKeyVault();
+        .AddAzureKeyVault()
+        .AddLocalDevelopmentSettings(builder.Environment);
 
     var settings = builder.Configuration.Get<Settings>()!;
 
@@ -50,10 +51,10 @@ static void BuildAndRun(string[] args)
     builder.Services.AddStartupLoaders();
     builder.Services.AddTransient<InstanceStreamer>();
     builder.Services.AddTransient<MigrationPartitionService>();
-    builder.Services.AddSingleton(new TableClient(
+    builder.Services.AddSingleton(_ => new TableClient(
         settings.DialogportenAdapter.AzureStorage.ConnectionString,
         AzureStorageSettings.GetTableName(builder.Environment)));
-    builder.Services.AddSingleton<MigrationPartitionRepository>();
+    builder.Services.AddSingleton<IMigrationPartitionRepository, MigrationPartitionRepository>();
     builder.Services.AddSingleton<IOrganizationRepository, OrganizationRepository>();
     // Health checks
     builder.Services.AddHealthChecks()
@@ -77,6 +78,8 @@ static void BuildAndRun(string[] args)
         .For<IStorageApi>(x.GetRequiredService<IHttpClientFactory>()
             .CreateClient(Constants.MaskinportenClientDefinitionKey)));
 
+    builder.ReplaceLocalDevelopmentResources();
+
     var app = builder.Build();
     app.UseHttpsRedirection();
     app.MapHealthChecks("/health");
@@ -87,7 +90,7 @@ static void BuildAndRun(string[] args)
             CancellationToken cancellationToken) =>
         migrationPartitionService.Handle(command, cancellationToken));
     app.MapDelete("/api/table/truncate", (
-            [FromServices] MigrationPartitionRepository repo,
+            [FromServices] IMigrationPartitionRepository repo,
             CancellationToken cancellationToken) =>
         repo.Truncate(cancellationToken))
         .ExcludeFromDescription();

@@ -10,7 +10,7 @@ public interface IStorageAdapterApi
 
 public record InstanceEvent(
     string AppId,
-    int PartyId,
+    string PartyId,
     Guid InstanceId,
     DateTimeOffset InstanceCreatedAt,
     bool IsMigration = true);

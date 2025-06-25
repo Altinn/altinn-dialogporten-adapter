@@ -2,7 +2,7 @@ using Azure.Data.Tables;
 
 namespace Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
 
-internal sealed class MigrationPartitionRepository
+internal sealed class MigrationPartitionRepository : IMigrationPartitionRepository
 {
     private readonly TableClient _tableClient;
 

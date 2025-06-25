@@ -10,7 +10,7 @@ namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 
 public record SyncInstanceToDialogDto(
     string AppId,
-    int PartyId,
+    string PartyId,
     Guid InstanceId,
     DateTimeOffset InstanceCreatedAt,
     bool IsMigration);
