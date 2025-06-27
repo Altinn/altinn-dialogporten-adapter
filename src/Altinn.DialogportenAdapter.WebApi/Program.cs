@@ -10,6 +10,7 @@ using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
+using Altinn.Storage.Contracts;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -18,10 +19,13 @@ using Microsoft.IdentityModel.Tokens;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Refit;
+using Wolverine;
+using Wolverine.AzureServiceBus;
 using ZiggyCreatures.Caching.Fusion;
 
 using var loggerFactory = CreateBootstrapLoggerFactory();
 var bootstrapLogger = loggerFactory.CreateLogger<Program>();
+const string applicationName = "dp.adapter";
 
 try
 {
@@ -67,6 +71,25 @@ static void BuildAndRun(string[] args)
                 x.StorageDirectory = "/tmp/logtelemetry";
             });
     }
+
+    builder.Services.AddWolverine(opts =>
+    {
+        opts.ListenToAzureServiceBusSubscription(
+                $"{applicationName}.{nameof(SyncDialogOnInstanceUpdatedHandler).ToLowerInvariant()}")
+            .FromTopic(typeof(InstanceUpdatedEvent).FullName!)
+            .AddStickyHandler(typeof(SyncDialogOnInstanceUpdatedHandler));
+
+        opts.Policies.DisableConventionalLocalRouting();
+        opts.MultipleHandlerBehavior = MultipleHandlerBehavior.Separated;
+        var azureBusConfig = opts
+            .UseAzureServiceBus(settings.DialogportenAdapter.AzureServiceBus.ConnectionString)
+            .AutoProvision();
+
+        if (builder.Environment.IsDevelopment())
+        {
+            azureBusConfig.AutoPurgeOnStartup();
+        }
+    });
 
     builder.Services.RegisterMaskinportenClientDefinition<SettingsJwkClientDefinition>(
         Constants.DefaultMaskinportenClientDefinitionKey,
@@ -130,7 +153,7 @@ static void BuildAndRun(string[] args)
             x.ThrowOnPublicKeyFetchInit = false;
         })
         .AddTransient<IRegisterRepository, RegisterRepository>()
-        .AddTransient<SyncInstanceToDialogService>()
+        .AddTransient<ISyncInstanceToDialogService, SyncInstanceToDialogService>()
         .AddTransient<StorageDialogportenDataMerger>()
         .AddTransient<ActivityDtoTransformer>()
         .AddTransient<FourHundredLoggingDelegatingHandler>()
@@ -167,7 +190,7 @@ static void BuildAndRun(string[] args)
 
     builder.ReplaceLocalDevelopmentResources();
 
-    var app = builder.Build();
+    using var app = builder.Build();
 
     app.UseHttpsRedirection()
         .UseCors()
@@ -184,7 +207,7 @@ static void BuildAndRun(string[] args)
         .AllowAnonymous();
 
     v1Route.MapPost("syncDialog", async (
-        [FromBody] SyncInstanceToDialogDto request,
+        [FromBody] InstanceUpdatedEvent request,
         [FromServices] SyncInstanceToDialogService syncService,
         CancellationToken cancellationToken) =>
     {
@@ -209,7 +232,7 @@ static void BuildAndRun(string[] args)
                 return Results.NotFound();
             }
 
-            var request = new SyncInstanceToDialogDto(instance.AppId, partyId, instanceGuid, instance.Created!.Value, isMigration ?? false);
+            var request = new InstanceUpdatedEvent(instance.AppId, partyId, instanceGuid, instance.Created!.Value, isMigration ?? false);
             await syncService.Sync(request, cancellationToken);
             return Results.NoContent();
         })

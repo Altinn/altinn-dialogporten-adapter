@@ -5,14 +5,17 @@ using Altinn.DialogportenAdapter.EventSimulator.Common;
 using Altinn.DialogportenAdapter.EventSimulator.Common.Channels;
 using Altinn.DialogportenAdapter.EventSimulator.Common.Extensions;
 using Altinn.DialogportenAdapter.EventSimulator.Common.StartupLoaders;
-using Altinn.DialogportenAdapter.EventSimulator.Features;
 using Altinn.DialogportenAdapter.EventSimulator.Features.HistoryStream;
+using Altinn.DialogportenAdapter.EventSimulator.Features.InstanceEventForwarder;
 using Altinn.DialogportenAdapter.EventSimulator.Features.UpdateStream;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
+using Altinn.Storage.Contracts;
 using Azure.Data.Tables;
 using Microsoft.AspNetCore.Mvc;
 using Refit;
+using Wolverine;
+using Wolverine.AzureServiceBus;
 
 using var loggerFactory = CreateBootstrapLoggerFactory();
 var bootstrapLogger = loggerFactory.CreateLogger<Program>();
@@ -44,8 +47,23 @@ static void BuildAndRun(string[] args)
 
     var settings = builder.Configuration.Get<Settings>()!;
 
+    builder.Services.AddWolverine(opts =>
+    {
+        opts.PublishMessage<InstanceUpdatedEvent>().ToAzureServiceBusTopic(typeof(InstanceUpdatedEvent).FullName!);
+        opts.Policies.DisableConventionalLocalRouting();
+        opts.MultipleHandlerBehavior = MultipleHandlerBehavior.Separated;
+        var azureBusConfig = opts
+            .UseAzureServiceBus(settings.DialogportenAdapter.AzureServiceBus.ConnectionString)
+            .AutoProvision();
+
+        if (builder.Environment.IsDevelopment())
+        {
+            azureBusConfig.AutoPurgeOnStartup();
+        }
+    });
+
     builder.Services.AddSingleton(settings);
-    builder.Services.AddChannelConsumer<InstanceEventConsumer, InstanceEvent>(consumers: 100);
+    builder.Services.AddChannelConsumer<InstanceEventToAdapterThroughWolverine, InstanceUpdatedEvent>(consumers: 100);
     builder.Services.AddChannelConsumer<MigrationPartitionCommandConsumer, MigrationPartitionCommand>(consumers: 100);
     builder.Services.AddHostedService<InstanceUpdateStreamBackgroundService>();
     builder.Services.AddStartupLoaders();

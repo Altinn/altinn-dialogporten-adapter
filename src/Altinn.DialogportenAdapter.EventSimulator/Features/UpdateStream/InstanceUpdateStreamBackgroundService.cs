@@ -1,30 +1,41 @@
 using Altinn.DialogportenAdapter.EventSimulator.Common.Channels;
 using Altinn.DialogportenAdapter.EventSimulator.Common.Extensions;
+using Altinn.DialogportenAdapter.EventSimulator.Features.InstanceEventForwarder;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
+using Altinn.Storage.Contracts;
 
 namespace Altinn.DialogportenAdapter.EventSimulator.Features.UpdateStream;
 
 internal sealed class InstanceUpdateStreamBackgroundService : BackgroundService
 {
     private readonly IOrganizationRepository _organizationRepository;
-    private readonly IChannelPublisher<InstanceEvent> _channelPublisher;
+    private readonly IChannelPublisher<InstanceUpdatedEvent> _channelPublisher;
     private readonly InstanceStreamer _instanceStreamer;
-    private readonly ILogger<InstanceEventConsumer> _logger;
+    private readonly ILogger<InstanceEventToAdapterThroughHttp> _logger;
+    private readonly Settings _settings;
 
     public InstanceUpdateStreamBackgroundService(
-        IChannelPublisher<InstanceEvent> channelPublisher,
+        IChannelPublisher<InstanceUpdatedEvent> channelPublisher,
         InstanceStreamer instanceStreamer,
-        ILogger<InstanceEventConsumer> logger,
-        IOrganizationRepository organizationRepository)
+        ILogger<InstanceEventToAdapterThroughHttp> logger,
+        IOrganizationRepository organizationRepository,
+        Settings settings)
     {
         _channelPublisher = channelPublisher ?? throw new ArgumentNullException(nameof(channelPublisher));
         _instanceStreamer = instanceStreamer ?? throw new ArgumentNullException(nameof(instanceStreamer));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _organizationRepository = organizationRepository ?? throw new ArgumentNullException(nameof(organizationRepository));
+        _settings = settings ?? throw new ArgumentNullException(nameof(settings));
     }
 
     protected override async Task ExecuteAsync(CancellationToken cancellationToken)
     {
+        if (!_settings.DialogportenAdapter.EventSimulator.EnableUpdateStream)
+        {
+            _logger.LogDebug("Update stream processing is disabled.");
+            return;
+        }
+
         var orgs = await _organizationRepository.GetOrganizations(cancellationToken);
         _logger.LogInformation("Found {OrgCount} orgs.", orgs.Count);
         if (orgs is null || orgs.Count == 0)

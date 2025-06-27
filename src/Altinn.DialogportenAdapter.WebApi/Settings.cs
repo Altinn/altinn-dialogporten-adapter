@@ -10,7 +10,10 @@ public sealed record DialogportenAdapterSettings(
     AltinnPlatformSettings Altinn,
     DialogportenSettings Dialogporten,
     AdapterSettings Adapter,
-    AuthenticationSettings Authentication);
+    AuthenticationSettings Authentication,
+    AzureServiceBusSettings AzureServiceBus);
+
+public sealed record AzureServiceBusSettings(string ConnectionString);
 
 public sealed record AuthenticationSettings(string JwtBearerWellKnown);
 

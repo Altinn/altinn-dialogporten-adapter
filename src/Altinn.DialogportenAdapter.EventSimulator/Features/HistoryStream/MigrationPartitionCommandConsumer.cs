@@ -2,6 +2,7 @@ using Altinn.DialogportenAdapter.EventSimulator.Common.Channels;
 using Altinn.DialogportenAdapter.EventSimulator.Common.Extensions;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
+using Altinn.Storage.Contracts;
 using Polly;
 using Polly.Contrib.WaitAndRetry;
 using Polly.Retry;
@@ -14,12 +15,12 @@ internal sealed class MigrationPartitionCommandConsumer : IChannelConsumer<Migra
         .Handle<Exception>(x => x is not OperationCanceledException)
         .WaitAndRetryAsync(Backoff.DecorrelatedJitterBackoffV2(TimeSpan.FromSeconds(1), 5));
 
-    private readonly IChannelPublisher<InstanceEvent> _publisher;
+    private readonly IChannelPublisher<InstanceUpdatedEvent> _publisher;
     private readonly IMigrationPartitionRepository _migrationPartitionRepository;
     private readonly InstanceStreamer _instanceStreamer;
 
     public MigrationPartitionCommandConsumer(
-        IChannelPublisher<InstanceEvent> publisher,
+        IChannelPublisher<InstanceUpdatedEvent> publisher,
         InstanceStreamer instanceStreamer,
         IMigrationPartitionRepository migrationPartitionRepository)
     {

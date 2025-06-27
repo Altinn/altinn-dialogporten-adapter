@@ -4,7 +4,7 @@
         <TargetFramework>net9.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
-        <UserSecretsId>0f282ad8-230f-4dde-8ab6-2eb0bd379270</UserSecretsId>
+        <UserSecretsId>f15beaf9-69f4-454a-8605-6586ecad451d</UserSecretsId>
     </PropertyGroup>
 
     <ItemGroup>
@@ -17,6 +17,11 @@
       <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.4" />
       <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.4.0" />
       <PackageReference Include="Azure.Identity" Version="1.13.2" />
+      <PackageReference Include="WolverineFx.AzureServiceBus" Version="4.4.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Altinn.Storage.Contracts\Altinn.Storage.Contracts.csproj" />
     </ItemGroup>
 
 </Project>

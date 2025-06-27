@@ -18,6 +18,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{A7008E07
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Altinn.DialogportenAdapter.Unit.Tests", "tests\Altinn.DialogportenAdapter.Unit.Tests\Altinn.DialogportenAdapter.Unit.Tests.csproj", "{B901DA9F-91C7-4AA1-A21E-82A80C4EE59E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Altinn.Storage.Contracts", "src\Altinn.Storage.Contracts\Altinn.Storage.Contracts.csproj", "{EFC0E13F-1FCA-4173-B2AF-09D05BE9146C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -36,6 +38,10 @@ Global
 		{B901DA9F-91C7-4AA1-A21E-82A80C4EE59E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B901DA9F-91C7-4AA1-A21E-82A80C4EE59E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B901DA9F-91C7-4AA1-A21E-82A80C4EE59E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EFC0E13F-1FCA-4173-B2AF-09D05BE9146C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EFC0E13F-1FCA-4173-B2AF-09D05BE9146C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EFC0E13F-1FCA-4173-B2AF-09D05BE9146C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EFC0E13F-1FCA-4173-B2AF-09D05BE9146C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -44,5 +50,6 @@ Global
 		{330DB9CD-6B16-4138-836C-51383653264B} = {A44EA8A5-0709-4630-A781-E3E7F757F129}
 		{3FB848BE-8FD5-4DA2-BC83-EE7CBA8359E3} = {A44EA8A5-0709-4630-A781-E3E7F757F129}
 		{B901DA9F-91C7-4AA1-A21E-82A80C4EE59E} = {A7008E07-41BC-4D6B-8CD6-FF875D655392}
+		{EFC0E13F-1FCA-4173-B2AF-09D05BE9146C} = {A44EA8A5-0709-4630-A781-E3E7F757F129}
 	EndGlobalSection
 EndGlobal

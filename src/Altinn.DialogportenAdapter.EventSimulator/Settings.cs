@@ -10,7 +10,13 @@ public sealed record DialogportenAdapterSettings(
     MaskinportenSettings Maskinporten,
     AltinnPlatformSettings Altinn,
     AdapterSettings Adapter,
-    AzureStorageSettings AzureStorage);
+    AzureStorageSettings AzureStorage,
+    EventSimulatorSettings EventSimulator,
+    AzureServiceBusSettings AzureServiceBus);
+
+public sealed record AzureServiceBusSettings(string ConnectionString);
+
+public sealed record EventSimulatorSettings(bool EnableUpdateStream = false);
 
 public record AzureStorageSettings(string ConnectionString)
 {
