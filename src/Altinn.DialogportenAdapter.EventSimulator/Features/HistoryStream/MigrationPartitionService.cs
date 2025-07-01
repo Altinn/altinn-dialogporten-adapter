@@ -1,7 +1,7 @@
-using Altinn.DialogportenAdapter.EventSimulator.Common.Channels;
 using Altinn.DialogportenAdapter.EventSimulator.Common.StartupLoaders;
-using Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
+using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Persistance;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
+using Wolverine;
 
 namespace Altinn.DialogportenAdapter.EventSimulator.Features.HistoryStream;
 
@@ -9,16 +9,16 @@ internal sealed class MigrationPartitionService
 {
     private readonly IOrganizationRepository _organizationRepository;
     private readonly IMigrationPartitionRepository _migrationPartitionRepository;
-    private readonly IChannelPublisher<MigrationPartitionCommand> _channelPublisher;
+    private readonly IMessageBus _messageBus;
 
     public MigrationPartitionService(
-        IChannelPublisher<MigrationPartitionCommand> channelPublisher,
         IOrganizationRepository organizationRepository,
-        IMigrationPartitionRepository migrationPartitionRepository)
+        IMigrationPartitionRepository migrationPartitionRepository,
+        IMessageBus messageBus)
     {
-        _channelPublisher = channelPublisher ?? throw new ArgumentNullException(nameof(channelPublisher));
         _organizationRepository = organizationRepository ?? throw new ArgumentNullException(nameof(organizationRepository));
         _migrationPartitionRepository = migrationPartitionRepository ?? throw new ArgumentNullException(nameof(migrationPartitionRepository));
+        _messageBus = messageBus ?? throw new ArgumentNullException(nameof(messageBus));
     }
 
     public async Task Handle(MigrationCommand command, CancellationToken cancellationToken)
@@ -54,9 +54,9 @@ internal sealed class MigrationPartitionService
         }
 
         await Task.WhenAll(partitionEntities
-            .Select(x => new MigrationPartitionCommand(x.Partition, x.Organization, command.Party))
-            .Select(x => _channelPublisher
-                .Publish(x, cancellationToken)
+            .Select(x => new MigratePartitionCommand(x.Partition, x.Organization, command.Party))
+            .Select(x => _messageBus
+                .SendAsync(x)
                 .AsTask()));
     }
 

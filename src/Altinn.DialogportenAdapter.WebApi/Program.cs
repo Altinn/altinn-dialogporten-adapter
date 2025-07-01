@@ -1,6 +1,7 @@
 using Altinn.ApiClients.Dialogporten;
 using Altinn.ApiClients.Maskinporten.Extensions;
 using Altinn.ApiClients.Maskinporten.Services;
+using Altinn.DialogportenAdapter.Contracts;
 using Altinn.DialogportenAdapter.WebApi;
 using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
@@ -10,7 +11,6 @@ using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
-using Altinn.Storage.Contracts;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -22,10 +22,11 @@ using Refit;
 using Wolverine;
 using Wolverine.AzureServiceBus;
 using ZiggyCreatures.Caching.Fusion;
+using Constants = Altinn.DialogportenAdapter.WebApi.Common.Constants;
+using ContractConstants = Altinn.DialogportenAdapter.Contracts.Constants;
 
 using var loggerFactory = CreateBootstrapLoggerFactory();
 var bootstrapLogger = loggerFactory.CreateLogger<Program>();
-const string applicationName = "dp.adapter";
 
 try
 {
@@ -45,7 +46,14 @@ static void BuildAndRun(string[] args)
 
     builder.Logging
         .ClearProviders()
-        .AddConsole();
+        .AddSimpleConsole(options =>
+        {
+            options.IncludeScopes = true;
+            options.IncludeScopes = true;
+            options.SingleLine = true;
+            options.TimestampFormat = "yyyy-MM-dd HH:mm:ss ";
+            options.UseUtcTimestamp = false;
+        });
 
     builder.Configuration
         .AddCoreClusterSettings()
@@ -74,21 +82,20 @@ static void BuildAndRun(string[] args)
 
     builder.Services.AddWolverine(opts =>
     {
-        opts.ListenToAzureServiceBusSubscription(
-                $"{applicationName}.{nameof(SyncDialogOnInstanceUpdatedHandler).ToLowerInvariant()}")
-            .FromTopic(typeof(InstanceUpdatedEvent).FullName!)
-            .AddStickyHandler(typeof(SyncDialogOnInstanceUpdatedHandler));
-
         opts.Policies.DisableConventionalLocalRouting();
         opts.MultipleHandlerBehavior = MultipleHandlerBehavior.Separated;
         var azureBusConfig = opts
-            .UseAzureServiceBus(settings.DialogportenAdapter.AzureServiceBus.ConnectionString)
+            .UseAzureServiceBus(settings.WolverineSettings.ServiceBusConnectionString)
             .AutoProvision();
 
         if (builder.Environment.IsDevelopment())
         {
             azureBusConfig.AutoPurgeOnStartup();
         }
+
+        opts.ListenToAzureServiceBusQueue(ContractConstants.AdapterQueueName)
+            .ProcessInline()
+            .ListenerCount(100);
     });
 
     builder.Services.RegisterMaskinportenClientDefinition<SettingsJwkClientDefinition>(
@@ -207,7 +214,7 @@ static void BuildAndRun(string[] args)
         .AllowAnonymous();
 
     v1Route.MapPost("syncDialog", async (
-        [FromBody] InstanceUpdatedEvent request,
+        [FromBody] SyncInstanceCommand request,
         [FromServices] SyncInstanceToDialogService syncService,
         CancellationToken cancellationToken) =>
     {
@@ -232,7 +239,7 @@ static void BuildAndRun(string[] args)
                 return Results.NotFound();
             }
 
-            var request = new InstanceUpdatedEvent(instance.AppId, partyId, instanceGuid, instance.Created!.Value, isMigration ?? false);
+            var request = new SyncInstanceCommand(instance.AppId, partyId, instanceGuid, instance.Created!.Value, isMigration ?? false);
             await syncService.Sync(request, cancellationToken);
             return Results.NoContent();
         })

@@ -1,14 +1,14 @@
-using Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
-using Altinn.Storage.Contracts;
+using Altinn.DialogportenAdapter.Contracts;
+using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
 
 namespace Altinn.DialogportenAdapter.EventSimulator.Common.Extensions;
 
 internal static class InstanceDtoExtensions
 {
-    public static InstanceUpdatedEvent ToInstanceEvent(this InstanceDto instance, bool isMigration = true)
+    public static SyncInstanceCommand ToSyncInstanceCommand(this InstanceDto instance, bool isMigration = true)
     {
         var (partyId, instanceId) = ParseInstanceId(instance.Id);
-        return new InstanceUpdatedEvent(instance.AppId, partyId, instanceId, instance.Created, isMigration);
+        return new SyncInstanceCommand(instance.AppId, partyId, instanceId, instance.Created, isMigration);
     }
 
     private static (string PartyId, Guid InstanceId) ParseInstanceId(ReadOnlySpan<char> id)

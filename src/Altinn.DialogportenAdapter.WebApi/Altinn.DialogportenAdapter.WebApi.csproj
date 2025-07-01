@@ -18,12 +18,12 @@
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.4" />
         <PackageReference Include="Refit.HttpClientFactory" Version="8.0.0" />
         <PackageReference Include="UUIDNext" Version="4.1.2" />
-        <PackageReference Include="WolverineFx.AzureServiceBus" Version="4.4.0" />
+        <PackageReference Include="WolverineFx.AzureServiceBus" Version="4.5.0" />
         <PackageReference Include="ZiggyCreatures.FusionCache" Version="2.2.0" />
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Altinn.Storage.Contracts\Altinn.Storage.Contracts.csproj" />
+      <ProjectReference Include="..\Altinn.DialogportenAdapter.Contracts\Altinn.DialogportenAdapter.Contracts.csproj" />
     </ItemGroup>
 
 </Project>

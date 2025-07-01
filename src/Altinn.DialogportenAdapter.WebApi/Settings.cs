@@ -3,17 +3,18 @@ using Altinn.ApiClients.Maskinporten.Config;
 
 namespace Altinn.DialogportenAdapter.WebApi;
 
-public sealed record Settings(DialogportenAdapterSettings DialogportenAdapter);
+public sealed record Settings(
+    DialogportenAdapterSettings DialogportenAdapter,
+    WolverineSettings WolverineSettings);
+
+public sealed record WolverineSettings(string ServiceBusConnectionString);
 
 public sealed record DialogportenAdapterSettings(
     MaskinportenSettings Maskinporten,
     AltinnPlatformSettings Altinn,
     DialogportenSettings Dialogporten,
     AdapterSettings Adapter,
-    AuthenticationSettings Authentication,
-    AzureServiceBusSettings AzureServiceBus);
-
-public sealed record AzureServiceBusSettings(string ConnectionString);
+    AuthenticationSettings Authentication);
 
 public sealed record AuthenticationSettings(string JwtBearerWellKnown);
 

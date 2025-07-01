@@ -1,20 +1,21 @@
 using System.Diagnostics.CodeAnalysis;
 using Altinn.ApiClients.Maskinporten.Config;
-using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
+using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Persistance;
 
 namespace Altinn.DialogportenAdapter.EventSimulator;
 
-public sealed record Settings(DialogportenAdapterSettings DialogportenAdapter);
+public sealed record Settings(
+    DialogportenAdapterSettings DialogportenAdapter,
+    WolverineSettings WolverineSettings);
+
+public sealed record WolverineSettings(string ServiceBusConnectionString);
 
 public sealed record DialogportenAdapterSettings(
     MaskinportenSettings Maskinporten,
     AltinnPlatformSettings Altinn,
     AdapterSettings Adapter,
     AzureStorageSettings AzureStorage,
-    EventSimulatorSettings EventSimulator,
-    AzureServiceBusSettings AzureServiceBus);
-
-public sealed record AzureServiceBusSettings(string ConnectionString);
+    EventSimulatorSettings EventSimulator);
 
 public sealed record EventSimulatorSettings(bool EnableUpdateStream = false);
 

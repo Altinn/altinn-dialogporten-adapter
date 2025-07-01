@@ -1,35 +1,34 @@
-using Altinn.DialogportenAdapter.EventSimulator.Common.Channels;
 using Altinn.DialogportenAdapter.EventSimulator.Common.Extensions;
-using Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
+using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Persistance;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
-using Altinn.Storage.Contracts;
 using Polly;
 using Polly.Contrib.WaitAndRetry;
 using Polly.Retry;
+using Wolverine;
 
 namespace Altinn.DialogportenAdapter.EventSimulator.Features.HistoryStream;
 
-internal sealed class MigrationPartitionCommandConsumer : IChannelConsumer<MigrationPartitionCommand>
+public sealed class MigrationPartitionCommandHandler
 {
-    private static readonly AsyncRetryPolicy RetryPolicy = Policy
+    private static readonly AsyncRetryPolicy _retryPolicy = Policy
         .Handle<Exception>(x => x is not OperationCanceledException)
         .WaitAndRetryAsync(Backoff.DecorrelatedJitterBackoffV2(TimeSpan.FromSeconds(1), 5));
 
-    private readonly IChannelPublisher<InstanceUpdatedEvent> _publisher;
     private readonly IMigrationPartitionRepository _migrationPartitionRepository;
-    private readonly InstanceStreamer _instanceStreamer;
+    private readonly IInstanceStreamer _instanceStreamer;
+    private readonly IMessageBus _messageBus;
 
-    public MigrationPartitionCommandConsumer(
-        IChannelPublisher<InstanceUpdatedEvent> publisher,
-        InstanceStreamer instanceStreamer,
-        IMigrationPartitionRepository migrationPartitionRepository)
+    public MigrationPartitionCommandHandler(
+        IInstanceStreamer instanceStreamer,
+        IMigrationPartitionRepository migrationPartitionRepository,
+        IMessageBus messageBus)
     {
-        _publisher = publisher ?? throw new ArgumentNullException(nameof(publisher));
         _instanceStreamer = instanceStreamer ?? throw new ArgumentNullException(nameof(instanceStreamer));
         _migrationPartitionRepository = migrationPartitionRepository ?? throw new ArgumentNullException(nameof(migrationPartitionRepository));
+        _messageBus = messageBus ?? throw new ArgumentNullException(nameof(messageBus));
     }
 
-    public async Task Consume(MigrationPartitionCommand command, int taskNumber, CancellationToken cancellationToken)
+    public async Task Handle(MigratePartitionCommand command, CancellationToken cancellationToken)
     {
         var entity = !command.IsTest
             ? await _migrationPartitionRepository.Get(command.Partition, command.Organization, cancellationToken) ?? ToEntity(command)
@@ -44,17 +43,17 @@ internal sealed class MigrationPartitionCommandConsumer : IChannelConsumer<Migra
         entity.Checkpoint ??= command.Partition.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Local);
         try
         {
-            await RetryPolicy.ExecuteAsync(async cancellationToken =>
+            await _retryPolicy.ExecuteAsync(async cancellationToken =>
             {
                 await foreach (var instanceDto in _instanceStreamer.InstanceStream(
                                    org: command.Organization,
                                    partyId: command.Party,
                                    from: from,
                                    to: entity.Checkpoint,
-                                   sortOrder: InstanceStreamer.Order.Descending,
+                                   sortOrder: IInstanceStreamer.Order.Descending,
                                    cancellationToken: cancellationToken))
                 {
-                    await _publisher.Publish(instanceDto.ToInstanceEvent(isMigration: true), cancellationToken);
+                    await _messageBus.SendAsync(instanceDto.ToSyncInstanceCommand(isMigration: true));
                     entity.InstanceHandled(instanceDto.LastChanged);
                 }
             }, cancellationToken);
@@ -69,7 +68,7 @@ internal sealed class MigrationPartitionCommandConsumer : IChannelConsumer<Migra
     }
 
     private Task MarkAsComplete(
-        MigrationPartitionCommand command,
+        MigratePartitionCommand command,
         MigrationPartitionEntity entity,
         CancellationToken cancellationToken)
     {
@@ -80,7 +79,7 @@ internal sealed class MigrationPartitionCommandConsumer : IChannelConsumer<Migra
     }
 
     private Task SaveCheckpoint(
-        MigrationPartitionCommand command,
+        MigratePartitionCommand command,
         MigrationPartitionEntity entity,
         CancellationToken cancellationToken)
     {
@@ -96,11 +95,11 @@ internal sealed class MigrationPartitionCommandConsumer : IChannelConsumer<Migra
             : _migrationPartitionRepository.Upsert([entity], cancellationToken);
     }
 
-    private static MigrationPartitionEntity ToEntity(MigrationPartitionCommand item) =>
+    private static MigrationPartitionEntity ToEntity(MigratePartitionCommand item) =>
         new(item.Partition, item.Organization);
 }
 
-internal sealed record MigrationPartitionCommand(DateOnly Partition, string Organization, string? Party)
+public sealed record MigratePartitionCommand(DateOnly Partition, string Organization, string? Party)
 {
     public bool IsTest => Party is not null;
 }

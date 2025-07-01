@@ -1,21 +1,22 @@
 ﻿using Altinn.ApiClients.Maskinporten.Extensions;
 using Altinn.ApiClients.Maskinporten.Services;
+using Altinn.DialogportenAdapter.Contracts;
 using Altinn.DialogportenAdapter.EventSimulator;
 using Altinn.DialogportenAdapter.EventSimulator.Common;
-using Altinn.DialogportenAdapter.EventSimulator.Common.Channels;
 using Altinn.DialogportenAdapter.EventSimulator.Common.Extensions;
 using Altinn.DialogportenAdapter.EventSimulator.Common.StartupLoaders;
 using Altinn.DialogportenAdapter.EventSimulator.Features.HistoryStream;
-using Altinn.DialogportenAdapter.EventSimulator.Features.InstanceEventForwarder;
 using Altinn.DialogportenAdapter.EventSimulator.Features.UpdateStream;
-using Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
+using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Adapter;
+using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Persistance;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
-using Altinn.Storage.Contracts;
 using Azure.Data.Tables;
 using Microsoft.AspNetCore.Mvc;
 using Refit;
 using Wolverine;
 using Wolverine.AzureServiceBus;
+using Constants = Altinn.DialogportenAdapter.EventSimulator.Common.Constants;
+using ContractConstants = Altinn.DialogportenAdapter.Contracts.Constants;
 
 using var loggerFactory = CreateBootstrapLoggerFactory();
 var bootstrapLogger = loggerFactory.CreateLogger<Program>();
@@ -49,25 +50,30 @@ static void BuildAndRun(string[] args)
 
     builder.Services.AddWolverine(opts =>
     {
-        opts.PublishMessage<InstanceUpdatedEvent>().ToAzureServiceBusTopic(typeof(InstanceUpdatedEvent).FullName!);
         opts.Policies.DisableConventionalLocalRouting();
         opts.MultipleHandlerBehavior = MultipleHandlerBehavior.Separated;
         var azureBusConfig = opts
-            .UseAzureServiceBus(settings.DialogportenAdapter.AzureServiceBus.ConnectionString)
+            .UseAzureServiceBus(settings.WolverineSettings.ServiceBusConnectionString)
             .AutoProvision();
 
         if (builder.Environment.IsDevelopment())
         {
             azureBusConfig.AutoPurgeOnStartup();
         }
+
+        opts.ListenToAzureServiceBusQueue(ContractConstants.EventSimulatorQueueName)
+            .ProcessInline()
+            .ListenerCount(ContractConstants.ListenerCount);
+        opts.PublishMessage<MigratePartitionCommand>()
+            .ToAzureServiceBusQueue(ContractConstants.EventSimulatorQueueName);
+        opts.PublishMessage<SyncInstanceCommand>()
+            .ToAzureServiceBusQueue(ContractConstants.AdapterQueueName);
     });
 
     builder.Services.AddSingleton(settings);
-    builder.Services.AddChannelConsumer<InstanceEventToAdapterThroughWolverine, InstanceUpdatedEvent>(consumers: 100);
-    builder.Services.AddChannelConsumer<MigrationPartitionCommandConsumer, MigrationPartitionCommand>(consumers: 100);
     builder.Services.AddHostedService<InstanceUpdateStreamBackgroundService>();
     builder.Services.AddStartupLoaders();
-    builder.Services.AddTransient<InstanceStreamer>();
+    builder.Services.AddTransient<IInstanceStreamer, InstanceStreamer>();
     builder.Services.AddTransient<MigrationPartitionService>();
     builder.Services.AddSingleton(_ => new TableClient(
         settings.DialogportenAdapter.AzureStorage.ConnectionString,

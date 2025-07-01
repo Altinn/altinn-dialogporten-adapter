@@ -1,31 +1,29 @@
-using Altinn.DialogportenAdapter.EventSimulator.Common.Channels;
 using Altinn.DialogportenAdapter.EventSimulator.Common.Extensions;
-using Altinn.DialogportenAdapter.EventSimulator.Features.InstanceEventForwarder;
-using Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
-using Altinn.Storage.Contracts;
+using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
+using Wolverine;
 
 namespace Altinn.DialogportenAdapter.EventSimulator.Features.UpdateStream;
 
 internal sealed class InstanceUpdateStreamBackgroundService : BackgroundService
 {
     private readonly IOrganizationRepository _organizationRepository;
-    private readonly IChannelPublisher<InstanceUpdatedEvent> _channelPublisher;
-    private readonly InstanceStreamer _instanceStreamer;
-    private readonly ILogger<InstanceEventToAdapterThroughHttp> _logger;
+    private readonly IInstanceStreamer _instanceStreamer;
+    private readonly ILogger<InstanceUpdateStreamBackgroundService> _logger;
     private readonly Settings _settings;
+    private readonly IServiceProvider _serviceProvider;
 
     public InstanceUpdateStreamBackgroundService(
-        IChannelPublisher<InstanceUpdatedEvent> channelPublisher,
-        InstanceStreamer instanceStreamer,
-        ILogger<InstanceEventToAdapterThroughHttp> logger,
+        IInstanceStreamer instanceStreamer,
+        ILogger<InstanceUpdateStreamBackgroundService> logger,
         IOrganizationRepository organizationRepository,
-        Settings settings)
+        Settings settings,
+        IServiceProvider serviceProvider)
     {
-        _channelPublisher = channelPublisher ?? throw new ArgumentNullException(nameof(channelPublisher));
         _instanceStreamer = instanceStreamer ?? throw new ArgumentNullException(nameof(instanceStreamer));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _organizationRepository = organizationRepository ?? throw new ArgumentNullException(nameof(organizationRepository));
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
     }
 
     protected override async Task ExecuteAsync(CancellationToken cancellationToken)
@@ -58,7 +56,9 @@ internal sealed class InstanceUpdateStreamBackgroundService : BackgroundService
                                    from: from,
                                    cancellationToken))
                 {
-                    await _channelPublisher.Publish(instanceDto.ToInstanceEvent(isMigration: false), cancellationToken);
+                    using var scope = _serviceProvider.CreateScope();
+                    var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
+                    await bus.SendAsync(instanceDto.ToSyncInstanceCommand(isMigration: false));
                     from = instanceDto.LastChanged > from ? instanceDto.LastChanged : from;
                 }
             }

@@ -1,4 +1,4 @@
-namespace Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
+namespace Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Persistance;
 
 internal sealed class MockMigrationPartitionRepository : IMigrationPartitionRepository
 {

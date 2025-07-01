@@ -3,11 +3,31 @@ using System.Runtime.CompilerServices;
 using Altinn.DialogportenAdapter.EventSimulator.Common;
 using Altinn.DialogportenAdapter.EventSimulator.Common.Extensions;
 
-namespace Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
+namespace Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
 
-internal sealed record InstanceDto(string AppId, string Id, DateTimeOffset Created, DateTimeOffset LastChanged);
+public sealed record InstanceDto(string AppId, string Id, DateTimeOffset Created, DateTimeOffset LastChanged);
 
-internal sealed class InstanceStreamer
+public interface IInstanceStreamer
+{
+    IAsyncEnumerable<InstanceDto> InstanceUpdateStream(
+        string org,
+        DateTimeOffset from,
+        CancellationToken cancellationToken);
+
+    IAsyncEnumerable<InstanceDto> InstanceStream(
+        string? org = null,
+        string? appId = null,
+        string? partyId = null,
+        DateTimeOffset? from = null,
+        DateTimeOffset? to = null,
+        int pageSize = 100,
+        Order sortOrder = Order.Ascending,
+        CancellationToken cancellationToken = default);
+
+    public enum Order { Ascending, Descending }
+}
+
+internal sealed class InstanceStreamer : IInstanceStreamer
 {
     private static readonly List<TimeSpan> BackoffDelays =
     [
@@ -42,7 +62,7 @@ internal sealed class InstanceStreamer
             await foreach (var instanceDto in InstanceStream(
                org: org,
                from: from,
-               sortOrder: Order.Ascending,
+               sortOrder: IInstanceStreamer.Order.Ascending,
                cancellationToken: cancellationToken))
             {
                 backoffHandler.Reset();
@@ -62,7 +82,7 @@ internal sealed class InstanceStreamer
         DateTimeOffset? from = null,
         DateTimeOffset? to = null,
         int pageSize = 100,
-        Order sortOrder = Order.Ascending,
+        IInstanceStreamer.Order sortOrder = IInstanceStreamer.Order.Ascending,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (org is null) ArgumentException.ThrowIfNullOrWhiteSpace(appId);
@@ -71,8 +91,8 @@ internal sealed class InstanceStreamer
 
         var order = sortOrder switch
         {
-            Order.Ascending => "asc",
-            Order.Descending => "desc",
+            IInstanceStreamer.Order.Ascending => "asc",
+            IInstanceStreamer.Order.Descending => "desc",
             _ => throw new ArgumentOutOfRangeException(nameof(sortOrder), sortOrder, null)
         };
 
@@ -117,5 +137,4 @@ internal sealed class InstanceStreamer
     }
 
     private sealed record InstanceQueryResponse(List<InstanceDto> Instances, string? Next);
-    public enum Order { Ascending, Descending }
 }

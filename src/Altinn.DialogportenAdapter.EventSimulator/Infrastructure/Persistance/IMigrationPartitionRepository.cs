@@ -2,9 +2,9 @@ using System.Runtime.Serialization;
 using Azure;
 using Azure.Data.Tables;
 
-namespace Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
+namespace Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Persistance;
 
-internal interface IMigrationPartitionRepository
+public interface IMigrationPartitionRepository
 {
     Task<List<MigrationPartitionEntity>> GetExistingPartitions(
         List<MigrationPartitionEntity> partitions,
@@ -15,7 +15,7 @@ internal interface IMigrationPartitionRepository
     Task Truncate(CancellationToken cancellationToken = default);
 }
 
-internal sealed class MigrationPartitionEntity : ITableEntity
+public sealed class MigrationPartitionEntity : ITableEntity
 {
     [Obsolete("Used by Table Storage SDK, do not use directly.", error: true)]
     public MigrationPartitionEntity() { }

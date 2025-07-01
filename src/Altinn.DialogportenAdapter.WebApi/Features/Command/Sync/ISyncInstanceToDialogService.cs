@@ -1,17 +1,17 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using Altinn.DialogportenAdapter.WebApi.Common;
+using Altinn.DialogportenAdapter.Contracts;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Altinn.Platform.Storage.Interface.Models;
-using Altinn.Storage.Contracts;
+using Constants = Altinn.DialogportenAdapter.WebApi.Common.Constants;
 
 namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 
 public interface ISyncInstanceToDialogService
 {
-    Task Sync(InstanceUpdatedEvent dto, CancellationToken cancellationToken = default);
+    Task Sync(SyncInstanceCommand dto, CancellationToken cancellationToken = default);
 }
 
 internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
@@ -33,7 +33,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public async Task Sync(InstanceUpdatedEvent dto, CancellationToken cancellationToken = default)
+    public async Task Sync(SyncInstanceCommand dto, CancellationToken cancellationToken = default)
     {
         // Create a uuid7 from the instance id and created timestamp to use as dialog id
         var dialogId = dto.InstanceId.ToVersion7(dto.InstanceCreatedAt);
@@ -219,7 +219,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         return etag;
     }
 
-    private Task UpdateInstanceWithDialogId(InstanceUpdatedEvent dto, Guid dialogId,
+    private Task UpdateInstanceWithDialogId(SyncInstanceCommand dto, Guid dialogId,
         CancellationToken cancellationToken)
     {
         return _storageApi.UpdateDataValues(dto.PartyId, dto.InstanceId, new()
