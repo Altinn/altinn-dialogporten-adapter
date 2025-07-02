@@ -46,14 +46,7 @@ static void BuildAndRun(string[] args)
 
     builder.Logging
         .ClearProviders()
-        .AddSimpleConsole(options =>
-        {
-            options.IncludeScopes = true;
-            options.IncludeScopes = true;
-            options.SingleLine = true;
-            options.TimestampFormat = "yyyy-MM-dd HH:mm:ss ";
-            options.UseUtcTimestamp = false;
-        });
+        .AddConsole();
 
     builder.Configuration
         .AddCoreClusterSettings()
