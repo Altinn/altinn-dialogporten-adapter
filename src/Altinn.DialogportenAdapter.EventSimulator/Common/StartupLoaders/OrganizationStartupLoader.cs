@@ -1,4 +1,4 @@
-using Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
+using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
 
 namespace Altinn.DialogportenAdapter.EventSimulator.Common.StartupLoaders;
 

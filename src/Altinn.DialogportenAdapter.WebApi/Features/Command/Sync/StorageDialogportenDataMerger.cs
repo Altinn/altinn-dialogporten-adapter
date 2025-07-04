@@ -320,11 +320,17 @@ internal sealed class StorageDialogportenDataMerger
             .GetAppUriForOrg(instance.Org, instance.AppId)
             .ToString()
             .TrimEnd('/');
+
+        // TODO: CurrentTask may be null. What should we do then? (eks instance id 51499006/907c12e2-041a-4275-9d33-67620cdf15b6 tt02)
+        var authorizationAttribute = instance.Process?.CurrentTask?.ElementId is not null
+            ? "urn:altinn:task:" + instance.Process.CurrentTask.ElementId
+            : null;
+
         return new GuiActionDto
         {
             Id = goToActionId,
             Action = "write",
-            AuthorizationAttribute = "urn:altinn:task:" + instance.Process.CurrentTask.ElementId,
+            AuthorizationAttribute = authorizationAttribute,
             Priority = DialogGuiActionPriority.Primary,
             Title = [
                 new() { LanguageCode = "nb", Value = "Gå til skjemautfylling" },

@@ -1,10 +1,12 @@
-namespace Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
+using System.Collections.ObjectModel;
 
-internal sealed class MockMigrationPartitionRepository : IMigrationPartitionRepository
+namespace Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Persistance;
+
+internal sealed class NullMigrationPartitionRepository : IMigrationPartitionRepository
 {
-    public Task<List<MigrationPartitionEntity>> GetExistingPartitions(List<MigrationPartitionEntity> partitions, CancellationToken cancellationToken)
+    public Task<ReadOnlyCollection<MigrationPartitionEntity>> GetExistingPartitions(List<MigrationPartitionEntity> partitions, CancellationToken cancellationToken)
     {
-        return  Task.FromResult(new List<MigrationPartitionEntity>());
+        return Task.FromResult(Array.Empty<MigrationPartitionEntity>().AsReadOnly());
     }
 
     public Task<MigrationPartitionEntity?> Get(DateOnly partition, string organization, CancellationToken cancellationToken)

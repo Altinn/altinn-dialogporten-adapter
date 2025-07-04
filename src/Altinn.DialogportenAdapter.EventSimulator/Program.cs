@@ -1,25 +1,30 @@
 ﻿using Altinn.ApiClients.Maskinporten.Extensions;
 using Altinn.ApiClients.Maskinporten.Services;
+using Altinn.DialogportenAdapter.Contracts;
 using Altinn.DialogportenAdapter.EventSimulator;
 using Altinn.DialogportenAdapter.EventSimulator.Common;
-using Altinn.DialogportenAdapter.EventSimulator.Common.Channels;
 using Altinn.DialogportenAdapter.EventSimulator.Common.Extensions;
 using Altinn.DialogportenAdapter.EventSimulator.Common.StartupLoaders;
-using Altinn.DialogportenAdapter.EventSimulator.Features;
 using Altinn.DialogportenAdapter.EventSimulator.Features.HistoryStream;
 using Altinn.DialogportenAdapter.EventSimulator.Features.UpdateStream;
-using Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
+using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Adapter;
+using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Persistance;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
 using Azure.Data.Tables;
+using JasperFx;
 using Microsoft.AspNetCore.Mvc;
 using Refit;
+using Wolverine;
+using Wolverine.AzureServiceBus;
+using Constants = Altinn.DialogportenAdapter.EventSimulator.Common.Constants;
+using ContractConstants = Altinn.DialogportenAdapter.Contracts.Constants;
 
 using var loggerFactory = CreateBootstrapLoggerFactory();
 var bootstrapLogger = loggerFactory.CreateLogger<Program>();
 
 try
 {
-    BuildAndRun(args);
+    await BuildAndRun(args);
 }
 catch (Exception e)
 {
@@ -29,7 +34,7 @@ catch (Exception e)
 
 return;
 
-static void BuildAndRun(string[] args)
+static Task BuildAndRun(string[] args)
 {
     var builder = WebApplication.CreateBuilder(args);
 
@@ -44,12 +49,30 @@ static void BuildAndRun(string[] args)
 
     var settings = builder.Configuration.Get<Settings>()!;
 
+    builder.Services.AddWolverine(opts =>
+    {
+        opts.ConfigureAdapterDefaults(builder.Environment,
+            settings.WolverineSettings.ServiceBusConnectionString);
+        opts.Policies.AllListeners(x => x
+            .ListenerCount(settings.WolverineSettings.ListenerCount)
+            .ProcessInline());
+        opts.Policies.AllSenders(x => x.SendInline());
+
+        opts.ListenToAzureServiceBusQueue(ContractConstants.EventSimulatorQueueName);
+        opts.PublishMessage<MigratePartitionCommand>()
+            .ToAzureServiceBusQueue(ContractConstants.EventSimulatorQueueName);
+        opts.PublishMessage<SyncInstanceCommand>()
+            .ToAzureServiceBusQueue(ContractConstants.AdapterQueueName);
+
+        // Do we need to use duplicate detection?
+        // .ConfigureQueue(x => x.RequiresDuplicateDetection = true)
+        // .AddOutgoingRule(new LambdaEnvelopeRule<SyncInstanceCommand>((e, m) => e.Id = m.InstanceId));
+    });
+
     builder.Services.AddSingleton(settings);
-    builder.Services.AddChannelConsumer<InstanceEventConsumer, InstanceEvent>(consumers: 100);
-    builder.Services.AddChannelConsumer<MigrationPartitionCommandConsumer, MigrationPartitionCommand>(consumers: 100);
     builder.Services.AddHostedService<InstanceUpdateStreamBackgroundService>();
     builder.Services.AddStartupLoaders();
-    builder.Services.AddTransient<InstanceStreamer>();
+    builder.Services.AddSingleton<IInstanceStreamer, InstanceStreamer>();
     builder.Services.AddTransient<MigrationPartitionService>();
     builder.Services.AddSingleton(_ => new TableClient(
         settings.DialogportenAdapter.AzureStorage.ConnectionString,
@@ -95,7 +118,7 @@ static void BuildAndRun(string[] args)
         repo.Truncate(cancellationToken))
         .ExcludeFromDescription();
 
-    app.Run();
+    return app.RunJasperFxCommands(args);
 }
 
 ILoggerFactory CreateBootstrapLoggerFactory() => LoggerFactory.Create(builder => builder

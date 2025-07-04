@@ -1,6 +1,7 @@
 using Altinn.ApiClients.Dialogporten;
 using Altinn.ApiClients.Maskinporten.Extensions;
 using Altinn.ApiClients.Maskinporten.Services;
+using Altinn.DialogportenAdapter.Contracts;
 using Altinn.DialogportenAdapter.WebApi;
 using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
@@ -18,7 +19,11 @@ using Microsoft.IdentityModel.Tokens;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Refit;
+using Wolverine;
+using Wolverine.AzureServiceBus;
 using ZiggyCreatures.Caching.Fusion;
+using Constants = Altinn.DialogportenAdapter.WebApi.Common.Constants;
+using ContractConstants = Altinn.DialogportenAdapter.Contracts.Constants;
 
 using var loggerFactory = CreateBootstrapLoggerFactory();
 var bootstrapLogger = loggerFactory.CreateLogger<Program>();
@@ -67,6 +72,17 @@ static void BuildAndRun(string[] args)
                 x.StorageDirectory = "/tmp/logtelemetry";
             });
     }
+
+    builder.Services.AddWolverine(opts =>
+    {
+        opts.ConfigureAdapterDefaults(builder.Environment,
+            settings.WolverineSettings.ServiceBusConnectionString);
+        opts.Policies.AllListeners(x => x
+            .ListenerCount(settings.WolverineSettings.ListenerCount)
+            .ProcessInline());
+        opts.Policies.AllSenders(x => x.SendInline());
+        opts.ListenToAzureServiceBusQueue(ContractConstants.AdapterQueueName);
+    });
 
     builder.Services.RegisterMaskinportenClientDefinition<SettingsJwkClientDefinition>(
         Constants.DefaultMaskinportenClientDefinitionKey,
@@ -130,7 +146,7 @@ static void BuildAndRun(string[] args)
             x.ThrowOnPublicKeyFetchInit = false;
         })
         .AddTransient<IRegisterRepository, RegisterRepository>()
-        .AddTransient<SyncInstanceToDialogService>()
+        .AddTransient<ISyncInstanceToDialogService, SyncInstanceToDialogService>()
         .AddTransient<StorageDialogportenDataMerger>()
         .AddTransient<ActivityDtoTransformer>()
         .AddTransient<FourHundredLoggingDelegatingHandler>()
@@ -167,7 +183,7 @@ static void BuildAndRun(string[] args)
 
     builder.ReplaceLocalDevelopmentResources();
 
-    var app = builder.Build();
+    using var app = builder.Build();
 
     app.UseHttpsRedirection()
         .UseCors()
@@ -184,7 +200,7 @@ static void BuildAndRun(string[] args)
         .AllowAnonymous();
 
     v1Route.MapPost("syncDialog", async (
-        [FromBody] SyncInstanceToDialogDto request,
+        [FromBody] SyncInstanceCommand request,
         [FromServices] SyncInstanceToDialogService syncService,
         CancellationToken cancellationToken) =>
     {
@@ -209,7 +225,7 @@ static void BuildAndRun(string[] args)
                 return Results.NotFound();
             }
 
-            var request = new SyncInstanceToDialogDto(instance.AppId, partyId, instanceGuid, instance.Created!.Value, isMigration ?? false);
+            var request = new SyncInstanceCommand(instance.AppId, partyId, instanceGuid, instance.Created!.Value, isMigration ?? false);
             await syncService.Sync(request, cancellationToken);
             return Results.NoContent();
         })
