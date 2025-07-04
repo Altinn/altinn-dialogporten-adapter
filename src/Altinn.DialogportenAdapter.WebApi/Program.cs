@@ -77,9 +77,11 @@ static void BuildAndRun(string[] args)
     {
         opts.ConfigureAdapterDefaults(builder.Environment,
             settings.WolverineSettings.ServiceBusConnectionString);
-        opts.ListenToAzureServiceBusQueue(ContractConstants.AdapterQueueName)
-            .ProcessInline()
-            .ListenerCount(100);
+        opts.Policies.AllListeners(x => x
+            .ListenerCount(settings.WolverineSettings.ListenerCount)
+            .ProcessInline());
+        opts.Policies.AllSenders(x => x.SendInline());
+        opts.ListenToAzureServiceBusQueue(ContractConstants.AdapterQueueName);
     });
 
     builder.Services.RegisterMaskinportenClientDefinition<SettingsJwkClientDefinition>(

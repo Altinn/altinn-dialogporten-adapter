@@ -54,7 +54,7 @@ static Task BuildAndRun(string[] args)
         opts.ConfigureAdapterDefaults(builder.Environment,
             settings.WolverineSettings.ServiceBusConnectionString);
         opts.Policies.AllListeners(x => x
-            .ListenerCount(ContractConstants.ListenerCount)
+            .ListenerCount(settings.WolverineSettings.ListenerCount)
             .ProcessInline());
         opts.Policies.AllSenders(x => x.SendInline());
 

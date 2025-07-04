@@ -7,7 +7,7 @@ Content-Type: application/json
 
 {
     "From": "2024-01-01",
-    "To": "2024-01-01",
+    "To": "2025-01-01",
     "Organizations": ["skd"],
     "Force": true
 }
