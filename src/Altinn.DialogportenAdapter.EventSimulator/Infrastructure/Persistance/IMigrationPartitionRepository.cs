@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Runtime.Serialization;
 using Azure;
 using Azure.Data.Tables;
@@ -6,7 +7,7 @@ namespace Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Persistance;
 
 public interface IMigrationPartitionRepository
 {
-    Task<List<MigrationPartitionEntity>> GetExistingPartitions(
+    Task<ReadOnlyCollection<MigrationPartitionEntity>> GetExistingPartitions(
         List<MigrationPartitionEntity> partitions,
         CancellationToken cancellationToken);
 

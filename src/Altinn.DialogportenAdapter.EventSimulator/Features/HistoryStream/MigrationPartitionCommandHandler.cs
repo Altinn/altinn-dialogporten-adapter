@@ -1,99 +1,69 @@
+using System.Runtime.CompilerServices;
+using Altinn.DialogportenAdapter.Contracts;
 using Altinn.DialogportenAdapter.EventSimulator.Common.Extensions;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Persistance;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
-using Polly;
-using Polly.Contrib.WaitAndRetry;
-using Polly.Retry;
-using Wolverine;
 
 namespace Altinn.DialogportenAdapter.EventSimulator.Features.HistoryStream;
 
-public sealed class MigrationPartitionCommandHandler
+public static class MigrationPartitionCommandHandler
 {
-    private static readonly AsyncRetryPolicy _retryPolicy = Policy
-        .Handle<Exception>(x => x is not OperationCanceledException)
-        .WaitAndRetryAsync(Backoff.DecorrelatedJitterBackoffV2(TimeSpan.FromSeconds(1), 5));
-
-    private readonly IMigrationPartitionRepository _migrationPartitionRepository;
-    private readonly IInstanceStreamer _instanceStreamer;
-    private readonly IMessageBus _messageBus;
-
-    public MigrationPartitionCommandHandler(
+    public static async Task<(MigrationPartitionEntity, IAsyncEnumerable<InstanceDto>)> Before(
+        MigratePartitionCommand command,
+        IMigrationPartitionRepository repo,
         IInstanceStreamer instanceStreamer,
-        IMigrationPartitionRepository migrationPartitionRepository,
-        IMessageBus messageBus)
+        CancellationToken cancellationToken)
     {
-        _instanceStreamer = instanceStreamer ?? throw new ArgumentNullException(nameof(instanceStreamer));
-        _migrationPartitionRepository = migrationPartitionRepository ?? throw new ArgumentNullException(nameof(migrationPartitionRepository));
-        _messageBus = messageBus ?? throw new ArgumentNullException(nameof(messageBus));
-    }
-
-    public async Task Handle(MigratePartitionCommand command, CancellationToken cancellationToken)
-    {
-        var entity = !command.IsTest
-            ? await _migrationPartitionRepository.Get(command.Partition, command.Organization, cancellationToken) ?? ToEntity(command)
-            : ToEntity(command);
-
-        if (entity.Complete)
-        {
-            return;
-        }
+        var entity = command.IsTest
+            ? ToEntity(command)
+            : await repo.Get(command.Partition, command.Organization, cancellationToken) ?? ToEntity(command);
 
         DateTimeOffset from = command.Partition.ToDateTime(TimeOnly.MinValue, DateTimeKind.Local);
-        entity.Checkpoint ??= command.Partition.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Local);
-        try
-        {
-            await _retryPolicy.ExecuteAsync(async cancellationToken =>
-            {
-                await foreach (var instanceDto in _instanceStreamer.InstanceStream(
-                                   org: command.Organization,
-                                   partyId: command.Party,
-                                   from: from,
-                                   to: entity.Checkpoint,
-                                   sortOrder: IInstanceStreamer.Order.Descending,
-                                   cancellationToken: cancellationToken))
-                {
-                    await _messageBus.SendAsync(instanceDto.ToSyncInstanceCommand(isMigration: true));
-                    entity.InstanceHandled(instanceDto.LastChanged);
-                }
-            }, cancellationToken);
-        }
-        catch (Exception)
-        {
-            await SaveCheckpoint(command, entity, cancellationToken);
-            throw;
-        }
+        DateTimeOffset to = entity.Checkpoint ??= command.Partition.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Local);
 
-        await MarkAsComplete(command, entity, cancellationToken);
+        var stream = instanceStreamer.InstanceStream(
+            org: command.Organization,
+            partyId: command.Party,
+            from: from,
+            to: to,
+            sortOrder: IInstanceStreamer.Order.Descending,
+            cancellationToken: cancellationToken);
+
+        return (entity, stream);
     }
 
-    private Task MarkAsComplete(
-        MigratePartitionCommand command,
+    public static async IAsyncEnumerable<SyncInstanceCommand> Handle(
+        MigratePartitionCommand _,
         MigrationPartitionEntity entity,
-        CancellationToken cancellationToken)
+        IAsyncEnumerable<InstanceDto> instanceStream,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
     {
+        if (entity.Complete) yield break;
+
+        await foreach (var instanceDto in instanceStream.WithCancellation(cancellationToken))
+        {
+            yield return instanceDto.ToSyncInstanceCommand(isMigration: true);
+            entity.InstanceHandled(instanceDto.LastChanged);
+        }
+
         entity.Complete = true;
-        return command.IsTest
-            ? Task.CompletedTask
-            : _migrationPartitionRepository.Upsert([entity], cancellationToken);
     }
 
-    private Task SaveCheckpoint(
+    // There is a chance that the same instance will be counted multiple times due to using lte instead of lt
+    // in the instance streamer. However, if we were to use lt we run the risk of missing instances with equal
+    // LastChanged timestamps on error recovery. It is better to count instances multiple times, than to skip
+    // some of them.
+    // We could use the continuation token of the instance api to resume from the last succeeded instance if the
+    // instance api were to expose their internal instance ids. That is because the format for the continuation
+    // token is $"{lastChanged.Ticks};{id}" url encoded twice, where id is the internal instance id.
+    public static Task After(
         MigratePartitionCommand command,
         MigrationPartitionEntity entity,
-        CancellationToken cancellationToken)
-    {
-        // There is a chance that the same instance will be counted multiple times due to using lte instead of lt
-        // in the instance streamer. However, if we were to use lt we run the risk of missing instances with equal
-        // LastChanged timestamps on error recovery. It is better to count instances multiple times, than to skip
-        // some of them.
-        // We could use the continuation token of the instance api to resume from the last succeeded instance if the
-        // instance api were to expose their internal instance ids. That is because the format for the continuation
-        // token is $"{lastChanged.Ticks};{id}" url encoded twice, where id is the internal instance id.
-        return command.IsTest
+        IMigrationPartitionRepository repo,
+        CancellationToken cancellationToken) =>
+        command.IsTest
             ? Task.CompletedTask
-            : _migrationPartitionRepository.Upsert([entity], cancellationToken);
-    }
+            : repo.Upsert([entity], cancellationToken);
 
     private static MigrationPartitionEntity ToEntity(MigratePartitionCommand item) =>
         new(item.Partition, item.Organization);

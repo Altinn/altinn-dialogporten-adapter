@@ -14,7 +14,7 @@ internal static class ServiceCollectionExtensions
         }
 
         builder.Services
-            .DoIf(opt.DisableAzureStorage, x => x.Replace<IMigrationPartitionRepository, MockMigrationPartitionRepository>(ServiceLifetime.Transient))
+            .DoIf(opt.DisableAzureStorage, x => x.Replace<IMigrationPartitionRepository, NullMigrationPartitionRepository>(ServiceLifetime.Transient))
             .DoIf(opt.DisableAzureStorage, x => x.RemoveAllImplementationTypes(typeof(AzureTableStartupLoader)));
 
         return builder;

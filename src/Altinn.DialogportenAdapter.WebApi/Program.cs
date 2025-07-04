@@ -75,17 +75,8 @@ static void BuildAndRun(string[] args)
 
     builder.Services.AddWolverine(opts =>
     {
-        opts.Policies.DisableConventionalLocalRouting();
-        opts.MultipleHandlerBehavior = MultipleHandlerBehavior.Separated;
-        var azureBusConfig = opts
-            .UseAzureServiceBus(settings.WolverineSettings.ServiceBusConnectionString)
-            .AutoProvision();
-
-        if (builder.Environment.IsDevelopment())
-        {
-            azureBusConfig.AutoPurgeOnStartup();
-        }
-
+        opts.ConfigureAdapterDefaults(builder.Environment,
+            settings.WolverineSettings.ServiceBusConnectionString);
         opts.ListenToAzureServiceBusQueue(ContractConstants.AdapterQueueName)
             .ProcessInline()
             .ListenerCount(100);
