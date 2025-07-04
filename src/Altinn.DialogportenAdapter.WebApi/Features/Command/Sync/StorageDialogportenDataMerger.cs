@@ -209,10 +209,10 @@ internal sealed class StorageDialogportenDataMerger
 
         var dialogStatus = instanceDerivedStatus switch
         {
-            InstanceDerivedStatus.ArchivedUnconfirmed => DialogStatus.Sent,
+            InstanceDerivedStatus.ArchivedUnconfirmed => DialogStatus.Awaiting,
             InstanceDerivedStatus.ArchivedConfirmed => DialogStatus.Completed,
             InstanceDerivedStatus.Rejected => DialogStatus.RequiresAttention,
-            InstanceDerivedStatus.AwaitingServiceOwnerFeedback => DialogStatus.Sent,
+            InstanceDerivedStatus.AwaitingServiceOwnerFeedback => DialogStatus.Awaiting,
             InstanceDerivedStatus.AwaitingConfirmation => DialogStatus.InProgress,
             InstanceDerivedStatus.AwaitingSignature => DialogStatus.InProgress,
             InstanceDerivedStatus.AwaitingAdditionalUserInput => DialogStatus.InProgress,
