@@ -184,6 +184,8 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         // If the dialog has a revision, it means it is an existing dialog and should be updated.
         if (dialog.Revision.HasValue)
         {
+
+
             return _dialogportenApi.Update(dialog, dialog.Revision!.Value,
                 isSilentUpdate: isMigration,
                 cancellationToken: cancellationToken);

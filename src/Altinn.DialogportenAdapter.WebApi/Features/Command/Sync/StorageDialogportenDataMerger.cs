@@ -63,6 +63,12 @@ internal sealed class StorageDialogportenDataMerger
                 .ExceptBy(existing.Transmissions.Select(x => x.Id), x => x.Id)
                 .ToList();
 
+        var activityUpdateRequests = existing.Activities
+            .Join(storageDialog.Activities, x => x.Id, y => y.Id, (prev, next) => (prev, next))
+            .Where(x => x.prev.CreatedAt < x.next.CreatedAt)
+            .Select(x => new { ActivityId = x.next.Id, NewCreatedAt = x.next.CreatedAt })
+            .ToArray();
+
         existing.Activities = syncAdapterSettings.DisableAddActivities
             ? []
             : storageDialog.Activities

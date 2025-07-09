@@ -25,4 +25,12 @@ internal interface IDialogportenApi
 
     [Post("/api/v1/serviceowner/dialogs/{dialogId}/actions/restore")]
     Task<IApiResponse> Restore(Guid dialogId, [Header(IfMatchHeader)] Guid revision, [Query] bool isSilentUpdate = false, CancellationToken cancellationToken = default);
+
+    [Post("dialogs/{dialogId}/activities/{activityId}/actions/updateFormSavedActivityTime")]
+    Task<IApiResponse> UpdateFormSavedActivityTime(
+        Guid dialogId,
+        Guid activityId,
+        [Header(IfMatchHeader)] Guid revision,
+        [Body] DateTimeOffset newCreatedAt,
+        CancellationToken cancellationToken = default);
 }

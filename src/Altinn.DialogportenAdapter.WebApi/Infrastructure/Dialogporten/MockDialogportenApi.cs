@@ -65,6 +65,18 @@ internal sealed partial class MockDialogportenApi : IDialogportenApi
         return Task.FromResult<IApiResponse>(apiResponse);
     }
 
+    public Task<IApiResponse> UpdateFormSavedActivityTime(Guid dialogId, Guid activityId, Guid revision, DateTimeOffset newCreatedAt,
+        CancellationToken cancellationToken = default)
+    {
+        Log.LogUpdateFormSavedActivityTimeCalled(_logger, dialogId, activityId, revision, newCreatedAt);
+        var apiResponse = new ApiResponse<object>(
+            response: new HttpResponseMessage(HttpStatusCode.NotFound),
+            content: null,
+            settings: _refitSettings,
+            error: null);
+        return Task.FromResult<IApiResponse>(apiResponse);
+    }
+
     private static partial class Log
     {
         [LoggerMessage(EventId = 1, Level = LogLevel.Debug, Message = "MockDialogportenApi.Get called with dialogId: {DialogId}")]
@@ -84,6 +96,9 @@ internal sealed partial class MockDialogportenApi : IDialogportenApi
 
         [LoggerMessage(EventId = 6, Level = LogLevel.Debug, Message = "MockDialogportenApi.Restore called with dialogId: {DialogId}, revision: {Revision}")]
         public static partial void LogRestoreCalled(ILogger logger, Guid dialogId, Guid revision);
+
+        [LoggerMessage(EventId = 7, Level = LogLevel.Debug, Message = "MockDialogportenApi.UpdateFormSavedActivityTime called with dialogId: {DialogId}, activityId: {ActivityId}, revision: {Revision}, newCreatedAt: {NewCreatedAt}")]
+        public static partial void LogUpdateFormSavedActivityTimeCalled(ILogger logger, Guid dialogId, Guid activityId, Guid revision, DateTimeOffset newCreatedAt);
     }
 }
 
