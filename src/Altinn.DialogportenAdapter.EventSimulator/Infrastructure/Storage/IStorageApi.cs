@@ -1,6 +1,6 @@
 using Refit;
 
-namespace Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
+namespace Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
 
 internal interface IStorageApi
 {

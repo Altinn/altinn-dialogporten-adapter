@@ -1,10 +1,22 @@
+using System.Collections.ObjectModel;
 using System.Runtime.Serialization;
 using Azure;
 using Azure.Data.Tables;
 
-namespace Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
+namespace Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Persistance;
 
-internal sealed class MigrationPartitionEntity : ITableEntity
+public interface IMigrationPartitionRepository
+{
+    Task<ReadOnlyCollection<MigrationPartitionEntity>> GetExistingPartitions(
+        List<MigrationPartitionEntity> partitions,
+        CancellationToken cancellationToken);
+
+    Task<MigrationPartitionEntity?> Get(DateOnly partition, string organization, CancellationToken cancellationToken);
+    Task Upsert(List<MigrationPartitionEntity> partitionEntities, CancellationToken cancellationToken);
+    Task Truncate(CancellationToken cancellationToken = default);
+}
+
+public sealed class MigrationPartitionEntity : ITableEntity
 {
     [Obsolete("Used by Table Storage SDK, do not use directly.", error: true)]
     public MigrationPartitionEntity() { }

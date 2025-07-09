@@ -39,9 +39,6 @@ internal sealed class StorageDialogportenDataMerger
             return storageDialog;
         }
 
-        // TODO: Replace this when https://github.com/Altinn/dialogporten/issues/1157 is ready
-        existing.ExternalReference = storageDialog.ExternalReference;
-
         var syncAdapterSettings = dto.Application.GetSyncAdapterSettings();
 
         existing.DueAt = syncAdapterSettings.DisableSyncDueAt
@@ -117,7 +114,16 @@ internal sealed class StorageDialogportenDataMerger
                 : dto.Instance.Created,
             VisibleFrom = dto.Instance.VisibleAfter > DateTimeOffset.UtcNow ? dto.Instance.VisibleAfter : null,
             DueAt = dto.Instance.DueBefore > DateTimeOffset.UtcNow ? dto.Instance.DueBefore : null,
-            ExternalReference = $"urn:altinn:integration:storage:{dto.Instance.Id}",
+            ServiceOwnerContext = new ServiceOwnerContext
+            {
+                ServiceOwnerLabels =
+                [
+                    new ServiceOwnerLabel
+                    {
+                        Value = $"urn:altinn:integration:storage:{dto.Instance.Id}"
+                    }
+                ]
+            },
             Status = dialogStatus,
             Content = new ContentDto
             {
@@ -152,6 +158,7 @@ internal sealed class StorageDialogportenDataMerger
                     DisplayName = [new() {LanguageCode = "nb", Value = x.Filename ?? x.DataType}],
                     Urls = [new()
                     {
+                        Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
                         ConsumerType = x.Filename is not null
                             ? AttachmentUrlConsumerType.Gui
                             : AttachmentUrlConsumerType.Api,
@@ -189,23 +196,27 @@ internal sealed class StorageDialogportenDataMerger
             "feedback" => InstanceDerivedStatus.AwaitingServiceOwnerFeedback,
             "confirmation" => InstanceDerivedStatus.AwaitingConfirmation,
             "signing" => InstanceDerivedStatus.AwaitingSignature,
-            // Hvis vi tidligere har hatt en "feedback" og er nå på en annen task, er vi "InProgress"
+            // If we at some point has had a "feedback" task, we assume that we are now awaiting additional user input
             _ when events.InstanceEvents.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x
                 .ProcessInfo?
                 .CurrentTask?
                 .AltinnTaskType, "Feedback")) => InstanceDerivedStatus.AwaitingAdditionalUserInput,
+            // If the instance was created by the service owner (prefill), which is assumed if the first event recorded has an orgId,
+            _ when !string.IsNullOrEmpty(events.InstanceEvents.FirstOrDefault()?.User.OrgId) => InstanceDerivedStatus.AwaitingInitialUserInputFromPrefill,
+            // if all else fails, assume we are awaiting initial user input (draft)
             _ => InstanceDerivedStatus.AwaitingInitialUserInput
         };
 
         var dialogStatus = instanceDerivedStatus switch
         {
-            InstanceDerivedStatus.ArchivedUnconfirmed => DialogStatus.Sent,
-            InstanceDerivedStatus.ArchivedConfirmed => DialogStatus.Sent, // We do not have enough information to determine if the dialog is in a final state or not, so we leave it as Sent
+            InstanceDerivedStatus.ArchivedUnconfirmed => DialogStatus.Awaiting,
+            InstanceDerivedStatus.ArchivedConfirmed => DialogStatus.Completed,
             InstanceDerivedStatus.Rejected => DialogStatus.RequiresAttention,
-            InstanceDerivedStatus.AwaitingServiceOwnerFeedback => DialogStatus.Sent,
+            InstanceDerivedStatus.AwaitingServiceOwnerFeedback => DialogStatus.Awaiting,
             InstanceDerivedStatus.AwaitingConfirmation => DialogStatus.InProgress,
             InstanceDerivedStatus.AwaitingSignature => DialogStatus.InProgress,
             InstanceDerivedStatus.AwaitingAdditionalUserInput => DialogStatus.InProgress,
+            InstanceDerivedStatus.AwaitingInitialUserInputFromPrefill => DialogStatus.InProgress,
             InstanceDerivedStatus.AwaitingInitialUserInput => DialogStatus.Draft,
             _ => DialogStatus.InProgress
         };
@@ -309,11 +320,17 @@ internal sealed class StorageDialogportenDataMerger
             .GetAppUriForOrg(instance.Org, instance.AppId)
             .ToString()
             .TrimEnd('/');
+
+        // TODO: CurrentTask may be null. What should we do then? (eks instance id 51499006/907c12e2-041a-4275-9d33-67620cdf15b6 tt02)
+        var authorizationAttribute = instance.Process?.CurrentTask?.ElementId is not null
+            ? "urn:altinn:task:" + instance.Process.CurrentTask.ElementId
+            : null;
+
         return new GuiActionDto
         {
             Id = goToActionId,
             Action = "write",
-            AuthorizationAttribute = "urn:altinn:task:" + instance.Process.CurrentTask.ElementId,
+            AuthorizationAttribute = authorizationAttribute,
             Priority = DialogGuiActionPriority.Primary,
             Title = [
                 new() { LanguageCode = "nb", Value = "Gå til skjemautfylling" },
@@ -487,5 +504,6 @@ internal enum InstanceDerivedStatus
     AwaitingConfirmation = 5,
     AwaitingSignature = 6,
     AwaitingAdditionalUserInput = 7,
-    AwaitingInitialUserInput = 8
+    AwaitingInitialUserInput = 8,
+    AwaitingInitialUserInputFromPrefill = 9
 }

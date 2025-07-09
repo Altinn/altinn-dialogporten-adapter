@@ -1,8 +1,9 @@
+using System.Collections.ObjectModel;
 using Azure.Data.Tables;
 
-namespace Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
+namespace Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Persistance;
 
-internal sealed class MigrationPartitionRepository
+internal sealed class MigrationPartitionRepository : IMigrationPartitionRepository
 {
     private readonly TableClient _tableClient;
 
@@ -11,13 +12,13 @@ internal sealed class MigrationPartitionRepository
         _tableClient = tableClient ?? throw new ArgumentNullException(nameof(tableClient));
     }
 
-    public async Task<List<MigrationPartitionEntity>> GetExistingPartitions(
+    public async Task<ReadOnlyCollection<MigrationPartitionEntity>> GetExistingPartitions(
         List<MigrationPartitionEntity> partitions,
         CancellationToken cancellationToken)
     {
         if (partitions.Count == 0)
         {
-            return [];
+            return Array.Empty<MigrationPartitionEntity>().AsReadOnly();
         }
 
         var partitionKeyStrings = partitions
@@ -45,7 +46,7 @@ internal sealed class MigrationPartitionRepository
             }
         }
 
-        return result;
+        return result.AsReadOnly();
     }
 
     public async Task<MigrationPartitionEntity?> Get(DateOnly partition, string organization, CancellationToken cancellationToken)
@@ -68,7 +69,7 @@ internal sealed class MigrationPartitionRepository
             .GroupBy(e => e.PartitionKey)
             .SelectMany(x => x.Chunk(100))
             .Select(chunkedPartitionBatch => chunkedPartitionBatch
-                .Select(entity => new TableTransactionAction(TableTransactionActionType.UpsertMerge, entity)))
+                .Select(entity => new TableTransactionAction(TableTransactionActionType.UpsertReplace, entity)))
             .Select(batch => _tableClient.SubmitTransactionAsync(batch, cancellationToken));
 
         await Task.WhenAll(groupsByPartition);

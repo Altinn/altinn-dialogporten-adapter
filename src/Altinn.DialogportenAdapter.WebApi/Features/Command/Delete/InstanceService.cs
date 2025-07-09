@@ -4,7 +4,7 @@ using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 
 namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Delete;
 
-internal sealed record DeleteInstanceDto(int PartyId, Guid InstanceGuid, string DialogToken);
+internal sealed record DeleteInstanceDto(string PartyId, Guid InstanceGuid, string DialogToken);
 
 internal enum DeleteInstanceResult
 {
