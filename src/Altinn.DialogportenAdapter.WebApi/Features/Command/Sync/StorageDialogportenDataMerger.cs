@@ -223,8 +223,16 @@ internal sealed class StorageDialogportenDataMerger
     private List<LocalizationDto> GetTitle(Instance instance, Application application, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
     {
         var title = GetLocalizationsFromApplicationTexts(nameof(DialogDto.Content.Title), instance, applicationTexts, instanceDerivedStatus);
-        return title.Count > 0 ? title :
-            GetTitleFallback(instance, application);
+        if (title.Count <= 0) return GetTitleFallback(instance, application);
+        if (instance.PresentationTexts is null) return title;
+
+        // Apply presentation texts to the title
+        foreach (var titleText in title)
+        {
+            titleText.Value = ToTitle(titleText.Value, instance.PresentationTexts.Values);
+        }
+
+        return title;
     }
 
     private static List<LocalizationDto> GetTitleFallback(Instance instance, Application application)
@@ -324,9 +332,9 @@ internal sealed class StorageDialogportenDataMerger
     {
         var keysToCheck = new List<string>(4);
         var prefix = $"dp.{contentType.ToLower()}";
-        var instanceTask = instance.Process?.CurrentTask?.AltinnTaskType?.ToLower();
+        var instanceTask = instance.Process?.CurrentTask?.ElementId;
         var instanceDerivedStatusString = instanceDerivedStatus.ToString().ToLower();
-        if (instanceTask is null)
+        if (instanceTask is not null)
         {
             keysToCheck.Add($"{prefix}.{instanceTask}.{instanceDerivedStatusString}");
             keysToCheck.Add($"{prefix}.{instanceTask}");
@@ -347,7 +355,7 @@ internal sealed class StorageDialogportenDataMerger
                 localizations.Add(new LocalizationDto
                 {
                     LanguageCode = translation.Language,
-                    Value = textResource // TODO! Check for placeholders for presentation texts
+                    Value = textResource
                 });
                 break;
             }
