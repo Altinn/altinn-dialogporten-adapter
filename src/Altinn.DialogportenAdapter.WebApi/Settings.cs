@@ -3,7 +3,11 @@ using Altinn.ApiClients.Maskinporten.Config;
 
 namespace Altinn.DialogportenAdapter.WebApi;
 
-public sealed record Settings(DialogportenAdapterSettings DialogportenAdapter);
+public sealed record Settings(
+    DialogportenAdapterSettings DialogportenAdapter,
+    WolverineSettings WolverineSettings);
+
+public sealed record WolverineSettings(string ServiceBusConnectionString, int ListenerCount = 50);
 
 public sealed record DialogportenAdapterSettings(
     MaskinportenSettings Maskinporten,
@@ -18,7 +22,7 @@ public record AdapterSettings(Uri BaseUri);
 
 public sealed record DialogportenSettings(Uri BaseUri);
 
-public sealed record AltinnPlatformSettings(Uri BaseUri, Uri ApiStorageEndpoint, string SubscriptionKey)
+public sealed record AltinnPlatformSettings(Uri BaseUri, Uri InternalStorageEndpoint, Uri InternalRegisterEndpoint, string SubscriptionKey)
 {
     public Uri GetAppUriForOrg(string org, string appId) => new($"{BaseUri.Scheme}://{org}.apps.{BaseUri.Host}/{appId}");
     public Uri GetPlatformUri() => new($"{BaseUri.Scheme}://platform.{BaseUri.Host}");

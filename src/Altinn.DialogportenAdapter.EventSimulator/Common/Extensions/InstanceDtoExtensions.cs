@@ -1,16 +1,17 @@
-using Altinn.DialogportenAdapter.EventSimulator.Infrastructure;
+using Altinn.DialogportenAdapter.Contracts;
+using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
 
 namespace Altinn.DialogportenAdapter.EventSimulator.Common.Extensions;
 
 internal static class InstanceDtoExtensions
 {
-    public static InstanceEvent ToInstanceEvent(this InstanceDto instance, bool isMigration = true)
+    public static SyncInstanceCommand ToSyncInstanceCommand(this InstanceDto instance, bool isMigration = true)
     {
         var (partyId, instanceId) = ParseInstanceId(instance.Id);
-        return new InstanceEvent(instance.AppId, partyId, instanceId, instance.Created, isMigration);
+        return new SyncInstanceCommand(instance.AppId, partyId, instanceId, instance.Created, isMigration);
     }
 
-    private static (int PartyId, Guid InstanceId) ParseInstanceId(ReadOnlySpan<char> id)
+    private static (string PartyId, Guid InstanceId) ParseInstanceId(ReadOnlySpan<char> id)
     {
         var partsEnumerator = id.Split("/");
         if (!partsEnumerator.MoveNext() || !int.TryParse(id[partsEnumerator.Current], out var party))
@@ -23,6 +24,6 @@ internal static class InstanceDtoExtensions
             throw new InvalidOperationException("Invalid instance id");
         }
 
-        return (party, instance);
+        return (party.ToString(), instance);
     }
 }

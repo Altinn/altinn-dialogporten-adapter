@@ -7,10 +7,16 @@ namespace Altinn.DialogportenAdapter.WebApi.Common;
 internal static class Constants
 {
     public const int DefaultMaxStringLength = 255;
-    
+
     public const string InstanceDataValueDialogIdKey = "dialog.id";
     public const string InstanceDataValueDisableSyncKey = "dialog.disableAutomaticSync";
-    
+
+    public const string PartyIdUrnPrefix = "urn:altinn:party:id:";
+    public const string UserIdUrnPrefix = "urn:altinn:user:id:";
+    public const string PersonUrnPrefix = "urn:altinn:person:identifier-no:";
+    public const string OrganizationUrnPrefix = "urn:altinn:organization:identifier-no:";
+    public const string DisplayNameUrnPrefix = "urn:altinn:displayName:";
+
     public const string DefaultMaskinportenClientDefinitionKey = "DefaultMaskinportenClientDefinitionKey";
 
     public static readonly ImmutableArray<string> SupportedEventTypes =
@@ -32,10 +38,19 @@ internal static class Constants
         InstanceEventType.MessageArchived.ToString(),
         InstanceEventType.MessageRead.ToString(),
     ];
-    
+
     public static readonly ImmutableArray<(DialogGuiActionPriority Priority, int Limit)> PriorityLimits = [
         (DialogGuiActionPriority.Primary, 1),
         (DialogGuiActionPriority.Secondary, 1),
         (DialogGuiActionPriority.Tertiary, 5 )
     ];
+
+    internal static class GuiAction
+    {
+        public const string GoTo = "DialogGuiActionGoTo";
+        public const string Delete = "DialogGuiActionDelete";
+        public const string Copy = "DialogGuiActionCopy";
+
+        public static readonly List<string> Keys = [ GoTo, Delete, Copy ];
+    }
 }

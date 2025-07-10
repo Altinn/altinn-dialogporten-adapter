@@ -1,21 +1,20 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using Altinn.DialogportenAdapter.WebApi.Common;
+using Altinn.DialogportenAdapter.Contracts;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Altinn.Platform.Storage.Interface.Models;
+using Constants = Altinn.DialogportenAdapter.WebApi.Common.Constants;
 
 namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 
-public record SyncInstanceToDialogDto(
-    string AppId,
-    int PartyId,
-    Guid InstanceId,
-    DateTimeOffset InstanceCreatedAt,
-    bool IsMigration);
+public interface ISyncInstanceToDialogService
+{
+    Task Sync(SyncInstanceCommand dto, CancellationToken cancellationToken = default);
+}
 
-internal sealed class SyncInstanceToDialogService
+internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
 {
     private readonly IInstancesApi _instancesApi;
     private readonly ICachingApplicationsApi _applicationsApi;
@@ -37,7 +36,7 @@ internal sealed class SyncInstanceToDialogService
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public async Task Sync(SyncInstanceToDialogDto dto, CancellationToken cancellationToken = default)
+    public async Task Sync(SyncInstanceCommand dto, CancellationToken cancellationToken = default)
     {
         // Create a uuid7 from the instance id and created timestamp to use as dialog id
         var dialogId = dto.InstanceId.ToVersion7(dto.InstanceCreatedAt);
@@ -61,11 +60,6 @@ internal sealed class SyncInstanceToDialogService
             return;
         }
 
-        if (BothIsDeleted(instance, existingDialog))
-        {
-            return;
-        }
-
         if (ShouldUpdateInstanceWithDialogId(instance, dialogId))
         {
             // Update the instance with the dialogId before we start to modify the dialog
@@ -75,12 +69,18 @@ internal sealed class SyncInstanceToDialogService
             await UpdateInstanceWithDialogId(dto, dialogId, cancellationToken);
         }
 
-        if (IsDialogSyncDisabled(instance))
+        if (BothIsDeleted(instance, existingDialog))
         {
             return;
         }
 
-        if (ShouldPurgeDialog(instance, existingDialog))
+        var syncAdapterSettings = application.GetSyncAdapterSettings();
+        if (syncAdapterSettings.DisableSync || IsDialogSyncDisabled(instance))
+        {
+            return;
+        }
+
+        if (!syncAdapterSettings.DisableDelete && ShouldPurgeDialog(instance, existingDialog))
         {
             await _dialogportenApi.Purge(
                 dialogId,
@@ -90,7 +90,7 @@ internal sealed class SyncInstanceToDialogService
             return;
         }
 
-        if (ShouldSoftDeleteDialog(instance, existingDialog))
+        if (!syncAdapterSettings.DisableDelete && ShouldSoftDeleteDialog(instance, existingDialog))
         {
             await _dialogportenApi.Delete(
                 dialogId,
@@ -112,8 +112,9 @@ internal sealed class SyncInstanceToDialogService
         EnsureNotNull(application, instance, events);
 
         // Create or update the dialog with the fetched data
-        var updatedDialog = await _dataMerger.Merge(dialogId, existingDialog, application, applicationTexts, instance, events, dto.IsMigration);
-        await UpsertDialog(updatedDialog, isMigration: dto.IsMigration, cancellationToken);
+        var mergeDto = new MergeDto(dialogId, existingDialog, application, applicationTexts, instance, events, dto.IsMigration);
+        var updatedDialog = await _dataMerger.Merge(mergeDto, cancellationToken);
+        await UpsertDialog(updatedDialog, syncAdapterSettings, dto.IsMigration, cancellationToken);
     }
 
     private static void EnsureNotNull(
@@ -171,17 +172,33 @@ internal sealed class SyncInstanceToDialogService
 
     private static bool ShouldUpdateInstanceWithDialogId([NotNullWhen(true)] Instance? instance, Guid dialogId)
     {
-        return instance?.DataValues is null
+        if (instance is null)
+        {
+            return false;
+        }
+
+        return instance.DataValues is null
            || !instance.DataValues.TryGetValue(Constants.InstanceDataValueDialogIdKey, out var dialogIdString)
            || !Guid.TryParse(dialogIdString, out var instanceDialogId)
            || instanceDialogId != dialogId;
     }
 
-    private Task UpsertDialog(DialogDto dialog, bool isMigration, CancellationToken cancellationToken)
+    private Task UpsertDialog(DialogDto dialog, SyncAdapterSettings settings, bool isMigration, CancellationToken cancellationToken)
     {
-        return !dialog.Revision.HasValue
-            ? _dialogportenApi.Create(dialog, isSilentUpdate: isMigration, cancellationToken: cancellationToken)
-            : _dialogportenApi.Update(dialog, dialog.Revision!.Value, isSilentUpdate: isMigration, cancellationToken: cancellationToken);
+        // If the dialog has a revision, it means it is an existing dialog and should be updated.
+        if (dialog.Revision.HasValue)
+        {
+            return _dialogportenApi.Update(dialog, dialog.Revision!.Value,
+                isSilentUpdate: isMigration,
+                cancellationToken: cancellationToken);
+        }
+
+        if (settings.DisableCreate)
+        {
+            return Task.CompletedTask;
+        }
+
+        return _dialogportenApi.Create(dialog, isSilentUpdate: isMigration, cancellationToken: cancellationToken);
     }
 
     private async Task<Guid> RestoreDialog(Guid dialogId,
@@ -206,7 +223,7 @@ internal sealed class SyncInstanceToDialogService
         return etag;
     }
 
-    private Task UpdateInstanceWithDialogId(SyncInstanceToDialogDto dto, Guid dialogId,
+    private Task UpdateInstanceWithDialogId(SyncInstanceCommand dto, Guid dialogId,
         CancellationToken cancellationToken)
     {
         return _instancesApi.UpdateDataValues(dto.PartyId, dto.InstanceId, new()

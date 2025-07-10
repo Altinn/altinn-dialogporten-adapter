@@ -1,6 +1,7 @@
 using Altinn.ApiClients.Dialogporten;
 using Altinn.ApiClients.Maskinporten.Extensions;
 using Altinn.ApiClients.Maskinporten.Services;
+using Altinn.DialogportenAdapter.Contracts;
 using Altinn.DialogportenAdapter.WebApi;
 using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
@@ -8,6 +9,7 @@ using Altinn.DialogportenAdapter.WebApi.Common.Health;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Delete;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
+using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -18,6 +20,11 @@ using Microsoft.IdentityModel.Tokens;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Refit;
+using Wolverine;
+using Wolverine.AzureServiceBus;
+using ZiggyCreatures.Caching.Fusion;
+using Constants = Altinn.DialogportenAdapter.WebApi.Common.Constants;
+using ContractConstants = Altinn.DialogportenAdapter.Contracts.Constants;
 
 using var loggerFactory = CreateBootstrapLoggerFactory();
 var bootstrapLogger = loggerFactory.CreateLogger<Program>();
@@ -67,9 +74,37 @@ static void BuildAndRun(string[] args)
             });
     }
 
+    builder.Services.AddWolverine(opts =>
+    {
+        opts.ConfigureAdapterDefaults(builder.Environment,
+            settings.WolverineSettings.ServiceBusConnectionString);
+        opts.Policies.AllListeners(x => x
+            .ListenerCount(settings.WolverineSettings.ListenerCount)
+            .ProcessInline());
+        opts.Policies.AllSenders(x => x.SendInline());
+        opts.ListenToAzureServiceBusQueue(ContractConstants.AdapterQueueName);
+    });
+
     builder.Services.RegisterMaskinportenClientDefinition<SettingsJwkClientDefinition>(
         Constants.DefaultMaskinportenClientDefinitionKey,
         settings.DialogportenAdapter.Maskinporten);
+
+    builder.Services.AddMemoryCache();
+    builder.Services.AddFusionCache()
+        .WithDefaultEntryOptions(x =>
+        {
+            x.Duration = TimeSpan.FromMinutes(5);
+
+            // Fail-safe options
+            x.IsFailSafeEnabled = true;
+            x.FailSafeMaxDuration = TimeSpan.FromHours(2);
+            x.FailSafeThrottleDuration = TimeSpan.FromMinutes(30);
+
+            // Factory timeouts
+             x.FactorySoftTimeout = TimeSpan.FromSeconds(1);
+            // Disabling hard timeouts as we don't want to handle SyntheticTimeoutException.
+            // x.FactoryHardTimeout = TimeSpan.FromSeconds(2);
+        });
 
     builder.Services
         .AddCors(x => x.AddDefaultPolicy(policy => policy
@@ -119,7 +154,9 @@ static void BuildAndRun(string[] args)
             x.BaseUri = settings.DialogportenAdapter.Dialogporten.BaseUri.ToString();
             x.ThrowOnPublicKeyFetchInit = false;
         })
-        .AddTransient<SyncInstanceToDialogService>()
+        .AddSingleton<ICachingApplicationsApi, CachingApplicationsApi>()
+        .AddTransient<IRegisterRepository, RegisterRepository>()
+        .AddTransient<ISyncInstanceToDialogService, SyncInstanceToDialogService>()
         .AddTransient<StorageDialogportenDataMerger>()
         .AddTransient<ActivityDtoTransformer>()
         .AddTransient<FourHundredLoggingDelegatingHandler>()
@@ -129,7 +166,7 @@ static void BuildAndRun(string[] args)
         .AddRefitClient<IInstancesApi>()
             .ConfigureHttpClient(x =>
             {
-                x.BaseAddress = settings.DialogportenAdapter.Altinn.ApiStorageEndpoint;
+                x.BaseAddress = settings.DialogportenAdapter.Altinn.InternalStorageEndpoint;
                 x.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", settings.DialogportenAdapter.Altinn.SubscriptionKey);
             })
             .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
@@ -138,7 +175,7 @@ static void BuildAndRun(string[] args)
         .AddRefitClient<IApplicationsApi>()
         .ConfigureHttpClient(x =>
         {
-            x.BaseAddress = settings.DialogportenAdapter.Altinn.ApiStorageEndpoint;
+            x.BaseAddress = settings.DialogportenAdapter.Altinn.InternalStorageEndpoint;
             x.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", settings.DialogportenAdapter.Altinn.SubscriptionKey);
         })
         .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
@@ -149,6 +186,15 @@ static void BuildAndRun(string[] args)
             .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
             .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>()
             .Services
+        .AddRefitClient<IRegisterApi>()
+            .ConfigureHttpClient(x =>
+            {
+                x.BaseAddress = settings.DialogportenAdapter.Altinn.InternalRegisterEndpoint;
+                x.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", settings.DialogportenAdapter.Altinn.SubscriptionKey);
+            })
+            .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
+            .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>()
+            .Services
 
         // Health checks
         .AddHealthChecks()
@@ -156,7 +202,7 @@ static void BuildAndRun(string[] args)
 
     builder.ReplaceLocalDevelopmentResources();
 
-    var app = builder.Build();
+    using var app = builder.Build();
 
     app.UseHttpsRedirection()
         .UseCors()
@@ -173,8 +219,8 @@ static void BuildAndRun(string[] args)
         .AllowAnonymous();
 
     v1Route.MapPost("syncDialog", async (
-        [FromBody] SyncInstanceToDialogDto request,
-        [FromServices] SyncInstanceToDialogService syncService,
+        [FromBody] SyncInstanceCommand request,
+        [FromServices] ISyncInstanceToDialogService syncService,
         CancellationToken cancellationToken) =>
     {
         await syncService.Sync(request, cancellationToken);
@@ -182,8 +228,8 @@ static void BuildAndRun(string[] args)
     })
     .RequireAuthorization();
 
-    v1Route.MapPost("syncDialog/simple/{partyId:int}/{instanceGuid:guid}", async (
-            [FromRoute] int partyId,
+    v1Route.MapPost("syncDialog/simple/{partyId}/{instanceGuid:guid}", async (
+            [FromRoute] string partyId,
             [FromRoute] Guid instanceGuid,
             [FromQuery] bool? isMigration,
             [FromServices] SyncInstanceToDialogService syncService,
@@ -198,15 +244,15 @@ static void BuildAndRun(string[] args)
                 return Results.NotFound();
             }
 
-            var request = new SyncInstanceToDialogDto(instance.AppId, partyId, instanceGuid, instance.Created!.Value, isMigration ?? false);
+            var request = new SyncInstanceCommand(instance.AppId, partyId, instanceGuid, instance.Created!.Value, isMigration ?? false);
             await syncService.Sync(request, cancellationToken);
             return Results.NoContent();
         })
         .RequireAuthorization()
         .ExcludeFromDescription();
 
-    v1Route.MapDelete("instance/{instanceOwner:int}/{instanceGuid:guid}", async (
-            [FromRoute] int instanceOwner,
+    v1Route.MapDelete("instance/{instanceOwner}/{instanceGuid:guid}", async (
+            [FromRoute] string instanceOwner,
             [FromRoute] Guid instanceGuid,
             [FromHeader(Name = "Authorization")] string authorization,
             [FromServices] InstanceService instanceService,

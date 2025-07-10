@@ -8,17 +8,23 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Altinn.ApiClients.Dialogporten" Version="1.56.1" />
+        <PackageReference Include="Altinn.ApiClients.Dialogporten" Version="1.63.0" />
         <PackageReference Include="Altinn.ApiClients.Maskinporten" Version="9.2.1" />
         <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.4.0" />
-        <PackageReference Include="Altinn.Platform.Storage.Interface" Version="4.0.7" />
+        <PackageReference Include="Altinn.Platform.Storage.Interface" Version="4.0.10" />
         <PackageReference Include="Azure.Identity" Version="1.13.2" />
         <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.2.0" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.3"/>
-        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.2" />
         <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" Version="9.4.0" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.4" />
+        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.4" />
         <PackageReference Include="Refit.HttpClientFactory" Version="8.0.0" />
-        <PackageReference Include="UUIDNext" Version="4.1.1" />
+        <PackageReference Include="UUIDNext" Version="4.1.2" />
+        <PackageReference Include="WolverineFx.AzureServiceBus" Version="4.5.0" />
+        <PackageReference Include="ZiggyCreatures.FusionCache" Version="2.2.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Altinn.DialogportenAdapter.Contracts\Altinn.DialogportenAdapter.Contracts.csproj" />
     </ItemGroup>
 
 </Project>

@@ -12,8 +12,22 @@ internal static class StorageTypeExtensions
             return false;
         }
 
-        var currentTask = instance.Process?.CurrentTask?.ElementId;
-        return hideSettings.HideAlways ||
-               hideSettings.HideOnTask.Any(x => x == currentTask);
+        if (hideSettings.HideAlways)
+        {
+            return true;
+        }
+
+        var processId = instance.Process?.CurrentTask?.ElementId;
+        return hideSettings.HideOnTask is not null
+               && processId is not null
+               && hideSettings.HideOnTask.Contains(processId);
+    }
+
+    public static SyncAdapterSettings GetSyncAdapterSettings(this Application? application)
+    {
+        return application?
+           .MessageBoxConfig?
+           .SyncAdapterSettings
+            ?? new SyncAdapterSettings();
     }
 }

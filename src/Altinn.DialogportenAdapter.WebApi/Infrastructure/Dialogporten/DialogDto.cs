@@ -104,6 +104,12 @@ public class DialogDto
     /// Set the system label of the dialog Migration purposes.
     /// </summary>
     public SystemLabel? SystemLabel { get; set; }
+
+    /// <summary>
+    /// Metadata about the dialog owned by the service owner.
+    /// </summary>
+    public ServiceOwnerContext? ServiceOwnerContext { get; set; }
+
     /// <summary>
     /// The dialog unstructured text content.
     /// </summary>
@@ -142,6 +148,22 @@ public class DialogDto
     public bool Deleted { get; set; }
 }
 
+public record ServiceOwnerContext
+{
+    /// <summary>
+    /// A list of labels, not visible in end-user APIs.
+    /// </summary>
+    public List<ServiceOwnerLabel> ServiceOwnerLabels { get; set; } = [];
+}
+
+public class ServiceOwnerLabel
+{
+    /// <summary>
+    /// A label value.
+    /// </summary>
+    public string Value { get; set; } = null!;
+}
+
 public enum SystemLabel
 {
     Default = 1,
@@ -152,10 +174,9 @@ public enum SystemLabel
 public enum DialogStatus
 {
     /// <summary>
-    /// The dialogue is considered new. Typically used for simple messages that do not require any interaction,
-    /// or as an initial step for dialogues. This is the default.
+    /// No explicit status. This is the default.
     /// </summary>
-    New = 1,
+    NotApplicable = 7,
 
     /// <summary>
     /// Started. In a serial process, this is used to indicate that, for example, a form filling is ongoing.
@@ -168,9 +189,9 @@ public enum DialogStatus
     Draft = 3,
 
     /// <summary>
-    /// Sent by the service owner. In a serial process, this is used after a submission is made.
+    /// Awaiting action by the service owner. Indicates that the dialog is in a state where the party representative has no further tasks, and the responsibility lies with the service owner.
     /// </summary>
-    Sent = 4,
+    Awaiting = 8,
 
     /// <summary>
     /// Used to indicate that the dialogue is in progress/under work, but is in a state where the user must do something - for example, correct an error, or other conditions that hinder further processing.
@@ -477,6 +498,12 @@ public enum DialogActivityType
 public sealed class ApiActionDto
 {
     /// <summary>
+    /// A self-defined UUIDv7 may be provided to support idempotent additions of Api Actions. If not provided, a new UUIDv7 will be generated.
+    /// </summary>
+    /// <example>01913cd5-784f-7d3b-abef-4c77b1f0972d</example>
+    public Guid? Id { get; set; }
+
+    /// <summary>
     /// String identifier for the action, corresponding to the "action" attributeId used in the XACML service policy,
     /// which by default is the policy belonging to the service referred to by "serviceResource" in the dialog.
     /// </summary>
@@ -653,6 +680,12 @@ public sealed class AttachmentDto
 
 public sealed class AttachmentUrlDto
 {
+    /// <summary>
+    /// A UUIDv7 used for merging existing data, unknown IDs will be ignored as this entity does not support user-defined IDs.
+    /// </summary>
+    /// <example>01913cd5-784f-7d3b-abef-4c77b1f0972d</example>
+    public Guid? Id { get; set; }
+
     /// <summary>
     /// The fully qualified URL of the attachment.
     /// </summary>

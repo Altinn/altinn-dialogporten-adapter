@@ -1,121 +1,159 @@
 using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
+using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Altinn.Platform.Storage.Interface.Models;
 
 namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 
+internal sealed record MergeDto(
+    Guid DialogId,
+    DialogDto? ExistingDialog,
+    Application Application,
+    ApplicationTexts ApplicationTexts,
+    Instance Instance,
+    InstanceEventList Events,
+    bool IsMigration);
+
 internal sealed class StorageDialogportenDataMerger
 {
     private readonly Settings _settings;
     private readonly ActivityDtoTransformer _activityDtoTransformer;
+    private readonly IRegisterRepository _registerRepository;
 
-    public StorageDialogportenDataMerger(Settings settings, ActivityDtoTransformer activityDtoTransformer)
+    public StorageDialogportenDataMerger(
+        Settings settings,
+        ActivityDtoTransformer activityDtoTransformer,
+        IRegisterRepository registerRepository)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _activityDtoTransformer = activityDtoTransformer ?? throw new ArgumentNullException(nameof(activityDtoTransformer));
+        _registerRepository = registerRepository ?? throw new ArgumentNullException(nameof(registerRepository));
     }
 
-    public async Task<DialogDto> Merge(Guid dialogId,
-        DialogDto? existing,
-        Application application,
-        ApplicationTexts applicationTexts,
-        Instance instance,
-        InstanceEventList events,
-        bool isMigration)
+    public async Task<DialogDto> Merge(MergeDto dto, CancellationToken cancellationToken)
     {
-        var storageDialog = await ToDialogDto(dialogId, instance, application, applicationTexts, events, isMigration);
+        var existing = dto.ExistingDialog;
+        var storageDialog = await ToDialogDto(dto, cancellationToken);
         if (existing is null)
         {
             return storageDialog;
         }
 
-        existing.VisibleFrom = storageDialog.VisibleFrom;
-        existing.DueAt = storageDialog.DueAt;
-        existing.ExternalReference = storageDialog.ExternalReference;
-        existing.Status = storageDialog.Status;
-        existing.IsApiOnly = storageDialog.IsApiOnly;
-        existing.Transmissions.Clear();
-        existing.Activities = storageDialog.Activities
-            .ExceptBy(existing.Activities.Select(x => x.Id), x => x.Id)
-            .ToList();
-        // TODO: Attachements blir det duplikater av - hvorfor?
-        existing.Attachments =
-        [
-            ..existing.Attachments.ExceptBy(storageDialog.Attachments.Select(x => x.Id), x => x.Id),
-            ..storageDialog.Attachments
-        ];
-        existing.GuiActions = MergeGuiActions(existing.GuiActions, storageDialog.GuiActions);
+        var syncAdapterSettings = dto.Application.GetSyncAdapterSettings();
+
+        existing.DueAt = syncAdapterSettings.DisableSyncDueAt
+            ? existing.DueAt
+            : storageDialog.DueAt;
+
+        existing.Status = syncAdapterSettings.DisableSyncStatus
+            ? existing.Status
+            : storageDialog.Status;
+
+        existing.Content.Title = syncAdapterSettings.DisableSyncContentTitle
+            ? existing.Content.Title
+            : storageDialog.Content.Title;
+
+        existing.Content.Summary = syncAdapterSettings.DisableSyncContentSummary
+            ? existing.Content.Summary
+            : storageDialog.Content.Summary;
+
+        existing.Transmissions = syncAdapterSettings.DisableAddTransmissions
+            ? []
+            : storageDialog.Transmissions
+                .ExceptBy(existing.Transmissions.Select(x => x.Id), x => x.Id)
+                .ToList();
+
+        existing.Activities = syncAdapterSettings.DisableAddActivities
+            ? []
+            : storageDialog.Activities
+                .ExceptBy(existing.Activities.Select(x => x.Id), x => x.Id)
+                .ToList();
+
+        existing.Attachments = syncAdapterSettings.DisableSyncAttachments
+            ? existing.Attachments
+            : existing.Attachments
+                .ExceptBy(storageDialog.Attachments.Select(x => x.Id), x => x.Id)
+                .Concat(storageDialog.Attachments)
+                .ToList();
+
+        existing.ApiActions = syncAdapterSettings.DisableSyncApiActions
+            ? existing.ApiActions
+            : existing.ApiActions
+                .ExceptBy(storageDialog.ApiActions.Select(x => x.Id), x => x.Id)
+                .Concat(storageDialog.ApiActions)
+                .ToList();
+
+        existing.GuiActions = syncAdapterSettings.DisableSyncGuiActions
+            ? existing.GuiActions
+            : MergeGuiActions(dto.DialogId, existing.GuiActions, storageDialog.GuiActions);
+
         return existing;
     }
 
-    private async Task<DialogDto> ToDialogDto(Guid dialogId, Instance instance, Application application, ApplicationTexts applicationTexts, InstanceEventList events, bool isMigration)
+    private async Task<DialogDto> ToDialogDto(MergeDto dto, CancellationToken cancellationToken)
     {
-        var instanceDerivedStatus = GetInstanceDerivedStatus(instance, events);
-        var status = instanceDerivedStatus switch
-        {
-            InstanceDerivedStatus.ArchivedUnconfirmed => DialogStatus.Sent,
-            InstanceDerivedStatus.ArchivedConfirmed => DialogStatus.Completed,
-            InstanceDerivedStatus.Rejected => DialogStatus.RequiresAttention,
-            InstanceDerivedStatus.AwaitingServiceOwnerFeedback => DialogStatus.Sent,
-            InstanceDerivedStatus.AwaitingConfirmation => DialogStatus.InProgress,
-            InstanceDerivedStatus.AwaitingSignature => DialogStatus.InProgress,
-            InstanceDerivedStatus.AwaitingAdditionalUserInput => DialogStatus.InProgress,
-            InstanceDerivedStatus.AwaitingInitialUserInput => DialogStatus.Draft,
-            _ => DialogStatus.InProgress
-        };
+        var (instanceDerivedStatus, dialogStatus) = GetStatus(dto.Instance, dto.Events);
+        var systemLabel = dto.Instance.Status.IsArchived && dto.IsMigration
+            ? SystemLabel.Archive
+            : SystemLabel.Default;
+        var (party, activities) = await (
+            GetPartyUrn(dto.Instance.InstanceOwner.PartyId, cancellationToken),
+            _activityDtoTransformer.GetActivities(dto.Events, cancellationToken)
+        );
 
-        var systemLabel = instance.Status switch
-        {
-            { IsArchived: true } when isMigration => SystemLabel.Archive,
-            _ => SystemLabel.Default
-        };
-
-        // TODO: Ta stilling til applicaiton.hideSettings https://docs.altinn.studio/altinn-studio/reference/configuration/messagebox/hide_instances/
-        // TODO: Hva med om Attachments er for lang?
-        // TODO: Hva med om Activities er for lang?
         return new DialogDto
         {
-            Id = dialogId,
-            // TODO: Sett korrekt bool
-            IsApiOnly = application.ShouldBeHidden(instance),
-            Party = await ToParty(instance.InstanceOwner),
-            ServiceResource = ToServiceResource(instance.AppId),
+            Id = dto.DialogId,
+            IsApiOnly = dto.Application.ShouldBeHidden(dto.Instance),
+            Party = party,
+            ServiceResource = ToServiceResource(dto.Instance.AppId),
             SystemLabel = systemLabel,
-            CreatedAt = instance.Created,
-            UpdatedAt = instance.LastChanged,
-            VisibleFrom = instance.VisibleAfter > DateTimeOffset.UtcNow ? instance.VisibleAfter : null,
-            DueAt = instance.DueBefore > DateTimeOffset.UtcNow ? instance.DueBefore : null,
-            ExternalReference = $"urn:altinn:integration:storage:{instance.Id}",
-            Status = status,
+            CreatedAt = dto.Instance.Created,
+            UpdatedAt = dto.Instance.LastChanged > dto.Instance.Created
+                ? dto.Instance.LastChanged
+                : dto.Instance.Created,
+            VisibleFrom = dto.Instance.VisibleAfter > DateTimeOffset.UtcNow ? dto.Instance.VisibleAfter : null,
+            DueAt = dto.Instance.DueBefore > DateTimeOffset.UtcNow ? dto.Instance.DueBefore : null,
+            ServiceOwnerContext = new ServiceOwnerContext
+            {
+                ServiceOwnerLabels =
+                [
+                    new ServiceOwnerLabel
+                    {
+                        Value = $"urn:altinn:integration:storage:{dto.Instance.Id}"
+                    }
+                ]
+            },
+            Status = dialogStatus,
             Content = new ContentDto
             {
-                // TODO: Skal vi bruke non-sensitive title?
                 Title = new ContentValueDto
                 {
                     MediaType = MediaTypes.PlainText,
-                    Value = GetTitle(instance, application, applicationTexts, instanceDerivedStatus)
+                    Value = GetTitle(dto.Instance, dto.Application, dto.ApplicationTexts, instanceDerivedStatus)
                 },
                 Summary = new ContentValueDto
                 {
                     MediaType = MediaTypes.PlainText,
-                    Value = GetSummary(instance, applicationTexts, instanceDerivedStatus)
+                    Value = GetSummary(dto.Instance, dto.ApplicationTexts, instanceDerivedStatus)
                 }
             },
             GuiActions =
             [
-                CreateGoToAction(dialogId, instance),
-                CreateDeleteAction(dialogId, instance),
-                ..CreateCopyAction(dialogId, instance, application)
+                CreateGoToAction(dto.DialogId, dto.Instance),
+                CreateDeleteAction(dto.DialogId, dto.Instance),
+                ..CreateCopyAction(dto.DialogId, dto.Instance, dto.Application)
             ],
-            Attachments = instance.Data
+            Attachments = dto.Instance.Data
                 .Select(x => new AttachmentDto
                 {
                     Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
                     DisplayName = [new() {LanguageCode = "nb", Value = x.Filename ?? x.DataType}],
                     Urls = [new()
                     {
+                        Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
                         ConsumerType = x.Filename is not null
                             ? AttachmentUrlConsumerType.Gui
                             : AttachmentUrlConsumerType.Api,
@@ -124,27 +162,63 @@ internal sealed class StorageDialogportenDataMerger
                     }]
                 })
                 .ToList(),
-            Activities = _activityDtoTransformer.GetActivities(events)
+            Activities = activities
         };
     }
 
-    private static InstanceDerivedStatus GetInstanceDerivedStatus(Instance instance, InstanceEventList events) =>
-        instance.Process?.CurrentTask?.AltinnTaskType?.ToLower() switch
+    private async Task<string> GetPartyUrn(string partyId, CancellationToken cancellationToken)
+    {
+        var response = await _registerRepository.GetActorUrnByPartyId([partyId], cancellationToken);
+
+        if (!response.TryGetValue(partyId, out var actorUrn))
         {
-            // Hvis vi har CompleteConfirmations etter arkivering kan vi regne denne som "ferdig", før det er den bare sent
-            _ when instance.Status.IsArchived => instance.CompleteConfirmations.Count != 0
-                ? InstanceDerivedStatus.ArchivedConfirmed : InstanceDerivedStatus.ArchivedUnconfirmed,
+            throw new InvalidOperationException($"Party with id {partyId} not found.");
+        }
+
+        return actorUrn.StartsWith(Constants.DisplayNameUrnPrefix)
+            ? actorUrn[Constants.DisplayNameUrnPrefix.Length..]
+            : actorUrn;
+    }
+
+    private static (InstanceDerivedStatus, DialogStatus) GetStatus(Instance instance, InstanceEventList events)
+    {
+        var instanceDerivedStatus = instance.Process?.CurrentTask?.AltinnTaskType?.ToLower() switch
+        {
+            _ when instance.Status.IsArchived => (instance.CompleteConfirmations?.Count ?? 0) != 0
+                ? InstanceDerivedStatus.ArchivedConfirmed
+                : InstanceDerivedStatus.ArchivedUnconfirmed,
             "reject" => InstanceDerivedStatus.Rejected,
             "feedback" => InstanceDerivedStatus.AwaitingServiceOwnerFeedback,
             "confirmation" => InstanceDerivedStatus.AwaitingConfirmation,
             "signing" => InstanceDerivedStatus.AwaitingSignature,
-            // Hvis vi tidligere har hatt en "feedback" og er nå på en annen task, er vi "InProgress"
+            // If we at some point has had a "feedback" task, we assume that we are now awaiting additional user input
             _ when events.InstanceEvents.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x
                 .ProcessInfo?
                 .CurrentTask?
                 .AltinnTaskType, "Feedback")) => InstanceDerivedStatus.AwaitingAdditionalUserInput,
+            // If the instance was created by the service owner (prefill), which is assumed if the first event recorded has an orgId,
+            _ when !string.IsNullOrEmpty(events.InstanceEvents.FirstOrDefault()?.User.OrgId) => InstanceDerivedStatus.AwaitingInitialUserInputFromPrefill,
+            // if all else fails, assume we are awaiting initial user input (draft)
             _ => InstanceDerivedStatus.AwaitingInitialUserInput
         };
+
+        var dialogStatus = instanceDerivedStatus switch
+        {
+            InstanceDerivedStatus.ArchivedUnconfirmed => DialogStatus.Awaiting,
+            InstanceDerivedStatus.ArchivedConfirmed => DialogStatus.Completed,
+            InstanceDerivedStatus.Rejected => DialogStatus.RequiresAttention,
+            InstanceDerivedStatus.AwaitingServiceOwnerFeedback => DialogStatus.Awaiting,
+            InstanceDerivedStatus.AwaitingConfirmation => DialogStatus.InProgress,
+            InstanceDerivedStatus.AwaitingSignature => DialogStatus.InProgress,
+            InstanceDerivedStatus.AwaitingAdditionalUserInput => DialogStatus.InProgress,
+            InstanceDerivedStatus.AwaitingInitialUserInputFromPrefill => DialogStatus.InProgress,
+            InstanceDerivedStatus.AwaitingInitialUserInput => DialogStatus.Draft,
+            _ => DialogStatus.InProgress
+        };
+
+        return (instanceDerivedStatus, dialogStatus);
+    }
+
 
     private List<LocalizationDto> GetTitle(Instance instance, Application application, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
     {
@@ -284,6 +358,7 @@ internal sealed class StorageDialogportenDataMerger
 
     private GuiActionDto CreateGoToAction(Guid dialogId, Instance instance)
     {
+        var goToActionId = dialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.GoTo);
         if (instance.Status.IsArchived)
         {
             var platformBaseUri = _settings.DialogportenAdapter.Altinn
@@ -292,7 +367,7 @@ internal sealed class StorageDialogportenDataMerger
                 .TrimEnd('/');
             return new GuiActionDto
             {
-                Id = dialogId.CreateDeterministicSubUuidV7("DialogGuiActionGoTo"),
+                Id = goToActionId,
                 Action = "read",
                 Priority = DialogGuiActionPriority.Primary,
                 Title = [
@@ -308,11 +383,17 @@ internal sealed class StorageDialogportenDataMerger
             .GetAppUriForOrg(instance.Org, instance.AppId)
             .ToString()
             .TrimEnd('/');
+
+        // TODO: CurrentTask may be null. What should we do then? (eks instance id 51499006/907c12e2-041a-4275-9d33-67620cdf15b6 tt02)
+        var authorizationAttribute = instance.Process?.CurrentTask?.ElementId is not null
+            ? "urn:altinn:task:" + instance.Process.CurrentTask.ElementId
+            : null;
+
         return new GuiActionDto
         {
-            Id = dialogId.CreateDeterministicSubUuidV7("DialogGuiActionGoTo"),
+            Id = goToActionId,
             Action = "write",
-            AuthorizationAttribute = "urn:altinn:task:" + instance.Process.CurrentTask.ElementId,
+            AuthorizationAttribute = authorizationAttribute,
             Priority = DialogGuiActionPriority.Primary,
             Title = [
                 new() { LanguageCode = "nb", Value = "Gå til skjemautfylling" },
@@ -330,7 +411,7 @@ internal sealed class StorageDialogportenDataMerger
             .TrimEnd('/');
         return new GuiActionDto
         {
-            Id = dialogId.CreateDeterministicSubUuidV7("DialogGuiActionDelete"),
+            Id = dialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.Delete),
             Action = "delete",
             Priority = DialogGuiActionPriority.Secondary,
             IsDeleteDialogAction = true,
@@ -358,7 +439,7 @@ internal sealed class StorageDialogportenDataMerger
             .TrimEnd('/');
         yield return new GuiActionDto
         {
-            Id = dialogId.CreateDeterministicSubUuidV7("DialogGuiActionCopy"),
+            Id = dialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.Copy),
             Action = "instantiate",
             Priority = DialogGuiActionPriority.Tertiary,
             Title = [
@@ -369,33 +450,6 @@ internal sealed class StorageDialogportenDataMerger
             Url = $"{appBaseUri}/legacy/instances/{instance.Id}/copy",
             HttpMethod = HttpVerb.GET
         };
-    }
-
-    private static async Task<string> ToParty(InstanceOwner instanceOwner)
-    {
-        return ToPersonIdentifier(instanceOwner.PersonNumber)
-            ?? ToOrgIdentifier(instanceOwner.OrganisationNumber)
-            ?? await ToFallbackIdentifier(instanceOwner.PartyId)
-            ?? throw new ArgumentException("Instance owner must have either a person number or an organisation number");
-    }
-
-    private static string? ToPersonIdentifier(string? personNumber)
-    {
-        const string personPrefix = "urn:altinn:person:identifier-no:";
-        return string.IsNullOrWhiteSpace(personNumber) ? null : $"{personPrefix}{personNumber}";
-    }
-
-    private static string? ToOrgIdentifier(string? organisationNumber)
-    {
-        const string orgPrefix = "urn:altinn:organization:identifier-no:";
-        return string.IsNullOrWhiteSpace(organisationNumber) ? null : $"{orgPrefix}{organisationNumber}";
-    }
-
-    private static Task<string> ToFallbackIdentifier(string? partyId)
-    {
-        // TODO: we need to lookup the party here
-        const string digdir = "urn:altinn:organization:identifier-no:991825827";
-        return Task.FromResult(digdir);
     }
 
     private static string ToServiceResource(ReadOnlySpan<char> appId)
@@ -450,7 +504,7 @@ internal sealed class StorageDialogportenDataMerger
     /// fill remaining GuiActionPriority with internal. Overflowing internal gui actions
     /// will be discarded.
     /// </summary>
-    private static List<GuiActionDto> MergeGuiActions(IEnumerable<GuiActionDto> existingGuiActions, IEnumerable<GuiActionDto> storageGuiActions)
+    private static List<GuiActionDto> MergeGuiActions(Guid dialogId, IEnumerable<GuiActionDto> existingGuiActions, IEnumerable<GuiActionDto> storageGuiActions)
     {
         var storageActions = new Queue<GuiActionDto>(storageGuiActions
             .OrderBy(x => x.Priority)
@@ -461,8 +515,12 @@ internal sealed class StorageDialogportenDataMerger
             return existingGuiActions as List<GuiActionDto> ?? existingGuiActions.ToList();
         }
 
+        var allPotentialInternalKeys = Constants.GuiAction.Keys
+            .Select(x => dialogId.CreateDeterministicSubUuidV7(x))
+            .ToList();
+
         var result = existingGuiActions
-            .ExceptBy(storageActions.Select(x => x.Id), x => x.Id)
+            .ExceptBy(allPotentialInternalKeys, x => x.Id!.Value)
             .ToList();
 
         var priorityCapacity = Constants.PriorityLimits
@@ -509,5 +567,6 @@ internal enum InstanceDerivedStatus
     AwaitingConfirmation = 5,
     AwaitingSignature = 6,
     AwaitingAdditionalUserInput = 7,
-    AwaitingInitialUserInput = 8
+    AwaitingInitialUserInput = 8,
+    AwaitingInitialUserInputFromPrefill = 9
 }

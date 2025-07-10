@@ -6,33 +6,60 @@ GET https://altinn-testtools-token-generator.azurewebsites.net/api/GetEnterprise
     ?env=tt02
     &org=digdir
     &orgNo=991825827
-    &scopes=digdir:dialogporten.serviceprovider digdir:dialogporten.serviceprovider.search digdir:dialogporten digdir:dialogporten.developer.test
+    &scopes=altinn:register/partylookup.admin
     &ttl=86400
-Authorization: Basic {{testTokenGeneratorUsername}} {{testTokenGeneratorPassword}}
+Authorization: Basic {{username}} {{password}}
 
 > {%
     client.global.set("auth_token", response.body)
 %}
 
-### Get dialog
-GET {{DialogportenHost}}/api/v1/serviceowner/dialogs/019368e0-71f5-72fc-a1d8-3bb85540b14e
+### Lookup party and user
+POST https://platform.tt02.altinn.no/register/api/v1/dialogporten/parties/query?fields=identifiers,display-name
 Authorization: Bearer {{auth_token}}
-
-### Purge dialog
-POST {{DialogportenHost}}/api/v1/serviceowner/dialogs/019368e0-71f5-72fc-a1d8-3bb85540b14e/actions/purge
-Authorization: Bearer {{auth_token}}
-
-### Sync
-POST {{AdapterHost}}/api/v1/syncDialog
+Ocp-Apim-Subscription-Key: {{subscriptionKey}}
 Content-Type: application/json
 
 {
-  "AppId": "altinn-test",
-  "PartyId": "50892513",
-  "InstanceId": "434fe9b5-0605-4b27-a9a7-1c0750e78e02",
-  "InstanceCreatedAt": "2021-09-01T12:00:00Z",
-  "IsMigration": true
+    "data": [
+        "urn:altinn:user:id:92496",
+        "urn:altinn:user:id:1433493"
+    ]
 }
 
-### Health
-GET {{AdapterHost}}/health
+
+
+
+### Lala
+#{
+#    "data": [
+#//        "urn:altinn:party:uuid:643bec9a-05c5-464a-a994-72586a6b47eb",
+#//        "urn:altinn:party:uuid:011e4a3e-3a4e-4971-95c2-ce7e53f3a1ae",
+#//        "urn:altinn:party:uuid:6be1ab97-0bbe-4419-911d-da56a8b0cc0d",
+#//        "urn:altinn:organization:identifier-no:311654799",
+#        "urn:altinn:party:id:51693618"
+#    ]
+#}
+
+#### Get dialog
+#GET {{DialogportenHost}}/api/v1/serviceowner/dialogs/019368e0-71f5-72fc-a1d8-3bb85540b14e
+#Authorization: Bearer {{auth_token}}
+#
+#### Purge dialog
+#POST {{DialogportenHost}}/api/v1/serviceowner/dialogs/019368e0-71f5-72fc-a1d8-3bb85540b14e/actions/purge
+#Authorization: Bearer {{auth_token}}
+#
+#### Sync
+#POST {{AdapterHost}}/api/v1/syncDialog
+#Content-Type: application/json
+#
+#{
+#  "AppId": "altinn-test",
+#  "PartyId": "50892513",
+#  "InstanceId": "434fe9b5-0605-4b27-a9a7-1c0750e78e02",
+#  "InstanceCreatedAt": "2021-09-01T12:00:00Z",
+#  "IsMigration": true
+#}
+#
+#### Health
+#GET {{AdapterHost}}/health
