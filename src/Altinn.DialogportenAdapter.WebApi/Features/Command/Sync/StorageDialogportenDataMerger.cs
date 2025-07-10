@@ -311,6 +311,22 @@ internal sealed class StorageDialogportenDataMerger
     /// 3. Any task for derived status
     /// 4. Any task and any derived status
     /// The keys have the following format (all lowercase): dp.＜content_type>[.＜task＞[.＜derived_status＞]]
+    ///
+    /// EBNF:
+    /// identifier       ::= "dp." content_type ( "." task_part )?
+    /// task_part        ::= task ( "." state )?
+    /// content_type     ::= "title" | "summary"
+    /// task             ::= specific_task | "_any_"
+    /// specific_task    ::= alphanumeric_with_internal_dash_or_underscore
+    /// state            ::= "archivedunconfirmed" | "archivedconfirmed" | "rejected"
+    ///                    | "awaitingserviceownerfeedback" | "awaitingconfirmation"
+    ///                    | "awaitingsignature" | "awaitingadditionaluserinput"
+    ///                    | "awaitinginitialuserinput"
+    /// alphanumeric_with_internal_dash_or_underscore ::= alphanumeric ( internal_char* alphanumeric )
+    /// internal_char    ::= alphanumeric | "_" | "-"
+    /// alphanumeric     ::= letter | digit
+    /// letter           ::= "a".."z" | "A".."Z"
+    /// digit            ::= "0".."9"
     /// </summary>
     /// <example>
     /// dp.title
@@ -339,7 +355,7 @@ internal sealed class StorageDialogportenDataMerger
             keysToCheck.Add($"{prefix}.{instanceTask}.{instanceDerivedStatusString}");
             keysToCheck.Add($"{prefix}.{instanceTask}");
         }
-        keysToCheck.Add($"{prefix}.{instanceDerivedStatusString}");
+        keysToCheck.Add($"{prefix}._any_.{instanceDerivedStatusString}");
         keysToCheck.Add(prefix);
 
         var localizations = new List<LocalizationDto>();
