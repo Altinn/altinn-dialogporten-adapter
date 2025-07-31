@@ -67,7 +67,6 @@ internal sealed class ActivityDtoTransformer
             });
         }
 
-        // TODO: Chunk within a time? What if the same user saves multiple times in a row over a long period? For example a user saves a form every day for a week.
         var savedEvents = events.InstanceEvents
             .OrderBy(x => x.Created)
             .Where(x => StringComparer.OrdinalIgnoreCase.Equals(x.EventType, "Saved"))

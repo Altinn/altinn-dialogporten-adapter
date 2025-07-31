@@ -110,7 +110,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         // Create or update the dialog with the fetched data
         var mergeDto = new MergeDto(dialogId, existingDialog, application, instance, events, dto.IsMigration);
         var updatedDialog = await _dataMerger.Merge(mergeDto, cancellationToken);
-        await UpsertDialog(updatedDialog, syncAdapterSettings, dto.IsMigration, cancellationToken);
+        await UpsertDialog(updatedDialog, existingDialog, syncAdapterSettings, dto.IsMigration, cancellationToken);
     }
 
     private static void EnsureNotNull(
@@ -179,24 +179,50 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
            || instanceDialogId != dialogId;
     }
 
-    private Task UpsertDialog(DialogDto dialog, SyncAdapterSettings settings, bool isMigration, CancellationToken cancellationToken)
+    private Task UpsertDialog(DialogDto updated,
+        DialogDto? existing,
+        SyncAdapterSettings settings,
+        bool isMigration,
+        CancellationToken cancellationToken) =>
+        existing is null
+            ? CreateDialog(updated, settings, isMigration, cancellationToken)
+            : UpdateDialog(updated, existing, isMigration, cancellationToken);
+
+    private Task CreateDialog(
+        DialogDto updated,
+        SyncAdapterSettings settings,
+        bool isMigration,
+        CancellationToken cancellationToken) =>
+        settings.DisableCreate
+            ? Task.CompletedTask
+            : _dialogportenApi.Create(updated, isSilentUpdate: isMigration, cancellationToken: cancellationToken);
+
+    private async Task UpdateDialog(DialogDto updated, DialogDto? existing, bool isMigration,
+        CancellationToken cancellationToken)
     {
-        // If the dialog has a revision, it means it is an existing dialog and should be updated.
-        if (dialog.Revision.HasValue)
+        var activityUpdateRequests = existing?.Activities
+            .Join(updated.Activities, x => x.Id, x => x.Id, (prev, next) => (prev, next))
+            .Where(x => x.prev.CreatedAt < x.next.CreatedAt)
+            .Select(x => new { ActivityId = x.next.Id!.Value, NewCreatedAt = x.next.CreatedAt!.Value })
+            .ToArray() ?? [];
+
+        PruneExistingImmutableEntities(updated, existing);
+
+        var updateResult = await _dialogportenApi.Update(updated, updated.Revision!.Value,
+            isSilentUpdate: isMigration,
+            cancellationToken: cancellationToken).EnsureSuccess();
+        updated.Revision = Guid.Parse(updateResult.Headers.ETag!.Tag);
+
+        foreach (var activityUpdateRequest in activityUpdateRequests)
         {
-
-
-            return _dialogportenApi.Update(dialog, dialog.Revision!.Value,
-                isSilentUpdate: isMigration,
-                cancellationToken: cancellationToken);
+            var result = await _dialogportenApi.UpdateFormSavedActivityTime(
+                updated.Id!.Value,
+                activityUpdateRequest.ActivityId,
+                updated.Revision.Value,
+                activityUpdateRequest.NewCreatedAt,
+                cancellationToken: cancellationToken).EnsureSuccess();
+            updated.Revision = Guid.Parse(result.Headers.ETag!.Tag);
         }
-
-        if (settings.DisableCreate)
-        {
-            return Task.CompletedTask;
-        }
-
-        return _dialogportenApi.Create(dialog, isSilentUpdate: isMigration, cancellationToken: cancellationToken);
     }
 
     private async Task<Guid> RestoreDialog(Guid dialogId,
@@ -219,6 +245,19 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         }
 
         return etag;
+    }
+
+    private static void PruneExistingImmutableEntities(DialogDto updated, DialogDto? existing)
+    {
+        if (existing is null) return;
+
+        updated.Transmissions = updated.Transmissions
+            .ExceptBy(existing.Transmissions.Select(x => x.Id), x => x.Id)
+            .ToList();
+
+        updated.Activities = updated.Activities
+            .ExceptBy(existing.Activities.Select(x => x.Id), x => x.Id)
+            .ToList();
     }
 
     private Task UpdateInstanceWithDialogId(SyncInstanceCommand dto, Guid dialogId,

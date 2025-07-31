@@ -15,7 +15,7 @@ internal interface IDialogportenApi
     Task<Guid> Create([Body] DialogDto dto, [Query] bool isSilentUpdate = false, CancellationToken cancellationToken = default);
 
     [Put("/api/v1/serviceowner/dialogs/{dto.Id}")]
-    Task Update([Body] DialogDto dto, [Header(IfMatchHeader)] Guid revision, [Query] bool isSilentUpdate = false, CancellationToken cancellationToken = default);
+    Task<IApiResponse> Update([Body] DialogDto dto, [Header(IfMatchHeader)] Guid revision, [Query] bool isSilentUpdate = false, CancellationToken cancellationToken = default);
 
     [Delete("/api/v1/serviceowner/dialogs/{dialogId}")]
     Task Delete(Guid dialogId, [Header(IfMatchHeader)] Guid revision, [Query] bool isSilentUpdate = false, CancellationToken cancellationToken = default);
@@ -26,7 +26,7 @@ internal interface IDialogportenApi
     [Post("/api/v1/serviceowner/dialogs/{dialogId}/actions/restore")]
     Task<IApiResponse> Restore(Guid dialogId, [Header(IfMatchHeader)] Guid revision, [Query] bool isSilentUpdate = false, CancellationToken cancellationToken = default);
 
-    [Post("dialogs/{dialogId}/activities/{activityId}/actions/updateFormSavedActivityTime")]
+    [Post("/api/v1/serviceowner/dialogs/{dialogId}/activities/{activityId}/actions/updateFormSavedActivityTime")]
     Task<IApiResponse> UpdateFormSavedActivityTime(
         Guid dialogId,
         Guid activityId,

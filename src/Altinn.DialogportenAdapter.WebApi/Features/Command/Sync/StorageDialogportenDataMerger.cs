@@ -57,37 +57,29 @@ internal sealed class StorageDialogportenDataMerger
             ? existing.Content.Summary
             : storageDialog.Content.Summary;
 
-        existing.Transmissions = syncAdapterSettings.DisableAddTransmissions
-            ? []
-            : storageDialog.Transmissions
-                .ExceptBy(existing.Transmissions.Select(x => x.Id), x => x.Id)
-                .ToList();
+        existing.Transmissions = ApplySourceChangesExceptWhen(
+            except: syncAdapterSettings.DisableAddTransmissions,
+            destination: existing.Transmissions,
+            source: storageDialog.Transmissions,
+            keySelector: x => x.Id);
 
-        var activityUpdateRequests = existing.Activities
-            .Join(storageDialog.Activities, x => x.Id, y => y.Id, (prev, next) => (prev, next))
-            .Where(x => x.prev.CreatedAt < x.next.CreatedAt)
-            .Select(x => new { ActivityId = x.next.Id, NewCreatedAt = x.next.CreatedAt })
-            .ToArray();
+        existing.Activities = ApplySourceChangesExceptWhen(
+            except: syncAdapterSettings.DisableAddActivities,
+            destination: existing.Activities,
+            source: storageDialog.Activities,
+            keySelector: x => x.Id);
 
-        existing.Activities = syncAdapterSettings.DisableAddActivities
-            ? []
-            : storageDialog.Activities
-                .ExceptBy(existing.Activities.Select(x => x.Id), x => x.Id)
-                .ToList();
+        existing.Attachments = ApplySourceChangesExceptWhen(
+            except: syncAdapterSettings.DisableSyncAttachments,
+            destination: existing.Attachments,
+            source: storageDialog.Attachments,
+            keySelector: x => x.Id);
 
-        existing.Attachments = syncAdapterSettings.DisableSyncAttachments
-            ? existing.Attachments
-            : existing.Attachments
-                .ExceptBy(storageDialog.Attachments.Select(x => x.Id), x => x.Id)
-                .Concat(storageDialog.Attachments)
-                .ToList();
-
-        existing.ApiActions = syncAdapterSettings.DisableSyncApiActions
-            ? existing.ApiActions
-            : existing.ApiActions
-                .ExceptBy(storageDialog.ApiActions.Select(x => x.Id), x => x.Id)
-                .Concat(storageDialog.ApiActions)
-                .ToList();
+        existing.ApiActions = ApplySourceChangesExceptWhen(
+            except: syncAdapterSettings.DisableSyncApiActions,
+            destination: existing.ApiActions,
+            source: storageDialog.ApiActions,
+            keySelector: x => x.Id);
 
         existing.GuiActions = syncAdapterSettings.DisableSyncGuiActions
             ? existing.GuiActions
@@ -499,6 +491,16 @@ internal sealed class StorageDialogportenDataMerger
 
         return result;
     }
+
+    private static List<TProperty> ApplySourceChangesExceptWhen<TProperty, TKey>(
+        bool except,
+        List<TProperty> destination,
+        List<TProperty> source,
+        Func<TProperty, TKey> keySelector) =>
+        except ? destination : destination
+            .ExceptBy(source.Select(keySelector), keySelector)
+            .Concat(source)
+            .ToList();
 }
 
 internal enum InstanceDerivedStatus

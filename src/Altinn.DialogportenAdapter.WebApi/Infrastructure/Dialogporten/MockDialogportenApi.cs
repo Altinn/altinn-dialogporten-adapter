@@ -32,11 +32,19 @@ internal sealed partial class MockDialogportenApi : IDialogportenApi
         return Task.FromResult(Guid.Empty);
     }
 
-    public Task Update(DialogDto dto, Guid revision, bool isSilentUpdate = false,
+    public Task<IApiResponse> Update(DialogDto dto, Guid revision, bool isSilentUpdate = false,
         CancellationToken cancellationToken = default)
     {
         Log.LogUpdateCalled(_logger, dto, revision);
-        return Task.CompletedTask;
+        var apiResponse = new ApiResponse<object>(
+            settings: _refitSettings,
+            response: new HttpResponseMessage(HttpStatusCode.NoContent)
+            {
+                Headers = { ETag = new System.Net.Http.Headers.EntityTagHeaderValue($"\"{Guid.NewGuid()}\"") }
+            },
+            content: null,
+            error: null);
+        return Task.FromResult<IApiResponse>(apiResponse);
     }
 
     public Task Delete(Guid dialogId, Guid revision, bool isSilentUpdate = false,
