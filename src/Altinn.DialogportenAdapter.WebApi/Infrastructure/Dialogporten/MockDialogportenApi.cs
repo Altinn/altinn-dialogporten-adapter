@@ -78,7 +78,7 @@ internal sealed partial class MockDialogportenApi : IDialogportenApi
     {
         Log.LogUpdateFormSavedActivityTimeCalled(_logger, dialogId, activityId, revision, newCreatedAt);
         var apiResponse = new ApiResponse<object>(
-            response: new HttpResponseMessage(HttpStatusCode.NotFound),
+            response: new HttpResponseMessage(HttpStatusCode.NoContent),
             content: null,
             settings: _refitSettings,
             error: null);
