@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Altinn.DialogportenAdapter.WebApi.Common;
 using System.Text.Json;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
@@ -66,32 +67,38 @@ internal sealed class ActivityDtoTransformer
             });
         }
 
-        // TODO: Chunk within a time? What if the same user saves multiple times in a row over a long period? For example a user saves a form every day for a week.
         var savedEvents = events.InstanceEvents
             .OrderBy(x => x.Created)
             .Where(x => StringComparer.OrdinalIgnoreCase.Equals(x.EventType, "Saved"))
-            .Aggregate((SavedActivities: new List<ActivityDto>(), Previous: (ActorDto?)null), (state, @event) =>
+            .Aggregate((SavedActivities: new List<ActivityDto>(), PreviousActivity: (ActivityDto?)null), (state, @event) =>
             {
-                var current = GetPerformedBy(@event.User, actorUrnByUserId);
-                if (current.ActorId is null || current.ActorId == state.Previous?.ActorId)
+                var currentActor = GetPerformedBy(@event.User, actorUrnByUserId);
+                if (IsPerformedBy(state.PreviousActivity, currentActor))
                 {
+                    state.PreviousActivity.CreatedAt = @event.Created;
                     return state;
                 }
 
-                state.Previous = current;
-                state.SavedActivities.Add(new ActivityDto
+                state.SavedActivities.Add(state.PreviousActivity = new ActivityDto
                 {
                     Id = @event.Id.Value.ToVersion7(@event.Created.Value),
                     Type = DialogActivityType.FormSaved,
                     CreatedAt = @event.Created,
-                    PerformedBy = current
+                    PerformedBy = currentActor
                 });
                 return state;
-            }, tuple => tuple.SavedActivities);
+            }, state => state.SavedActivities);
 
         activities.AddRange(savedEvents);
         return activities;
     }
+
+    private static bool IsPerformedBy(
+        [NotNullWhen(true)] ActivityDto? activity,
+        [NotNullWhen(true)] ActorDto? actor) =>
+        activity?.PerformedBy.ActorId is not null
+        && actor is not null
+        && activity.PerformedBy.ActorId == actor.ActorId;
 
     private async Task<Dictionary<int, string>> LookupUsers(List<InstanceEvent> events, CancellationToken cancellationToken)
     {
