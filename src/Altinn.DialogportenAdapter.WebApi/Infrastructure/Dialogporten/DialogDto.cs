@@ -760,7 +760,7 @@ public sealed class LocalizationDto
     /// <summary>
     /// The localized text or URI reference.
     /// </summary>
-    public required string Value { get; init; }
+    public required string Value { get; set; }
 
     /// <summary>
     /// The language code of the localization in ISO 639-1 format.
