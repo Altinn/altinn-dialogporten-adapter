@@ -57,6 +57,10 @@ internal sealed class StorageDialogportenDataMerger
             ? existing.Content.Summary
             : storageDialog.Content.Summary;
 
+        existing.Attachments = syncAdapterSettings.DisableSyncAttachments
+            ? existing.Attachments
+            : storageDialog.Attachments;
+
         existing.Transmissions = ApplySourceChangesExceptWhen(
             except: syncAdapterSettings.DisableAddTransmissions,
             destination: existing.Transmissions,
@@ -67,12 +71,6 @@ internal sealed class StorageDialogportenDataMerger
             except: syncAdapterSettings.DisableAddActivities,
             destination: existing.Activities,
             source: storageDialog.Activities,
-            keySelector: x => x.Id);
-
-        existing.Attachments = ApplySourceChangesExceptWhen(
-            except: syncAdapterSettings.DisableSyncAttachments,
-            destination: existing.Attachments,
-            source: storageDialog.Attachments,
             keySelector: x => x.Id);
 
         existing.ApiActions = ApplySourceChangesExceptWhen(
