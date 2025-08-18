@@ -201,7 +201,7 @@ static void BuildAndRun(string[] args)
 
     v1Route.MapPost("syncDialog", async (
         [FromBody] SyncInstanceCommand request,
-        [FromServices] SyncInstanceToDialogService syncService,
+        [FromServices] ISyncInstanceToDialogService syncService,
         CancellationToken cancellationToken) =>
     {
         await syncService.Sync(request, cancellationToken);
@@ -213,7 +213,7 @@ static void BuildAndRun(string[] args)
             [FromRoute] string partyId,
             [FromRoute] Guid instanceGuid,
             [FromQuery] bool? isMigration,
-            [FromServices] SyncInstanceToDialogService syncService,
+            [FromServices] ISyncInstanceToDialogService syncService,
             [FromServices] IStorageApi storageApi,
             CancellationToken cancellationToken) =>
         {
