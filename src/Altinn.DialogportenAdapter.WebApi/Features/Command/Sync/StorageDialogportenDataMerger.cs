@@ -101,20 +101,25 @@ internal sealed class StorageDialogportenDataMerger
                 GetPartyUrn(dto.Instance.InstanceOwner.PartyId, cancellationToken),
                 _activityDtoTransformer.GetActivities(dto.Events, cancellationToken)
             );
-        
-        // Amund: Filthy! må ryddes
+
+        // Amund: Filthy! må ryddes ⊂(◉‿◉)つ
+
         List<AttachmentDto> attachments;
         TransmissionDto? transmission = null;
+        var data = dto.Instance.Data;
+
         if (systemLabel == SystemLabel.Archive)
         {
-            var user = activities.FirstOrDefault(x => x.Type == DialogActivityType.FormSubmitted);
+            var formSubmittedActivity = activities.FirstOrDefault(x => x.Type == DialogActivityType.FormSubmitted);
+            data = data.Where(IsPerformedBySo).ToList();
+
             transmission = new TransmissionDto
             {
-                Id = user.Id.Value.ToVersion7(user.CreatedAt.Value),
+                Id = formSubmittedActivity.Id.Value.ToVersion7(formSubmittedActivity.CreatedAt.Value),
                 Type = DialogTransmissionType.Submission,
-                Sender = user.PerformedBy,
+                Sender = formSubmittedActivity.PerformedBy,
                 // Amund: Henter alle attachments som skal legges til i transmission
-                Attachments = dto.Instance.Data.Where(x => !IsPerformedBySo(x)) // Amund Q: ??? Org nr verification?
+                Attachments = data.Where(x => !IsPerformedBySo(x)) // Amund Q: ??? Org nr verification?
                     .Select(x => new TransmissionAttachmentDto()
                     {
                         Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
@@ -131,55 +136,27 @@ internal sealed class StorageDialogportenDataMerger
                                 Url = x.SelfLinks.Platform
                             }
                         ]
-                    })
-                    .ToList()
+                    }).ToList()
             };
+        }
 
-            // Amund: Henter alle attachments som skal legges til i attachment listen
-            attachments = dto.Instance.Data
-                .Where(IsPerformedBySo)
-                .Select(x => new AttachmentDto
-                {
-                    Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
-                    DisplayName = [new() { LanguageCode = "nb", Value = x.Filename ?? x.DataType }],
-                    Urls =
-                    [
-                        new()
-                        {
-                            Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
-                            ConsumerType = x.Filename is not null
-                                ? AttachmentUrlConsumerType.Gui
-                                : AttachmentUrlConsumerType.Api,
-                            MediaType = x.ContentType,
-                            Url = x.SelfLinks.Platform
-                        }
-                    ]
-                })
-                .ToList();
-        }
-        else
+        attachments = data.Select(x => new AttachmentDto
         {
-            // Amund: Gamle Attachment henting
-            attachments = dto.Instance.Data
-                .Select(x => new AttachmentDto
+            Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
+            DisplayName = [new() { LanguageCode = "nb", Value = x.Filename ?? x.DataType }],
+            Urls =
+            [
+                new()
                 {
                     Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
-                    DisplayName = [new() { LanguageCode = "nb", Value = x.Filename ?? x.DataType }],
-                    Urls =
-                    [
-                        new()
-                        {
-                            Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
-                            ConsumerType = x.Filename is not null
-                                ? AttachmentUrlConsumerType.Gui
-                                : AttachmentUrlConsumerType.Api,
-                            MediaType = x.ContentType,
-                            Url = x.SelfLinks.Platform
-                        }
-                    ]
-                })
-                .ToList();
-        }
+                    ConsumerType = x.Filename is not null
+                        ? AttachmentUrlConsumerType.Gui
+                        : AttachmentUrlConsumerType.Api,
+                    MediaType = x.ContentType,
+                    Url = x.SelfLinks.Platform
+                }
+            ]
+        }).ToList();
 
 
         return new DialogDto
