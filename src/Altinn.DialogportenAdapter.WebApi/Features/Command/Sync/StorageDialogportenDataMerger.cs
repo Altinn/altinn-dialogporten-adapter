@@ -83,6 +83,11 @@ internal sealed class StorageDialogportenDataMerger
             ? existing.GuiActions
             : MergeGuiActions(dto.DialogId, existing.GuiActions, storageDialog.GuiActions);
 
+
+        if (existing.SystemLabel == SystemLabel.Archive)
+        {
+            // var attachments = existing.Attachments.Select(x => x).Where(x => x.)
+        }
         return existing;
     }
 
@@ -93,9 +98,89 @@ internal sealed class StorageDialogportenDataMerger
             ? SystemLabel.Archive
             : SystemLabel.Default;
         var (party, activities) = await (
-            GetPartyUrn(dto.Instance.InstanceOwner.PartyId, cancellationToken),
-            _activityDtoTransformer.GetActivities(dto.Events, cancellationToken)
-        );
+                GetPartyUrn(dto.Instance.InstanceOwner.PartyId, cancellationToken),
+                _activityDtoTransformer.GetActivities(dto.Events, cancellationToken)
+            );
+        
+        // Amund: Filthy! må ryddes
+        List<AttachmentDto> attachments;
+        TransmissionDto? transmission = null;
+        if (systemLabel == SystemLabel.Archive)
+        {
+            var user = activities.FirstOrDefault(x => x.Type == DialogActivityType.FormSubmitted);
+            transmission = new TransmissionDto
+            {
+                Id = user.Id.Value.ToVersion7(user.CreatedAt.Value),
+                Type = DialogTransmissionType.Submission,
+                Sender = user.PerformedBy,
+                // Amund: Henter alle attachments som skal legges til i transmission
+                Attachments = dto.Instance.Data.Where(x => !IsPerformedBySo(x)) // Amund Q: ??? Org nr verification?
+                    .Select(x => new TransmissionAttachmentDto()
+                    {
+                        Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
+                        DisplayName = [new() { LanguageCode = "nb", Value = x.Filename ?? x.DataType }],
+                        Urls =
+                        [
+                            new()
+                            {
+                                // Amund Q: Burde denne ha en Id? tror kanskje det. Men DialogPorten tar ikke imot den IDen uansett
+                                ConsumerType = x.Filename is not null
+                                    ? AttachmentUrlConsumerType.Gui
+                                    : AttachmentUrlConsumerType.Api,
+                                MediaType = x.ContentType,
+                                Url = x.SelfLinks.Platform
+                            }
+                        ]
+                    })
+                    .ToList()
+            };
+
+            // Amund: Henter alle attachments som skal legges til i attachment listen
+            attachments = dto.Instance.Data
+                .Where(IsPerformedBySo)
+                .Select(x => new AttachmentDto
+                {
+                    Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
+                    DisplayName = [new() { LanguageCode = "nb", Value = x.Filename ?? x.DataType }],
+                    Urls =
+                    [
+                        new()
+                        {
+                            Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
+                            ConsumerType = x.Filename is not null
+                                ? AttachmentUrlConsumerType.Gui
+                                : AttachmentUrlConsumerType.Api,
+                            MediaType = x.ContentType,
+                            Url = x.SelfLinks.Platform
+                        }
+                    ]
+                })
+                .ToList();
+        }
+        else
+        {
+            // Amund: Gamle Attachment henting
+            attachments = dto.Instance.Data
+                .Select(x => new AttachmentDto
+                {
+                    Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
+                    DisplayName = [new() { LanguageCode = "nb", Value = x.Filename ?? x.DataType }],
+                    Urls =
+                    [
+                        new()
+                        {
+                            Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
+                            ConsumerType = x.Filename is not null
+                                ? AttachmentUrlConsumerType.Gui
+                                : AttachmentUrlConsumerType.Api,
+                            MediaType = x.ContentType,
+                            Url = x.SelfLinks.Platform
+                        }
+                    ]
+                })
+                .ToList();
+        }
+
 
         return new DialogDto
         {
@@ -147,26 +232,16 @@ internal sealed class StorageDialogportenDataMerger
                 CreateDeleteAction(dto.DialogId, dto.Instance),
                 ..CreateCopyAction(dto.DialogId, dto.Instance, dto.Application)
             ],
-            Attachments = dto.Instance.Data
-                .Select(x => new AttachmentDto
-                {
-                    Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
-                    DisplayName = [new() {LanguageCode = "nb", Value = x.Filename ?? x.DataType}],
-                    Urls = [new()
-                    {
-                        Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
-                        ConsumerType = x.Filename is not null
-                            ? AttachmentUrlConsumerType.Gui
-                            : AttachmentUrlConsumerType.Api,
-                        MediaType = x.ContentType,
-                        Url = x.SelfLinks.Platform
-                    }]
-                })
-                .ToList(),
+            Transmissions = transmission is null ? [] : [transmission],
+            Attachments = attachments,
             Activities = activities
         };
     }
 
+    private static bool IsPerformedBySo(DataElement data)
+    {
+        return data.LastChangedBy.Length == 9;
+    }
     private async Task<string> GetPartyUrn(string partyId, CancellationToken cancellationToken)
     {
         var response = await _registerRepository.GetActorUrnByPartyId([partyId], cancellationToken);
