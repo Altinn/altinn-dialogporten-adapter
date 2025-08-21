@@ -83,11 +83,6 @@ internal sealed class StorageDialogportenDataMerger
             ? existing.GuiActions
             : MergeGuiActions(dto.DialogId, existing.GuiActions, storageDialog.GuiActions);
 
-
-        if (existing.SystemLabel == SystemLabel.Archive)
-        {
-            // var attachments = existing.Attachments.Select(x => x).Where(x => x.)
-        }
         return existing;
     }
 
@@ -105,39 +100,16 @@ internal sealed class StorageDialogportenDataMerger
         // Amund: Filthy! må ryddes ⊂(◉‿◉)つ
 
         List<AttachmentDto> attachments;
-        TransmissionDto? transmission = null;
+        var transmissions = new List<TransmissionDto>();
         var data = dto.Instance.Data;
 
         if (systemLabel == SystemLabel.Archive)
         {
             var formSubmittedActivity = activities.FirstOrDefault(x => x.Type == DialogActivityType.FormSubmitted);
-            data = data.Where(IsPerformedBySo).ToList();
-
-            transmission = new TransmissionDto
+            if (formSubmittedActivity is not null)
             {
-                Id = formSubmittedActivity.Id.Value.ToVersion7(formSubmittedActivity.CreatedAt.Value),
-                Type = DialogTransmissionType.Submission,
-                Sender = formSubmittedActivity.PerformedBy,
-                // Amund: Henter alle attachments som skal legges til i transmission
-                Attachments = data.Where(x => !IsPerformedBySo(x)) // Amund Q: ??? Org nr verification?
-                    .Select(x => new TransmissionAttachmentDto()
-                    {
-                        Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
-                        DisplayName = [new() { LanguageCode = "nb", Value = x.Filename ?? x.DataType }],
-                        Urls =
-                        [
-                            new()
-                            {
-                                // Amund Q: Burde denne ha en Id? tror kanskje det. Men DialogPorten tar ikke imot den IDen uansett
-                                ConsumerType = x.Filename is not null
-                                    ? AttachmentUrlConsumerType.Gui
-                                    : AttachmentUrlConsumerType.Api,
-                                MediaType = x.ContentType,
-                                Url = x.SelfLinks.Platform
-                            }
-                        ]
-                    }).ToList()
-            };
+                transmissions.Add(TransmissionDto(formSubmittedActivity, ref data));
+            }
         }
 
         attachments = data.Select(x => new AttachmentDto
@@ -209,10 +181,42 @@ internal sealed class StorageDialogportenDataMerger
                 CreateDeleteAction(dto.DialogId, dto.Instance),
                 ..CreateCopyAction(dto.DialogId, dto.Instance, dto.Application)
             ],
-            Transmissions = transmission is null ? [] : [transmission],
+            Transmissions = transmissions,
             Attachments = attachments,
             Activities = activities
         };
+    }
+    private static TransmissionDto TransmissionDto(ActivityDto formSubmittedActivity, ref List<DataElement> data)
+    {
+
+        data = data.Where(IsPerformedBySo).ToList();
+
+        var transmission = new TransmissionDto
+        {
+            Id = formSubmittedActivity.Id.Value.ToVersion7(formSubmittedActivity.CreatedAt.Value),
+            Type = DialogTransmissionType.Submission,
+            Sender = formSubmittedActivity.PerformedBy,
+            // Amund: Henter alle attachments som skal legges til i transmission
+            Attachments = data.Where(x => !IsPerformedBySo(x)) // Amund Q: ??? Org nr verification?
+                .Select(x => new TransmissionAttachmentDto()
+                {
+                    Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
+                    DisplayName = [new() { LanguageCode = "nb", Value = x.Filename ?? x.DataType }],
+                    Urls =
+                    [
+                        new()
+                        {
+                            // Amund Q: Burde denne ha en Id? tror kanskje det. Men DialogPorten tar ikke imot den IDen uansett
+                            ConsumerType = x.Filename is not null
+                                ? AttachmentUrlConsumerType.Gui
+                                : AttachmentUrlConsumerType.Api,
+                            MediaType = x.ContentType,
+                            Url = x.SelfLinks.Platform
+                        }
+                    ]
+                }).ToList()
+        };
+        return transmission;
     }
 
     private static bool IsPerformedBySo(DataElement data)
