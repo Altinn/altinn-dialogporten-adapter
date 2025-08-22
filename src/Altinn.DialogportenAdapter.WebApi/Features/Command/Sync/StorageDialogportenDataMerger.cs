@@ -108,7 +108,10 @@ internal sealed class StorageDialogportenDataMerger
             var formSubmittedActivity = activities.FirstOrDefault(x => x.Type == DialogActivityType.FormSubmitted);
             if (formSubmittedActivity is not null)
             {
-                transmissions.Add(CreateArchivedTransmission(formSubmittedActivity, ref data));
+                var temp = data.Where(x => !IsPerformedBySo(x)).ToList();// Amund Q: ??? Org nr verification?
+                data = data.Where(IsPerformedBySo).ToList();
+                
+                transmissions.Add(CreateArchivedTransmission(formSubmittedActivity, temp));
             }
         }
 
@@ -186,7 +189,7 @@ internal sealed class StorageDialogportenDataMerger
             Activities = activities
         };
     }
-    private static TransmissionDto CreateArchivedTransmission(ActivityDto formSubmittedActivity, ref List<DataElement> data)
+    private static TransmissionDto CreateArchivedTransmission(ActivityDto formSubmittedActivity, List<DataElement> data)
     {
         var transmission = new TransmissionDto
         {
@@ -194,7 +197,7 @@ internal sealed class StorageDialogportenDataMerger
             Type = DialogTransmissionType.Submission,
             Sender = formSubmittedActivity.PerformedBy,
             // Amund: Henter alle attachments som skal legges til i transmission
-            Attachments = data.Where(x => !IsPerformedBySo(x)) // Amund Q: ??? Org nr verification?
+            Attachments = data 
                 .Select(x => new TransmissionAttachmentDto()
                 {
                     Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
@@ -214,7 +217,6 @@ internal sealed class StorageDialogportenDataMerger
                 }).ToList()
         };
         
-        data = data.Where(IsPerformedBySo).ToList();
         
         return transmission;
     }
