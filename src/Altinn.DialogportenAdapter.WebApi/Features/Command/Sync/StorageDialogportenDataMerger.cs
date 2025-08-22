@@ -188,9 +188,6 @@ internal sealed class StorageDialogportenDataMerger
     }
     private static TransmissionDto CreateArchivedTransmission(ActivityDto formSubmittedActivity, ref List<DataElement> data)
     {
-
-        data = data.Where(IsPerformedBySo).ToList();
-
         var transmission = new TransmissionDto
         {
             Id = formSubmittedActivity.Id.Value.ToVersion7(formSubmittedActivity.CreatedAt.Value),
@@ -216,6 +213,9 @@ internal sealed class StorageDialogportenDataMerger
                     ]
                 }).ToList()
         };
+        
+        data = data.Where(IsPerformedBySo).ToList();
+        
         return transmission;
     }
 
