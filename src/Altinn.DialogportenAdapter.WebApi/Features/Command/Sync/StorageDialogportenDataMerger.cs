@@ -108,7 +108,7 @@ internal sealed class StorageDialogportenDataMerger
             var formSubmittedActivity = activities.FirstOrDefault(x => x.Type == DialogActivityType.FormSubmitted);
             if (formSubmittedActivity is not null)
             {
-                transmissions.Add(TransmissionDto(formSubmittedActivity, ref data));
+                transmissions.Add(CreateArchivedTransmission(formSubmittedActivity, ref data));
             }
         }
 
@@ -186,7 +186,7 @@ internal sealed class StorageDialogportenDataMerger
             Activities = activities
         };
     }
-    private static TransmissionDto TransmissionDto(ActivityDto formSubmittedActivity, ref List<DataElement> data)
+    private static TransmissionDto CreateArchivedTransmission(ActivityDto formSubmittedActivity, ref List<DataElement> data)
     {
 
         data = data.Where(IsPerformedBySo).ToList();
