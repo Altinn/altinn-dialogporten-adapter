@@ -93,9 +93,46 @@ internal sealed class StorageDialogportenDataMerger
             ? SystemLabel.Archive
             : SystemLabel.Default;
         var (party, activities) = await (
-            GetPartyUrn(dto.Instance.InstanceOwner.PartyId, cancellationToken),
-            _activityDtoTransformer.GetActivities(dto.Events, cancellationToken)
-        );
+                GetPartyUrn(dto.Instance.InstanceOwner.PartyId, cancellationToken),
+                _activityDtoTransformer.GetActivities(dto.Events, cancellationToken)
+            );
+
+        // Amund: Filthy! må ryddes ⊂(◉‿◉)つ
+
+        List<AttachmentDto> attachments;
+        var transmissions = new List<TransmissionDto>();
+        var data = dto.Instance.Data;
+
+        if (systemLabel == SystemLabel.Archive)
+        {
+            var formSubmittedActivity = activities.FirstOrDefault(x => x.Type == DialogActivityType.FormSubmitted);
+            if (formSubmittedActivity is not null)
+            {
+                var temp = data.Where(x => !IsPerformedBySo(x)).ToList();// Amund Q: ??? Org nr verification?
+                data = data.Where(IsPerformedBySo).ToList();
+                
+                transmissions.Add(CreateArchivedTransmission(formSubmittedActivity, temp));
+            }
+        }
+
+        attachments = data.Select(x => new AttachmentDto
+        {
+            Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
+            DisplayName = [new() { LanguageCode = "nb", Value = x.Filename ?? x.DataType }],
+            Urls =
+            [
+                new()
+                {
+                    Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
+                    ConsumerType = x.Filename is not null
+                        ? AttachmentUrlConsumerType.Gui
+                        : AttachmentUrlConsumerType.Api,
+                    MediaType = x.ContentType,
+                    Url = x.SelfLinks.Platform
+                }
+            ]
+        }).ToList();
+
 
         return new DialogDto
         {
@@ -147,26 +184,47 @@ internal sealed class StorageDialogportenDataMerger
                 CreateDeleteAction(dto.DialogId, dto.Instance),
                 ..CreateCopyAction(dto.DialogId, dto.Instance, dto.Application)
             ],
-            Attachments = dto.Instance.Data
-                .Select(x => new AttachmentDto
-                {
-                    Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
-                    DisplayName = [new() {LanguageCode = "nb", Value = x.Filename ?? x.DataType}],
-                    Urls = [new()
-                    {
-                        Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
-                        ConsumerType = x.Filename is not null
-                            ? AttachmentUrlConsumerType.Gui
-                            : AttachmentUrlConsumerType.Api,
-                        MediaType = x.ContentType,
-                        Url = x.SelfLinks.Platform
-                    }]
-                })
-                .ToList(),
+            Transmissions = transmissions,
+            Attachments = attachments,
             Activities = activities
         };
     }
+    private static TransmissionDto CreateArchivedTransmission(ActivityDto formSubmittedActivity, List<DataElement> data)
+    {
+        var transmission = new TransmissionDto
+        {
+            Id = formSubmittedActivity.Id.Value.ToVersion7(formSubmittedActivity.CreatedAt.Value),
+            Type = DialogTransmissionType.Submission,
+            Sender = formSubmittedActivity.PerformedBy,
+            // Amund: Henter alle attachments som skal legges til i transmission
+            Attachments = data 
+                .Select(x => new TransmissionAttachmentDto()
+                {
+                    Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
+                    DisplayName = [new() { LanguageCode = "nb", Value = x.Filename ?? x.DataType }],
+                    Urls =
+                    [
+                        new()
+                        {
+                            // Amund Q: Burde denne ha en Id? tror kanskje det. Men DialogPorten tar ikke imot den IDen uansett
+                            ConsumerType = x.Filename is not null
+                                ? AttachmentUrlConsumerType.Gui
+                                : AttachmentUrlConsumerType.Api,
+                            MediaType = x.ContentType,
+                            Url = x.SelfLinks.Platform
+                        }
+                    ]
+                }).ToList()
+        };
+        
+        
+        return transmission;
+    }
 
+    private static bool IsPerformedBySo(DataElement data)
+    {
+        return data.LastChangedBy.Length == 9;
+    }
     private async Task<string> GetPartyUrn(string partyId, CancellationToken cancellationToken)
     {
         var response = await _registerRepository.GetActorUrnByPartyId([partyId], cancellationToken);
