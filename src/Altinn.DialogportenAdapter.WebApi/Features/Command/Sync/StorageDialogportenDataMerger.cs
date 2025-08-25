@@ -1,3 +1,4 @@
+using System.Text;
 using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
@@ -159,7 +160,9 @@ internal sealed class StorageDialogportenDataMerger
                             ? AttachmentUrlConsumerType.Gui
                             : AttachmentUrlConsumerType.Api,
                         MediaType = x.ContentType,
-                        Url = x.SelfLinks.Platform
+                        Url = x.Filename is not null
+                            ? ToPortalUri(x.SelfLinks.Platform)
+                            : x.SelfLinks.Platform
                     }]
                 })
                 .ToList(),
@@ -308,7 +311,7 @@ internal sealed class StorageDialogportenDataMerger
                     new() { LanguageCode = "nn", Value = "Sjå innsendt skjema" },
                     new() { LanguageCode = "en", Value = "See submitted form" }
                 ],
-                Url = $"{platformBaseUri}/receipt/{instance.Id}"
+                Url = ToPortalUri($"{platformBaseUri}/receipt/{instance.Id})")
             };
         }
 
@@ -333,7 +336,7 @@ internal sealed class StorageDialogportenDataMerger
                 new() { LanguageCode = "nn", Value = "Gå til skjemautfylling" },
                 new() { LanguageCode = "en", Value = "Go to form completion" }
             ],
-            Url = $"{appBaseUri}/#/instance/{instance.Id}"
+            Url = ToPortalUri($"{appBaseUri}/#/instance/{instance.Id}")
         };
     }
 
@@ -380,7 +383,7 @@ internal sealed class StorageDialogportenDataMerger
                 new() { LanguageCode = "nn", Value = "Lag ny kopi" },
                 new() { LanguageCode = "en", Value = "Create new copy" }
             ],
-            Url = $"{appBaseUri}/legacy/instances/{instance.Id}/copy",
+            Url = ToPortalUri($"{appBaseUri}/legacy/instances/{instance.Id}/copy"),
             HttpMethod = HttpVerb.GET
         };
     }
@@ -499,6 +502,51 @@ internal sealed class StorageDialogportenDataMerger
             .ExceptBy(source.Select(keySelector), keySelector)
             .Concat(source)
             .ToList();
+
+    /// <summary>
+    /// This rewrites links to Altinn 3 apps, so that they go via the authentication endpoint
+    /// in Altinn Platform. This ensures that the user session in Altinn 3 is properly initialized/refreshed before being
+    /// redirected to the app.
+    ///
+    /// ie. https://tad.apps.tt02.altinn.no/tad/pagaendesak#/instance/51441547/26cbe3f0-355d-4459-b085-7edaa899b6ba
+    /// becomes
+    /// https://platform.tt02.altinn.no/authentication/api/v1/authentication?goto=https%3A%2F%2Ftad.apps.tt02.altinn.no%2Ftad%2Fpagaendesak%3FdontChooseReportee%3Dtrue%23%2Finstance%2F51441547%2F26cbe3f0-355d-4459-b085-7edaa899b6ba
+    /// </summary>
+    /// <param name="instanceUri">A link to an app instance or attachment</param>
+    /// <returns>The same link as a "goto" parameter to authentication </returns>
+    private string ToPortalUri(string instanceUri)
+    {
+        ArgumentNullException.ThrowIfNull(instanceUri);
+
+        var authenticationBaseUri =
+            _settings.DialogportenAdapter.Altinn.GetPlatformUri() +
+            "/authentication/api/v1/authentication?goto=";
+
+        var hashIndex = instanceUri.IndexOf('#');
+        if (hashIndex < 0) hashIndex = instanceUri.Length;
+        var separator = instanceUri.AsSpan(0, hashIndex).IndexOf('?') >= 0 ? '&' : '?';
+        const string dontChooseReporteeParam = "dontChooseReportee=true";
+        var newLen = instanceUri.Length + 1 + dontChooseReporteeParam.Length;
+
+        var gotoUrl = string.Create(newLen, (instanceUri, hashIndex, separator), static (dst, state) =>
+        {
+            var (src, insertAt, separator) = state;
+
+            // prefix [0..insertAt)
+            src.AsSpan(0, insertAt).CopyTo(dst);
+
+            // separator
+            dst[insertAt] = separator;
+
+            // param
+            dontChooseReporteeParam.AsSpan().CopyTo(dst[(insertAt + 1)..]);
+
+            // suffix [insertAt..end)
+            src.AsSpan(insertAt).CopyTo(dst[(insertAt + 1 + dontChooseReporteeParam.Length)..]);
+        });
+
+        return string.Concat(authenticationBaseUri, Uri.EscapeDataString(gotoUrl));
+    }
 }
 
 internal enum InstanceDerivedStatus
