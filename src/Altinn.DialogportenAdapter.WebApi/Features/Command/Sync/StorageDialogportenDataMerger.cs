@@ -32,7 +32,7 @@ internal sealed class StorageDialogportenDataMerger
 
     public async Task<DialogDto> Merge(MergeDto dto, CancellationToken cancellationToken)
     {
-        var existing = dto.ExistingDialog;
+        var existing = dto.ExistingDialog.DeepClone();
         var storageDialog = await ToDialogDto(dto, cancellationToken);
         if (existing is null)
         {

@@ -202,7 +202,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
     {
         var activityUpdateRequests = existing?.Activities
             .Join(updated.Activities, x => x.Id, x => x.Id, (prev, next) => (prev, next))
-            .Where(x => x.prev.CreatedAt < x.next.CreatedAt)
+            .Where(x => x.prev.Type == DialogActivityType.FormSaved &&  x.prev.CreatedAt < x.next.CreatedAt)
             .Select(x => new { ActivityId = x.next.Id!.Value, NewCreatedAt = x.next.CreatedAt!.Value })
             .ToArray() ?? [];
 
@@ -211,7 +211,14 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         var updateResult = await _dialogportenApi.Update(updated, updated.Revision!.Value,
             isSilentUpdate: isMigration,
             cancellationToken: cancellationToken).EnsureSuccess();
-        updated.Revision = Guid.Parse(updateResult.Headers.ETag!.Tag);
+
+        if (!updateResult.Headers.TryGetValues(nameof(updateResult.Headers.ETag), out var eTagHeaderValues) ||
+            !Guid.TryParse(eTagHeaderValues.FirstOrDefault(), out var eTagGuid))
+        {
+            return;
+        }
+
+        updated.Revision = eTagGuid;
 
         foreach (var activityUpdateRequest in activityUpdateRequests)
         {
