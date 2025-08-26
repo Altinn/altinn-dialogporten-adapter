@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Reflection;
 using Azure.Data.Tables;
 
 namespace Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Persistance;
@@ -6,10 +7,12 @@ namespace Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Persistance;
 internal sealed class MigrationPartitionRepository : IMigrationPartitionRepository
 {
     private readonly TableClient _tableClient;
+    private readonly ILogger<MigrationPartitionRepository> _logger;
 
-    public MigrationPartitionRepository(TableClient tableClient)
+    public MigrationPartitionRepository(TableClient tableClient, ILogger<MigrationPartitionRepository> logger)
     {
         _tableClient = tableClient ?? throw new ArgumentNullException(nameof(tableClient));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     public async Task<ReadOnlyCollection<MigrationPartitionEntity>> GetExistingPartitions(
@@ -25,7 +28,9 @@ internal sealed class MigrationPartitionRepository : IMigrationPartitionReposito
             .GroupBy(x => x.Partition)
             .Select(x => x.Key.ToString())
             .ToList();
+
         var filter = string.Join(" or ", partitionKeyStrings.Select(pk => $"PartitionKey eq '{pk}'"));
+
         var queryResult = _tableClient.QueryAsync<TableEntity>(
             filter: filter,
             maxPerPage: 1000,
@@ -55,30 +60,80 @@ internal sealed class MigrationPartitionRepository : IMigrationPartitionReposito
             partitionKey: partition.ToString(),
             rowKey: organization,
             cancellationToken: cancellationToken);
+
         return entity.Value;
     }
 
     public async Task Upsert(List<MigrationPartitionEntity> partitionEntities, CancellationToken cancellationToken)
     {
         if (partitionEntities.Count == 0)
-        {
             return;
-        }
 
-        var groupsByPartition = partitionEntities
+        var batchTasks = partitionEntities
             .GroupBy(e => e.PartitionKey)
-            .SelectMany(x => x.Chunk(100))
-            .Select(chunkedPartitionBatch => chunkedPartitionBatch
-                .Select(entity => new TableTransactionAction(TableTransactionActionType.UpsertReplace, entity)))
-            .Select(batch => _tableClient.SubmitTransactionAsync(batch, cancellationToken));
+            .SelectMany(group => group.Chunk(100))
+            .Select(async (chunk, batchIndex) =>
+            {
+                var actions = chunk
+                    .Select(entity => new TableTransactionAction(TableTransactionActionType.UpsertReplace, entity))
+                    .ToList();
 
-        await Task.WhenAll(groupsByPartition);
+                var pk = chunk.First().PartitionKey;
+
+                try
+                {
+                    //_logger.LogInformation("Submitting batch {BatchIndex} (PK: {PartitionKey}, Size: {Size})", batchIndex, pk, actions.Count);
+                    await _tableClient.SubmitTransactionAsync(actions, cancellationToken);
+                    //_logger.LogInformation("Batch {BatchIndex} succeeded (Size: {Size})", batchIndex, actions.Count);
+                }
+                catch (TableTransactionFailedException ex)
+                {
+                    var failedIndex = ex.FailedTransactionActionIndex ?? -1;
+
+                    // Build a compact, single log entry with all meaningful details
+                    string actionType = "<n/a>";
+                    string failedPk = pk;
+                    string failedRk = "<n/a>";
+                    string properties = "<n/a>";
+
+                    if (failedIndex >= 0 && failedIndex < actions.Count)
+                    {
+                        var failedAction = actions[failedIndex];
+                        actionType = failedAction.ActionType.ToString();
+
+                        if (failedAction.Entity is MigrationPartitionEntity mpe)
+                        {
+                            failedPk = mpe.PartitionKey;
+                            failedRk = mpe.RowKey;
+                            properties = FormatEntityProperties(mpe);
+                        }
+                        else if (failedAction.Entity is ITableEntity te)
+                        {
+                            failedPk = te.PartitionKey;
+                            failedRk = te.RowKey;
+                            properties = FormatITableEntityProperties(te);
+                        }
+                    }
+
+                    _logger.LogError(ex,
+                        "Batch {BatchIndex} FAILED. Status: {Status}, ErrorCode: {ErrorCode}, FailedIndex: {FailedIndex}, Action: {Action}, PK: {FailedPK}, RK: {FailedRK}, Properties: {Properties}",
+                        batchIndex, ex.Status, ex.ErrorCode, failedIndex, actionType, failedPk, failedRk, properties);
+
+                    if (failedIndex < 0 || failedIndex >= actions.Count)
+                    {
+                        _logger.LogWarning("No valid failed index provided — failure may be at the changeset level.");
+                    }
+
+                    throw; // preserve existing behavior
+                }
+            });
+
+        await Task.WhenAll(batchTasks);
     }
 
     public async Task Truncate(CancellationToken cancellationToken = default)
     {
         const int batchSize = 100; // Max allowed per batch
-
         var deleteTasks = new List<Task>();
 
         await foreach (var page in _tableClient
@@ -86,7 +141,6 @@ internal sealed class MigrationPartitionRepository : IMigrationPartitionReposito
                            .AsPages()
                            .WithCancellation(cancellationToken))
         {
-            // Group entities by PartitionKey for batch deletes
             var groups = page.Values.GroupBy(e => e.PartitionKey);
 
             foreach (var group in groups)
@@ -112,5 +166,61 @@ internal sealed class MigrationPartitionRepository : IMigrationPartitionReposito
         }
 
         await Task.WhenAll(deleteTasks);
+        _logger.LogInformation("Truncate completed.");
     }
+
+    // ------- Helpers (ILogger-based) -------
+
+    private static string FormatEntityProperties(object entity)
+    {
+        var pairs = new List<string>();
+
+        foreach (var prop in entity.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public))
+        {
+            if (prop.Name is nameof(ITableEntity.PartitionKey) or nameof(ITableEntity.RowKey) or nameof(ITableEntity.Timestamp) or nameof(ITableEntity.ETag))
+                continue;
+
+            try
+            {
+                var value = prop.GetValue(entity);
+                pairs.Add($"{prop.Name}={FormatValue(value)}");
+            }
+            catch (Exception ex)
+            {
+                pairs.Add($"{prop.Name}=<error reading: {ex.Message}>");
+            }
+        }
+
+        return string.Join(", ", pairs);
+    }
+
+    private static string FormatITableEntityProperties(ITableEntity e)
+    {
+        if (e is TableEntity te)
+        {
+            var pairs = new List<string>();
+
+            foreach (var kv in te)
+            {
+                if (kv.Key is nameof(ITableEntity.PartitionKey) or nameof(ITableEntity.RowKey) or nameof(ITableEntity.Timestamp) or nameof(ITableEntity.ETag))
+                    continue;
+
+                pairs.Add($"{kv.Key}={FormatValue(kv.Value)}");
+            }
+
+            return string.Join(", ", pairs);
+        }
+
+        return FormatEntityProperties(e);
+    }
+
+    private static string FormatValue(object? v) =>
+        v switch
+        {
+            null => "<null>",
+            byte[] bytes => $"[byte[{bytes.Length}]]",
+            DateTime dt => $"{dt:o} (DateTime) # Prefer DateTimeOffset",
+            DateTimeOffset dto => dto.ToString("o"),
+            _ => v.ToString() ?? "<null>"
+        };
 }

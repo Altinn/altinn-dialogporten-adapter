@@ -76,7 +76,15 @@ static Task BuildAndRun(string[] args)
     builder.Services.AddTransient<MigrationPartitionService>();
     builder.Services.AddSingleton(_ => new TableClient(
         settings.DialogportenAdapter.AzureStorage.ConnectionString,
-        AzureStorageSettings.GetTableName(builder.Environment)));
+        AzureStorageSettings.GetTableName(builder.Environment), new TableClientOptions
+        {
+            Diagnostics =
+            {
+                IsLoggingContentEnabled = true,
+                LoggedHeaderNames = { "x-ms-request-id", "x-ms-version" },
+                LoggedQueryParameters = { "comp" }
+            }
+        }));
     builder.Services.AddSingleton<IMigrationPartitionRepository, MigrationPartitionRepository>();
     builder.Services.AddSingleton<IOrganizationRepository, OrganizationRepository>();
     // Health checks
