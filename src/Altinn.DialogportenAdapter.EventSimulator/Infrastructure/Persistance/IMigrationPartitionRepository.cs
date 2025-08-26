@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Runtime.Serialization;
+using Altinn.DialogportenAdapter.EventSimulator.Common.Extensions;
 using Azure;
 using Azure.Data.Tables;
 
@@ -39,11 +40,10 @@ public sealed class MigrationPartitionEntity : ITableEntity
 
     public bool Complete { get; set; }
 
-
     public string PartitionKey
     {
-        get => Partition.ToString();
-        set => Partition = DateOnly.Parse(value);
+        get => Partition.ToPartitionKey();
+        set => Partition = value.ToDateOnly();
     }
     public string RowKey
     {
