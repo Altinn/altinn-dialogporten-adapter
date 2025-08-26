@@ -190,14 +190,32 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
             ? CreateDialog(updated, settings, isMigration, cancellationToken)
             : UpdateDialog(updated, existing, isMigration, cancellationToken);
 
-    private Task CreateDialog(
+    private async Task CreateDialog(
         DialogDto updated,
         SyncAdapterSettings settings,
         bool isMigration,
-        CancellationToken cancellationToken) =>
-        settings.DisableCreate
-            ? Task.CompletedTask
-            : _dialogportenApi.Create(updated, isSilentUpdate: isMigration, cancellationToken: cancellationToken);
+        CancellationToken cancellationToken)
+    {
+        if (settings.DisableCreate)
+        {
+            return;
+        }
+
+        try
+        {
+            await _dialogportenApi.Create(updated, isSilentUpdate: isMigration, cancellationToken: cancellationToken);
+        }
+        catch (ValidationApiException e)
+        {
+            _logger.LogError("{StatusCode} {ProblemDetails} {CreateDto} {IsMigration}",
+                e.StatusCode,
+                JsonSerializer.Serialize(e.Content),
+                JsonSerializer.Serialize(updated),
+                isMigration
+            );
+            throw;
+        }
+    }
 
     private async Task UpdateDialog(DialogDto updated, DialogDto? existing, bool isMigration,
         CancellationToken cancellationToken)
@@ -232,13 +250,14 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         }
         catch (ValidationApiException e)
         {
-            _logger.LogError("{StatusCode} {ProblemDetails} {UpdatedDto} {ExistingDto} {activityUpdateRequests} {Currently}",
+            _logger.LogError("{StatusCode} {ProblemDetails} {UpdatedDto} {ExistingDto} {activityUpdateRequests} {Currently} {IsMigration}",
                 e.StatusCode,
                 JsonSerializer.Serialize(e.Content),
                 JsonSerializer.Serialize(updated),
                 JsonSerializer.Serialize(existing),
                 JsonSerializer.Serialize(activityUpdateRequests),
-                currently
+                currently,
+                isMigration
             );
             throw;
         }
