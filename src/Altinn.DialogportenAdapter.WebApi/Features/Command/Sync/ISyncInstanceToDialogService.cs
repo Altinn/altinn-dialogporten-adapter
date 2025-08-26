@@ -209,8 +209,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
             .ToArray() ?? [];
 
         PruneExistingImmutableEntities(updated, existing);
-
-
+        var currently = "dialog-update";
         try
         {
             var updateResult = await _dialogportenApi.Update(updated, updated.Revision!.Value,
@@ -219,6 +218,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
 
             updated.Revision = GetRevisionId(updateResult);
 
+            currently = "activity-time-update";
             foreach (var activityUpdateRequest in activityUpdateRequests)
             {
                 var result = await _dialogportenApi.UpdateFormSavedActivityTime(
@@ -232,7 +232,14 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         }
         catch (ValidationApiException e)
         {
-            _logger.LogError("{StatusCode} {ProblemDetails}", e.StatusCode, JsonSerializer.Serialize(e.Content));
+            _logger.LogError("{StatusCode} {ProblemDetails} {UpdatedDto} {ExistingDto} {activityUpdateRequests} {Currently}",
+                e.StatusCode,
+                JsonSerializer.Serialize(e.Content),
+                JsonSerializer.Serialize(updated),
+                JsonSerializer.Serialize(existing),
+                JsonSerializer.Serialize(activityUpdateRequests),
+                currently
+            );
             throw;
         }
     }
