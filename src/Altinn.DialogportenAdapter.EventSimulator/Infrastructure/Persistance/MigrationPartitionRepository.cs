@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Reflection;
+using Altinn.DialogportenAdapter.EventSimulator.Common.Extensions;
 using Azure.Data.Tables;
 
 namespace Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Persistance;
@@ -26,7 +28,7 @@ internal sealed class MigrationPartitionRepository : IMigrationPartitionReposito
 
         var partitionKeyStrings = partitions
             .GroupBy(x => x.Partition)
-            .Select(x => x.Key.ToString())
+            .Select(x => x.Key.ToPartitionKey())
             .ToList();
 
         var filter = string.Join(" or ", partitionKeyStrings.Select(pk => $"PartitionKey eq '{pk}'"));
@@ -44,7 +46,7 @@ internal sealed class MigrationPartitionRepository : IMigrationPartitionReposito
         var result = new List<MigrationPartitionEntity>();
         await foreach (var entity in queryResult)
         {
-            var key = (DateOnly.Parse(entity.PartitionKey), entity.RowKey);
+            var key = (entity.PartitionKey.ToDateOnly(), entity.RowKey);
             if (partitionsByKey.TryGetValue(key, out var partition))
             {
                 result.Add(partition);
@@ -57,8 +59,8 @@ internal sealed class MigrationPartitionRepository : IMigrationPartitionReposito
     public async Task<MigrationPartitionEntity?> Get(DateOnly partition, string organization, CancellationToken cancellationToken)
     {
         var entity = await _tableClient.GetEntityIfExistsAsync<MigrationPartitionEntity>(
-            partitionKey: partition.ToString(),
-            rowKey: organization,
+            partitionKey: partition.ToPartitionKey(),
+            rowKey: organization.ToRowKey(),
             cancellationToken: cancellationToken);
 
         return entity.Value;
@@ -82,9 +84,7 @@ internal sealed class MigrationPartitionRepository : IMigrationPartitionReposito
 
                 try
                 {
-                    //_logger.LogInformation("Submitting batch {BatchIndex} (PK: {PartitionKey}, Size: {Size})", batchIndex, pk, actions.Count);
                     await _tableClient.SubmitTransactionAsync(actions, cancellationToken);
-                    //_logger.LogInformation("Batch {BatchIndex} succeeded (Size: {Size})", batchIndex, actions.Count);
                 }
                 catch (TableTransactionFailedException ex)
                 {
