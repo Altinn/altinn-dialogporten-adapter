@@ -11,6 +11,8 @@ public static class TableKeyExtensions
     public static DateOnly ToDateOnly(this string partitionKey)
         => DateOnly.ParseExact(partitionKey, DateFormat, CultureInfo.InvariantCulture);
 
+    // This method is a placeholder for potential future transformation logic for row keys,
+    // or to provide a semantic marker for row key usage in the codebase.
     public static string ToRowKey(this string org)
         => org;
 
