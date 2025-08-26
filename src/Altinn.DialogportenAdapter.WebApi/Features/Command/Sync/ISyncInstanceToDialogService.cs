@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Text.Json;
 using Altinn.DialogportenAdapter.Contracts;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
@@ -231,7 +232,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         }
         catch (ValidationApiException e)
         {
-            _logger.LogError("{Message} {StatusCode} {ProblemDetails}", e.Message, e.StatusCode, e.Content);
+            _logger.LogError("{StatusCode} {ProblemDetails}", e.StatusCode, JsonSerializer.Serialize(e.Content));
             throw;
         }
     }
