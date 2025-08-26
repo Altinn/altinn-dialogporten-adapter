@@ -209,31 +209,39 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
 
         PruneExistingImmutableEntities(updated, existing);
 
-        var updateResult = await _dialogportenApi.Update(updated, updated.Revision!.Value,
-            isSilentUpdate: isMigration,
-            cancellationToken: cancellationToken).EnsureSuccess();
 
-        updated.Revision = GetRevisionId(updateResult);
-
-        foreach (var activityUpdateRequest in activityUpdateRequests)
+        try
         {
-            var result = await _dialogportenApi.UpdateFormSavedActivityTime(
-                updated.Id!.Value,
-                activityUpdateRequest.ActivityId,
-                updated.Revision.Value,
-                activityUpdateRequest.NewCreatedAt,
+            var updateResult = await _dialogportenApi.Update(updated, updated.Revision!.Value,
+                isSilentUpdate: isMigration,
                 cancellationToken: cancellationToken).EnsureSuccess();
-            updated.Revision = GetRevisionId(result);
+
+            updated.Revision = GetRevisionId(updateResult);
+
+            foreach (var activityUpdateRequest in activityUpdateRequests)
+            {
+                var result = await _dialogportenApi.UpdateFormSavedActivityTime(
+                    updated.Id!.Value,
+                    activityUpdateRequest.ActivityId,
+                    updated.Revision.Value,
+                    activityUpdateRequest.NewCreatedAt,
+                    cancellationToken: cancellationToken).EnsureSuccess();
+                updated.Revision = GetRevisionId(result);
+            }
+        }
+        catch (ValidationApiException e)
+        {
+            _logger.LogError("{Message} {StatusCode} {ProblemDetails}", e.Message, e.StatusCode, e.Content);
+            throw;
         }
     }
 
     private Guid GetRevisionId(IApiResponse response)
     {
-        if (!response.Headers.TryGetValues(nameof(response.Headers.ETag), out var eTagHeaderValues) ||
+        if (!response.Headers.TryGetValues(IDialogportenApi.ETagHeader, out var eTagHeaderValues) ||
             !Guid.TryParse(eTagHeaderValues.FirstOrDefault(), out var eTagGuid))
         {
-            _logger.LogWarning("ETag header was not found or could not be parsed. Returning empty GUID.");
-            return Guid.Empty;
+            throw new InvalidOperationException("ETag header value is missing or invalid.");
         }
 
         return eTagGuid;
@@ -248,17 +256,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
             .Restore(dialogId, revision, disableAltinnEvents, cancellationToken)
             .EnsureSuccess();
 
-        if (!response.Headers.TryGetValues(IDialogportenApi.ETagHeader, out var etags))
-        {
-            throw new UnreachableException("ETag header was not found.");
-        }
-
-        if (!Guid.TryParse(etags.FirstOrDefault(), out var etag))
-        {
-            throw new UnreachableException("ETag header could not be parsed.");
-        }
-
-        return etag;
+        return GetRevisionId(response);
     }
 
     private static void PruneExistingImmutableEntities(DialogDto updated, DialogDto? existing)
