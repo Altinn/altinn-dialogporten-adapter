@@ -5,6 +5,7 @@ using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Altinn.Platform.Storage.Interface.Models;
+using Refit;
 using Constants = Altinn.DialogportenAdapter.WebApi.Common.Constants;
 
 namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
@@ -212,13 +213,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
             isSilentUpdate: isMigration,
             cancellationToken: cancellationToken).EnsureSuccess();
 
-        if (!updateResult.Headers.TryGetValues(nameof(updateResult.Headers.ETag), out var eTagHeaderValues) ||
-            !Guid.TryParse(eTagHeaderValues.FirstOrDefault(), out var eTagGuid))
-        {
-            return;
-        }
-
-        updated.Revision = eTagGuid;
+        updated.Revision = GetRevisionId(updateResult);
 
         foreach (var activityUpdateRequest in activityUpdateRequests)
         {
@@ -228,8 +223,20 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
                 updated.Revision.Value,
                 activityUpdateRequest.NewCreatedAt,
                 cancellationToken: cancellationToken).EnsureSuccess();
-            updated.Revision = Guid.Parse(result.Headers.ETag!.Tag);
+            updated.Revision = GetRevisionId(result);
         }
+    }
+
+    private Guid GetRevisionId(IApiResponse response)
+    {
+        if (!response.Headers.TryGetValues(nameof(response.Headers.ETag), out var eTagHeaderValues) ||
+            !Guid.TryParse(eTagHeaderValues.FirstOrDefault(), out var eTagGuid))
+        {
+            _logger.LogWarning("ETag header was not found or could not be parsed. Returning empty GUID.");
+            return Guid.Empty;
+        }
+
+        return eTagGuid;
     }
 
     private async Task<Guid> RestoreDialog(Guid dialogId,
