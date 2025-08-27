@@ -1,3 +1,4 @@
+using System.Net;
 using Altinn.ApiClients.Dialogporten;
 using Altinn.ApiClients.Maskinporten.Extensions;
 using Altinn.ApiClients.Maskinporten.Services;
@@ -12,6 +13,7 @@ using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
+using JasperFx.Core;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -21,6 +23,7 @@ using OpenTelemetry.Trace;
 using Refit;
 using Wolverine;
 using Wolverine.AzureServiceBus;
+using Wolverine.ErrorHandling;
 using ZiggyCreatures.Caching.Fusion;
 using Constants = Altinn.DialogportenAdapter.WebApi.Common.Constants;
 using ContractConstants = Altinn.DialogportenAdapter.Contracts.Constants;
@@ -81,6 +84,15 @@ static void BuildAndRun(string[] args)
             .ListenerCount(settings.WolverineSettings.ListenerCount)
             .ProcessInline());
         opts.Policies.AllSenders(x => x.SendInline());
+
+        // Handle transient errors (5xx) as well as 412 or 422 errors, which may be caused by timing/duplicate messages.
+        // Retry a few times with cooldown before requeue, ASB will automatically dead-letter messages that exceed the
+        // max delivery count.
+        opts.Policies.OnException<ApiException>(ex =>
+                ex.StatusCode == HttpStatusCode.PreconditionFailed || ex.StatusCode == HttpStatusCode.UnprocessableEntity || (int)ex.StatusCode >= 500)
+            .RetryWithCooldown(200.Milliseconds(), 1.Seconds(), 3.Seconds())
+            .Then.Requeue();
+
         opts.ListenToAzureServiceBusQueue(ContractConstants.AdapterQueueName);
     });
 
