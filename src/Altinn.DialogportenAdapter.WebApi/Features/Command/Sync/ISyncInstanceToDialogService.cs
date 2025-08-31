@@ -190,32 +190,14 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
             ? CreateDialog(updated, settings, isMigration, cancellationToken)
             : UpdateDialog(updated, existing, isMigration, cancellationToken);
 
-    private async Task CreateDialog(
+    private Task CreateDialog(
         DialogDto updated,
         SyncAdapterSettings settings,
         bool isMigration,
-        CancellationToken cancellationToken)
-    {
-        if (settings.DisableCreate)
-        {
-            return;
-        }
-
-        try
-        {
-            await _dialogportenApi.Create(updated, isSilentUpdate: isMigration, cancellationToken: cancellationToken);
-        }
-        catch (ValidationApiException e)
-        {
-            _logger.LogError("{StatusCode} {ProblemDetails} {CreateDto} {IsMigration}",
-                e.StatusCode,
-                JsonSerializer.Serialize(e.Content),
-                JsonSerializer.Serialize(updated),
-                isMigration
-            );
-            throw;
-        }
-    }
+        CancellationToken cancellationToken) =>
+        settings.DisableCreate
+            ? Task.CompletedTask
+            : _dialogportenApi.Create(updated, isSilentUpdate: isMigration, cancellationToken: cancellationToken);
 
     private async Task UpdateDialog(DialogDto updated, DialogDto? existing, bool isMigration,
         CancellationToken cancellationToken)
@@ -227,39 +209,22 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
             .ToArray() ?? [];
 
         PruneExistingImmutableEntities(updated, existing);
-        var currently = "dialog-update";
-        try
+
+        var updateResult = await _dialogportenApi.Update(updated, updated.Revision!.Value,
+            isSilentUpdate: isMigration,
+            cancellationToken: cancellationToken).EnsureSuccess();
+
+        updated.Revision = GetRevisionId(updateResult);
+
+        foreach (var activityUpdateRequest in activityUpdateRequests)
         {
-            var updateResult = await _dialogportenApi.Update(updated, updated.Revision!.Value,
-                isSilentUpdate: isMigration,
+            var result = await _dialogportenApi.UpdateFormSavedActivityTime(
+                updated.Id!.Value,
+                activityUpdateRequest.ActivityId,
+                updated.Revision.Value,
+                activityUpdateRequest.NewCreatedAt,
                 cancellationToken: cancellationToken).EnsureSuccess();
-
-            updated.Revision = GetRevisionId(updateResult);
-
-            currently = "activity-time-update";
-            foreach (var activityUpdateRequest in activityUpdateRequests)
-            {
-                var result = await _dialogportenApi.UpdateFormSavedActivityTime(
-                    updated.Id!.Value,
-                    activityUpdateRequest.ActivityId,
-                    updated.Revision.Value,
-                    activityUpdateRequest.NewCreatedAt,
-                    cancellationToken: cancellationToken).EnsureSuccess();
-                updated.Revision = GetRevisionId(result);
-            }
-        }
-        catch (ValidationApiException e)
-        {
-            _logger.LogError("{StatusCode} {ProblemDetails} {UpdatedDto} {ExistingDto} {activityUpdateRequests} {Currently} {IsMigration}",
-                e.StatusCode,
-                JsonSerializer.Serialize(e.Content),
-                JsonSerializer.Serialize(updated),
-                JsonSerializer.Serialize(existing),
-                JsonSerializer.Serialize(activityUpdateRequests),
-                currently,
-                isMigration
-            );
-            throw;
+            updated.Revision = GetRevisionId(result);
         }
     }
 
