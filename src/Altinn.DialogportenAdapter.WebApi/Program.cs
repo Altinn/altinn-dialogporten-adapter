@@ -106,19 +106,18 @@ static void BuildAndRun(string[] args)
             .RetryWithCooldown(500.Milliseconds(), 1.Seconds(), 3.Seconds(), 5.Seconds(), 10.Seconds())
             .Then.MoveToErrorQueue();
 
-        // 5xx errors are usually transient (upstream downtime), so try a few times with a cooldown to ensure we're moved
-        // beyond the ASB duplicate detection window before re-scheduling indefinitely.
-        opts.Policies.OnException<ApiException>(ex =>
-                (int)ex.StatusCode >= 500)
+        // 5xx errors are usually transient (upstream being down/overloaded), so try a few times with a cooldown to ensure we're moved
+        // beyond the ASB duplicate detection window before re-scheduling indefinitely. HttpRequestExceptions indicates
+        // network issues, DNS issues, etc. which are usually transient, so handle this the same as 5xx errors.
+        opts.Policies.OnException(ex => ex switch
+            {
+                HttpRequestException => true,
+                ApiException apiException when (int)apiException.StatusCode >= 500 => true,
+                _ => false
+            })
             .RetryWithCooldown(10.Seconds(), 20.Seconds()) // Must in total exceed ASB duplicate detection window
             .Then.ScheduleRetryIndefinitely(30.Seconds(), 60.Seconds(), 2.Minutes())
             .AndPauseProcessing(30.Seconds()); // Give some time for upstream to recover before processing more messages
-
-        // Other HttpRequestException indicates network issues, DNS issues, etc. which are usually transient, so
-        // handle this the same as 5xx errors.
-        opts.Policies.OnException<HttpRequestException>()
-            .RetryWithCooldown(10.Seconds(), 20.Seconds()) // Must in total exceed ASB duplicate detection window
-            .Then.ScheduleRetryIndefinitely(30.Seconds(), 60.Seconds(), 2.Minutes());
 
         opts.ListenToAzureServiceBusQueue(ContractConstants.AdapterQueueName)
             .ConfigureQueue(q =>

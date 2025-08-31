@@ -519,7 +519,7 @@ internal sealed class StorageDialogportenDataMerger
         ArgumentNullException.ThrowIfNull(instanceUri);
 
         var authenticationBaseUri =
-            _settings.DialogportenAdapter.Altinn.GetPlatformUri() +
+            _settings.DialogportenAdapter.Altinn.GetPlatformUri().ToString().TrimEnd('/') +
             "/authentication/api/v1/authentication?goto=";
 
         var hashIndex = instanceUri.IndexOf('#');
