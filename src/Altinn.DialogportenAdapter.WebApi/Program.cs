@@ -85,15 +85,51 @@ static void BuildAndRun(string[] args)
             .ProcessInline());
         opts.Policies.AllSenders(x => x.SendInline());
 
-        // Handle transient errors (5xx) as well as 412 or 422 errors, which may be caused by timing/duplicate messages.
-        // Retry a few times with cooldown before requeue, ASB will automatically dead-letter messages that exceed the
-        // max delivery count.
-        opts.Policies.OnException<ApiException>(ex =>
-                ex.StatusCode == HttpStatusCode.PreconditionFailed || ex.StatusCode == HttpStatusCode.UnprocessableEntity || (int)ex.StatusCode >= 500)
-            .RetryWithCooldown(200.Milliseconds(), 1.Seconds(), 3.Seconds())
-            .Then.Requeue();
+        // NOTE! The queue is using duplicate detection with a 20-second window, which means any re-queueing within
+        // that window will be treated as a duplicate and the message will be silently dropped by ASB.
+        // This means that the retry attempts here must be spaced out to exceed that window.
+        //
+        // By default, Wolverine will immediately send a message to the error queue if an exception is thrown, unless
+        // it is handled by a policy below.
 
-        opts.ListenToAzureServiceBusQueue(ContractConstants.AdapterQueueName);
+        // Handle 412 which is caused by timing/duplicate messages. If we're not able to handle it after retries, just drop it.
+        opts.Policies.OnException<ApiException>(ex =>
+                ex.StatusCode is HttpStatusCode.PreconditionFailed)
+            .RetryWithCooldown(500.Milliseconds(), 1.Seconds(), 3.Seconds(), 5.Seconds(), 10.Seconds())
+            .Then.MoveToErrorQueue(); // For now, move to DLQ for manual inspection
+            //.Then.Discard();
+
+        // Handle 422 errors, which may be caused by timing/duplicate messages, but might also be other issues, so try a few times
+        // then move to error queue for manual inspection.
+        opts.Policies.OnException<ApiException>(ex =>
+                ex.StatusCode is HttpStatusCode.UnprocessableEntity)
+            .RetryWithCooldown(500.Milliseconds(), 1.Seconds(), 3.Seconds(), 5.Seconds(), 10.Seconds())
+            .Then.MoveToErrorQueue();
+
+        // 5xx errors are usually transient (upstream downtime), so try a few times with a cooldown to ensure we're moved
+        // beyond the ASB duplicate detection window before re-scheduling indefinitely.
+        opts.Policies.OnException<ApiException>(ex =>
+                (int)ex.StatusCode >= 500)
+            .RetryWithCooldown(10.Seconds(), 20.Seconds()) // Must in total exceed ASB duplicate detection window
+            .Then.ScheduleRetryIndefinitely(30.Seconds(), 60.Seconds(), 2.Minutes())
+            .AndPauseProcessing(30.Seconds()); // Give some time for upstream to recover before processing more messages
+
+        // Other HttpRequestException indicates network issues, DNS issues, etc. which are usually transient, so
+        // handle this the same as 5xx errors.
+        opts.Policies.OnException<HttpRequestException>()
+            .RetryWithCooldown(10.Seconds(), 20.Seconds()) // Must in total exceed ASB duplicate detection window
+            .Then.ScheduleRetryIndefinitely(30.Seconds(), 60.Seconds(), 2.Minutes());
+
+        opts.ListenToAzureServiceBusQueue(ContractConstants.AdapterQueueName)
+            .ConfigureQueue(q =>
+            {
+                // NOTE! This can ONLY be set at queue creation time
+                q.RequiresDuplicateDetection = true;
+
+                // 20 seconds is the minimum allowed by ASB duplicate detection according to
+                // https://learn.microsoft.com/en-us/azure/service-bus-messaging/duplicate-detection#duplicate-detection-window-size
+                q.DuplicateDetectionHistoryTimeWindow = 20.Seconds();
+            });
     });
 
     builder.Services.RegisterMaskinportenClientDefinition<SettingsJwkClientDefinition>(
