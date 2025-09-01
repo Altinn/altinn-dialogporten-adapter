@@ -97,41 +97,8 @@ internal sealed class StorageDialogportenDataMerger
                 _activityDtoTransformer.GetActivities(dto.Events, cancellationToken)
             );
 
-        // Amund: Filthy! må ryddes ⊂(◉‿◉)つ
 
-        List<AttachmentDto> attachments;
-        var transmissions = new List<TransmissionDto>();
-        var data = dto.Instance.Data;
-
-        if (systemLabel == SystemLabel.Archive)
-        {
-            var formSubmittedActivity = activities.FirstOrDefault(x => x.Type == DialogActivityType.FormSubmitted);
-            if (formSubmittedActivity is not null)
-            {
-                var temp = data.Where(x => !IsPerformedBySo(x)).ToList();// Amund Q: ??? Org nr verification?
-                data = data.Where(IsPerformedBySo).ToList();
-                
-                transmissions.Add(CreateArchivedTransmission(formSubmittedActivity, temp));
-            }
-        }
-
-        attachments = data.Select(x => new AttachmentDto
-        {
-            Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
-            DisplayName = [new() { LanguageCode = "nb", Value = x.Filename ?? x.DataType }],
-            Urls =
-            [
-                new()
-                {
-                    Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
-                    ConsumerType = x.Filename is not null
-                        ? AttachmentUrlConsumerType.Gui
-                        : AttachmentUrlConsumerType.Api,
-                    MediaType = x.ContentType,
-                    Url = x.SelfLinks.Platform
-                }
-            ]
-        }).ToList();
+        var (attachments, transmissions) = GetAttachmentAndTransmissions(systemLabel, activities, dto.Instance.Data);
 
 
         return new DialogDto
@@ -188,6 +155,44 @@ internal sealed class StorageDialogportenDataMerger
             Attachments = attachments,
             Activities = activities
         };
+    }
+    private static (List<AttachmentDto> attachments, List<TransmissionDto> transmissions) GetAttachmentAndTransmissions(SystemLabel systemLabel, List<ActivityDto> activities, List<DataElement> data)
+    {
+        // Amund: Lager dette en perf hit som er for mye?
+        var internalData = data;
+        // Amund: Filthy! må ryddes ⊂(◉‿◉)つ
+        List<TransmissionDto> transmissions = [];
+        if (systemLabel == SystemLabel.Archive)
+        {
+            var formSubmittedActivity = activities.FirstOrDefault(x => x.Type == DialogActivityType.FormSubmitted);
+            if (formSubmittedActivity is not null)
+            {
+                transmissions.Add(
+                    CreateArchivedTransmission(formSubmittedActivity, data.Where(x => !IsPerformedBySo(x)).ToList())
+                );
+                internalData = internalData.Where(IsPerformedBySo).ToList();
+                
+            }
+        }
+
+        var attachments = internalData.Select(x => new AttachmentDto
+        {
+            Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
+            DisplayName = [new() { LanguageCode = "nb", Value = x.Filename ?? x.DataType }],
+            Urls =
+            [
+                new()
+                {
+                    Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
+                    ConsumerType = x.Filename is not null
+                        ? AttachmentUrlConsumerType.Gui
+                        : AttachmentUrlConsumerType.Api,
+                    MediaType = x.ContentType,
+                    Url = x.SelfLinks.Platform
+                }
+            ]
+        }).ToList();
+        return (attachments, transmissions);
     }
     private static TransmissionDto CreateArchivedTransmission(ActivityDto formSubmittedActivity, List<DataElement> data)
     {
