@@ -159,7 +159,6 @@ internal sealed class StorageDialogportenDataMerger
 
     private static (List<AttachmentDto> attachments, List<TransmissionDto> transmissions) GetAttachmentAndTransmissions(List<ActivityDto> activities, DialogStatus dialogStatus, List<DataElement> data)
     {
-        // Amund: Filthy! må ryddes ⊂(◉‿◉)つ
         List<TransmissionDto> transmissions = [];
         List<AttachmentDto> attachments;
         
@@ -222,7 +221,6 @@ internal sealed class StorageDialogportenDataMerger
             Id = activity.Id.Value.ToVersion7(activity.CreatedAt.Value),
             Type = DialogTransmissionType.Submission,
             Sender = activity.PerformedBy,
-            // Amund: Henter alle attachments som skal legges til i transmission
             Attachments = data
                 .Where(x => !IsPerformedBySo(x))
                 .Select(x => new TransmissionAttachmentDto()
