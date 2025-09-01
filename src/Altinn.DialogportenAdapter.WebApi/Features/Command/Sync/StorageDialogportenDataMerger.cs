@@ -233,7 +233,7 @@ internal sealed class StorageDialogportenDataMerger
                     [
                         new()
                         {
-                            // Amund Q: Burde denne ha en Id? tror kanskje det. Men Dialogporten tar ikke imot den IDen uansett
+                            Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
                             ConsumerType = x.Filename is not null
                                 ? AttachmentUrlConsumerType.Gui
                                 : AttachmentUrlConsumerType.Api,

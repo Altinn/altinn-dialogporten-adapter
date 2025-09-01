@@ -734,6 +734,12 @@ public sealed class TransmissionAttachmentDto
 public sealed class TransmissionAttachmentUrlDto
 {
     /// <summary>
+    /// A UUIDv7 used for merging existing data, unknown IDs will be ignored as this entity does not support user-defined IDs.
+    /// </summary>
+    /// <example>01913cd5-784f-7d3b-abef-4c77b1f0972d</example>
+    public Guid? Id { get; set; }
+    
+    /// <summary>
     /// The fully qualified URL of the attachment.
     /// </summary>
     public string Url { get; set; } = null!;
