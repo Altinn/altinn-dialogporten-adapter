@@ -98,7 +98,7 @@ internal sealed class StorageDialogportenDataMerger
             );
 
 
-        var (attachments, transmissions) = GetAttachmentAndTransmissions(systemLabel, activities, dto.Instance.Data);
+        var (attachments, transmissions) = GetAttachmentAndTransmissions(activities, dialogStatus, dto.Instance.Data);
 
 
         return new DialogDto
@@ -156,26 +156,44 @@ internal sealed class StorageDialogportenDataMerger
             Activities = activities
         };
     }
-    private static (List<AttachmentDto> attachments, List<TransmissionDto> transmissions) GetAttachmentAndTransmissions(SystemLabel systemLabel, List<ActivityDto> activities, List<DataElement> data)
+
+    private static (List<AttachmentDto> attachments, List<TransmissionDto> transmissions) GetAttachmentAndTransmissions(List<ActivityDto> activities, DialogStatus dialogStatus, List<DataElement> data)
     {
-        // Amund: Lager dette en perf hit som er for mye?
-        var internalData = data;
         // Amund: Filthy! må ryddes ⊂(◉‿◉)つ
         List<TransmissionDto> transmissions = [];
-        if (systemLabel == SystemLabel.Archive)
+        List<AttachmentDto> attachments;
+        
+        if (dialogStatus == DialogStatus.Completed)
         {
             var formSubmittedActivity = activities.FirstOrDefault(x => x.Type == DialogActivityType.FormSubmitted);
             if (formSubmittedActivity is not null)
             {
                 transmissions.Add(
-                    CreateArchivedTransmission(formSubmittedActivity, data.Where(x => !IsPerformedBySo(x)).ToList())
+                    CreateArchivedTransmission(formSubmittedActivity, data)
                 );
-                internalData = internalData.Where(IsPerformedBySo).ToList();
-                
+
+                attachments = data.Where(IsPerformedBySo).Select(x => new AttachmentDto
+                {
+                    Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
+                    DisplayName = [new() { LanguageCode = "nb", Value = x.Filename ?? x.DataType }],
+                    Urls =
+                    [
+                        new()
+                        {
+                            Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
+                            ConsumerType = x.Filename is not null
+                                ? AttachmentUrlConsumerType.Gui
+                                : AttachmentUrlConsumerType.Api,
+                            MediaType = x.ContentType,
+                            Url = x.SelfLinks.Platform
+                        }
+                    ]
+                }).ToList();
+                return (attachments, transmissions);
             }
         }
-
-        var attachments = internalData.Select(x => new AttachmentDto
+        
+        attachments = data.Select(x => new AttachmentDto
         {
             Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
             DisplayName = [new() { LanguageCode = "nb", Value = x.Filename ?? x.DataType }],
@@ -192,17 +210,21 @@ internal sealed class StorageDialogportenDataMerger
                 }
             ]
         }).ToList();
+        
         return (attachments, transmissions);
+
     }
-    private static TransmissionDto CreateArchivedTransmission(ActivityDto formSubmittedActivity, List<DataElement> data)
+
+    private static TransmissionDto CreateArchivedTransmission(ActivityDto activity, List<DataElement> data)
     {
         var transmission = new TransmissionDto
         {
-            Id = formSubmittedActivity.Id.Value.ToVersion7(formSubmittedActivity.CreatedAt.Value),
+            Id = activity.Id.Value.ToVersion7(activity.CreatedAt.Value),
             Type = DialogTransmissionType.Submission,
-            Sender = formSubmittedActivity.PerformedBy,
+            Sender = activity.PerformedBy,
             // Amund: Henter alle attachments som skal legges til i transmission
-            Attachments = data 
+            Attachments = data
+                .Where(x => !IsPerformedBySo(x))
                 .Select(x => new TransmissionAttachmentDto()
                 {
                     Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
@@ -211,7 +233,7 @@ internal sealed class StorageDialogportenDataMerger
                     [
                         new()
                         {
-                            // Amund Q: Burde denne ha en Id? tror kanskje det. Men DialogPorten tar ikke imot den IDen uansett
+                            // Amund Q: Burde denne ha en Id? tror kanskje det. Men Dialogporten tar ikke imot den IDen uansett
                             ConsumerType = x.Filename is not null
                                 ? AttachmentUrlConsumerType.Gui
                                 : AttachmentUrlConsumerType.Api,
@@ -221,8 +243,6 @@ internal sealed class StorageDialogportenDataMerger
                     ]
                 }).ToList()
         };
-        
-        
         return transmission;
     }
 
