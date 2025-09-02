@@ -1,10 +1,12 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Text.Json;
 using Altinn.DialogportenAdapter.Contracts;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Altinn.Platform.Storage.Interface.Models;
+using Refit;
 using Constants = Altinn.DialogportenAdapter.WebApi.Common.Constants;
 
 namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
@@ -202,7 +204,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
     {
         var activityUpdateRequests = existing?.Activities
             .Join(updated.Activities, x => x.Id, x => x.Id, (prev, next) => (prev, next))
-            .Where(x => x.prev.CreatedAt < x.next.CreatedAt)
+            .Where(x => x.prev.Type == DialogActivityType.FormSaved &&  x.prev.CreatedAt < x.next.CreatedAt)
             .Select(x => new { ActivityId = x.next.Id!.Value, NewCreatedAt = x.next.CreatedAt!.Value })
             .ToArray() ?? [];
 
@@ -211,7 +213,8 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         var updateResult = await _dialogportenApi.Update(updated, updated.Revision!.Value,
             isSilentUpdate: isMigration,
             cancellationToken: cancellationToken).EnsureSuccess();
-        updated.Revision = Guid.Parse(updateResult.Headers.ETag!.Tag);
+
+        updated.Revision = GetRevisionId(updateResult);
 
         foreach (var activityUpdateRequest in activityUpdateRequests)
         {
@@ -221,8 +224,19 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
                 updated.Revision.Value,
                 activityUpdateRequest.NewCreatedAt,
                 cancellationToken: cancellationToken).EnsureSuccess();
-            updated.Revision = Guid.Parse(result.Headers.ETag!.Tag);
+            updated.Revision = GetRevisionId(result);
         }
+    }
+
+    private Guid GetRevisionId(IApiResponse response)
+    {
+        if (!response.Headers.TryGetValues(IDialogportenApi.ETagHeader, out var eTagHeaderValues) ||
+            !Guid.TryParse(eTagHeaderValues.FirstOrDefault(), out var eTagGuid))
+        {
+            throw new InvalidOperationException("ETag header value is missing or invalid.");
+        }
+
+        return eTagGuid;
     }
 
     private async Task<Guid> RestoreDialog(Guid dialogId,
@@ -234,17 +248,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
             .Restore(dialogId, revision, disableAltinnEvents, cancellationToken)
             .EnsureSuccess();
 
-        if (!response.Headers.TryGetValues(IDialogportenApi.ETagHeader, out var etags))
-        {
-            throw new UnreachableException("ETag header was not found.");
-        }
-
-        if (!Guid.TryParse(etags.FirstOrDefault(), out var etag))
-        {
-            throw new UnreachableException("ETag header could not be parsed.");
-        }
-
-        return etag;
+        return GetRevisionId(response);
     }
 
     private static void PruneExistingImmutableEntities(DialogDto updated, DialogDto? existing)

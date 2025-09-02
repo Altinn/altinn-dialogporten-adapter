@@ -1,3 +1,4 @@
+using System.Net;
 using Altinn.ApiClients.Dialogporten;
 using Altinn.ApiClients.Maskinporten.Extensions;
 using Altinn.ApiClients.Maskinporten.Services;
@@ -12,6 +13,7 @@ using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
+using JasperFx.Core;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -21,6 +23,7 @@ using OpenTelemetry.Trace;
 using Refit;
 using Wolverine;
 using Wolverine.AzureServiceBus;
+using Wolverine.ErrorHandling;
 using ZiggyCreatures.Caching.Fusion;
 using Constants = Altinn.DialogportenAdapter.WebApi.Common.Constants;
 using ContractConstants = Altinn.DialogportenAdapter.Contracts.Constants;
@@ -81,7 +84,51 @@ static void BuildAndRun(string[] args)
             .ListenerCount(settings.WolverineSettings.ListenerCount)
             .ProcessInline());
         opts.Policies.AllSenders(x => x.SendInline());
-        opts.ListenToAzureServiceBusQueue(ContractConstants.AdapterQueueName);
+
+        // NOTE! The queue is using duplicate detection with a 20-second window, which means any re-queueing within
+        // that window will be treated as a duplicate and the message will be silently dropped by ASB.
+        // This means that the retry attempts here must be spaced out to exceed that window.
+        //
+        // By default, Wolverine will immediately send a message to the error queue if an exception is thrown, unless
+        // it is handled by a policy below.
+
+        // Handle 412 which is caused by timing/duplicate messages. If we're not able to handle it after retries, just drop it.
+        opts.Policies.OnException<ApiException>(ex =>
+                ex.StatusCode is HttpStatusCode.PreconditionFailed)
+            .RetryWithCooldown(500.Milliseconds(), 1.Seconds(), 3.Seconds(), 5.Seconds(), 10.Seconds())
+            .Then.MoveToErrorQueue(); // For now, move to DLQ for manual inspection
+            //.Then.Discard();
+
+        // Handle 422 errors, which may be caused by timing/duplicate messages, but might also be other issues, so try a few times
+        // then move to error queue for manual inspection.
+        opts.Policies.OnException<ApiException>(ex =>
+                ex.StatusCode is HttpStatusCode.UnprocessableEntity)
+            .RetryWithCooldown(500.Milliseconds(), 1.Seconds(), 3.Seconds(), 5.Seconds(), 10.Seconds())
+            .Then.MoveToErrorQueue();
+
+        // 5xx errors are usually transient (upstream being down/overloaded), so try a few times with a cooldown to ensure we're moved
+        // beyond the ASB duplicate detection window before re-scheduling indefinitely. HttpRequestExceptions indicates
+        // network issues, DNS issues, etc. which are usually transient, so handle this the same as 5xx errors.
+        opts.Policies.OnException(ex => ex switch
+            {
+                HttpRequestException => true,
+                ApiException apiException when (int)apiException.StatusCode >= 500 => true,
+                _ => false
+            })
+            .RetryWithCooldown(10.Seconds(), 20.Seconds()) // Must in total exceed ASB duplicate detection window
+            .Then.ScheduleRetryIndefinitely(30.Seconds(), 60.Seconds(), 2.Minutes())
+            .AndPauseProcessing(30.Seconds()); // Give some time for upstream to recover before processing more messages
+
+        opts.ListenToAzureServiceBusQueue(ContractConstants.AdapterQueueName)
+            .ConfigureQueue(q =>
+            {
+                // NOTE! This can ONLY be set at queue creation time
+                q.RequiresDuplicateDetection = true;
+
+                // 20 seconds is the minimum allowed by ASB duplicate detection according to
+                // https://learn.microsoft.com/en-us/azure/service-bus-messaging/duplicate-detection#duplicate-detection-window-size
+                q.DuplicateDetectionHistoryTimeWindow = 20.Seconds();
+            });
     });
 
     builder.Services.RegisterMaskinportenClientDefinition<SettingsJwkClientDefinition>(
