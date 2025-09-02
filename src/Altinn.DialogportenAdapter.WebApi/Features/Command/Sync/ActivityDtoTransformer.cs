@@ -116,9 +116,7 @@ internal sealed class ActivityDtoTransformer
     {
         if (user.UserId.HasValue && actorUrnByUserId.TryGetValue(user.UserId.Value, out var actorUrn))
         {
-            return actorUrn.StartsWith(Constants.DisplayNameUrnPrefix)
-                ? new ActorDto { ActorType = ActorType.PartyRepresentative, ActorName = actorUrn[Constants.DisplayNameUrnPrefix.Length..] }
-                : new ActorDto { ActorType = ActorType.PartyRepresentative, ActorId = actorUrn };
+            return new ActorDto { ActorType = ActorType.PartyRepresentative, ActorId = actorUrn };
         }
 
         if (!string.IsNullOrWhiteSpace(user.SystemUserOwnerOrgNo))

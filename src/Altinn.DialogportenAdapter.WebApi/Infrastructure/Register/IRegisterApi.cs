@@ -16,7 +16,8 @@ internal sealed record PartyIdentifier(
     int PartyId,
     string DisplayName,
     string? PersonIdentifier,
-    string? OrganizationIdentifier
+    string? OrganizationIdentifier,
+    string? Urn
 );
 
 internal sealed record PartyQueryRequest(List<string> Data);

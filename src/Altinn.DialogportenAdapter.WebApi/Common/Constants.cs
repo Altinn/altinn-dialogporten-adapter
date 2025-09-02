@@ -15,7 +15,6 @@ internal static class Constants
     public const string UserIdUrnPrefix = "urn:altinn:user:id:";
     public const string PersonUrnPrefix = "urn:altinn:person:identifier-no:";
     public const string OrganizationUrnPrefix = "urn:altinn:organization:identifier-no:";
-    public const string DisplayNameUrnPrefix = "urn:altinn:displayName:";
 
     public const string DefaultMaskinportenClientDefinitionKey = "DefaultMaskinportenClientDefinitionKey";
 

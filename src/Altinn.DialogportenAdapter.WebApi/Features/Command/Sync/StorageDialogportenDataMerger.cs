@@ -179,9 +179,7 @@ internal sealed class StorageDialogportenDataMerger
             throw new InvalidOperationException($"Party with id {partyId} not found.");
         }
 
-        return actorUrn.StartsWith(Constants.DisplayNameUrnPrefix)
-            ? actorUrn[Constants.DisplayNameUrnPrefix.Length..]
-            : actorUrn;
+        return actorUrn;
     }
 
     private static (InstanceDerivedStatus, DialogStatus) GetStatus(Instance instance, InstanceEventList events)
