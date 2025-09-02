@@ -158,12 +158,12 @@ internal sealed class StorageDialogportenDataMerger
         };
     }
 
-    private static (List<AttachmentDto> attachments, List<TransmissionDto> transmissions) GetAttachmentAndTransmissions(List<ActivityDto> activities, DialogStatus dialogStatus, List<DataElement> data)
+    private (List<AttachmentDto> attachments, List<TransmissionDto> transmissions) GetAttachmentAndTransmissions(List<ActivityDto> activities, DialogStatus dialogStatus, List<DataElement> data)
     {
         List<TransmissionDto> transmissions = [];
         List<AttachmentDto> attachments;
         
-        if (dialogStatus == DialogStatus.Completed)
+        if (dialogStatus is DialogStatus.Completed or DialogStatus.Awaiting)
         {
             var formSubmittedActivity = activities.FirstOrDefault(x => x.Type == DialogActivityType.FormSubmitted);
             if (formSubmittedActivity is not null)
@@ -217,13 +217,28 @@ internal sealed class StorageDialogportenDataMerger
 
     }
 
-    private static TransmissionDto CreateArchivedTransmission(ActivityDto activity, List<DataElement> data)
+    private TransmissionDto CreateArchivedTransmission(ActivityDto activity, List<DataElement> data)
     {
         var transmission = new TransmissionDto
         {
             Id = activity.Id.Value.ToVersion7(activity.CreatedAt.Value),
             Type = DialogTransmissionType.Submission,
             Sender = activity.PerformedBy,
+            Content = new TransmissionContentDto
+            {
+                Title = new ContentValueDto
+                {
+                    Value =
+                    [
+                        new LocalizationDto
+                        {
+                            Value = "Content",
+                            LanguageCode = "nb"
+                        }
+                    ],
+                    MediaType = "text/plain"
+                }
+            },
             Attachments = data
                 .Where(x => !IsPerformedBySo(x))
                 .Select(x => new TransmissionAttachmentDto()
@@ -239,7 +254,9 @@ internal sealed class StorageDialogportenDataMerger
                                 ? AttachmentUrlConsumerType.Gui
                                 : AttachmentUrlConsumerType.Api,
                             MediaType = x.ContentType,
-                            Url = x.SelfLinks.Platform
+                            Url = x.Filename is not null
+                            ? ToPortalUri(x.SelfLinks.Platform)
+                            : x.SelfLinks.Platform
                         }
                     ]
                 }).ToList()
