@@ -121,7 +121,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         await UpsertDialog(updatedDialog, existingDialog, syncAdapterSettings, dto.IsMigration, cancellationToken);
     }
 
-    private bool InstanceOwnerIsSelfIdentified(Instance? instance)
+    private static bool InstanceOwnerIsSelfIdentified(Instance? instance)
     {
         return instance is not null
                && instance.InstanceOwner.OrganisationNumber is null
