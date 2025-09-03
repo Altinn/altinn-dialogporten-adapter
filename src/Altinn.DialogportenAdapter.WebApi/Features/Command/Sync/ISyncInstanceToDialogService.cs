@@ -58,6 +58,12 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
             return;
         }
 
+        if (InstanceOwnerIsSelfIdentified(instance))
+        {
+            // We skip these for now as we do not have a good way to identify the user in dialogporten
+            return;
+        }
+
         if (ShouldUpdateInstanceWithDialogId(instance, dialogId))
         {
             // Update the instance with the dialogId before we start to modify the dialog
@@ -113,6 +119,15 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         var mergeDto = new MergeDto(dialogId, existingDialog, application, instance, events, dto.IsMigration);
         var updatedDialog = await _dataMerger.Merge(mergeDto, cancellationToken);
         await UpsertDialog(updatedDialog, existingDialog, syncAdapterSettings, dto.IsMigration, cancellationToken);
+    }
+
+    private static bool InstanceOwnerIsSelfIdentified(Instance? instance)
+    {
+        return instance is not null
+               && instance.InstanceOwner.OrganisationNumber is null
+               && instance.InstanceOwner.PersonNumber is null
+               && instance.InstanceOwner.PartyId is not null
+               && instance.InstanceOwner.Username is not null;
     }
 
     private static void EnsureNotNull(
