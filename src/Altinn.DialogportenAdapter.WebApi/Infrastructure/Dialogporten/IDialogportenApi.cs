@@ -18,7 +18,7 @@ internal interface IDialogportenApi
     Task<IApiResponse> Update([Body] DialogDto dto, [Header(IfMatchHeader)] Guid revision, [Query] bool isSilentUpdate = false, CancellationToken cancellationToken = default);
 
     [Delete("/api/v1/serviceowner/dialogs/{dialogId}")]
-    Task<IApiResponse> Delete(Guid dialogId, [Header(IfMatchHeader)] Guid revision, [Query] bool isSilentUpdate = false, CancellationToken cancellationToken = default);
+    Task Delete(Guid dialogId, [Header(IfMatchHeader)] Guid revision, [Query] bool isSilentUpdate = false, CancellationToken cancellationToken = default);
 
     [Post("/api/v1/serviceowner/dialogs/{dialogId}/actions/purge")]
     Task Purge(Guid dialogId, [Header(IfMatchHeader)] Guid revision, [Query] bool isSilentUpdate = false, CancellationToken cancellationToken = default);

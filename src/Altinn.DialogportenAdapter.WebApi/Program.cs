@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using Altinn.ApiClients.Dialogporten;
 using Altinn.ApiClients.Maskinporten.Extensions;
@@ -24,6 +25,7 @@ using Refit;
 using Wolverine;
 using Wolverine.AzureServiceBus;
 using Wolverine.ErrorHandling;
+using Wolverine.Runtime;
 using ZiggyCreatures.Caching.Fusion;
 using Constants = Altinn.DialogportenAdapter.WebApi.Common.Constants;
 using ContractConstants = Altinn.DialogportenAdapter.Contracts.Constants;
@@ -92,12 +94,18 @@ static void BuildAndRun(string[] args)
         // By default, Wolverine will immediately send a message to the error queue if an exception is thrown, unless
         // it is handled by a policy below.
 
-        // Handle 412 which is caused by timing/duplicate messages. If we're not able to handle it after retries, just drop it.
+        // Handle 410, which we get when trying to DELETE an already deleted dialog. Just discard.
+        opts.Policies.OnException<ApiException>(ex =>
+                ex.StatusCode is HttpStatusCode.Gone)
+            .Discard();
+
+        // Handle 412 which is caused by timing/duplicate messages. Try a few times, then reschedule at the end of the
+        // next time bucket of 1 minute duration (ie. a message handled at 13:00:00, 13:00:47 or 13:00:59 will be
+        // scheduled to 13:01:59. Placing them within the same de-duplication window will reduce the number of duplicates to deal with.
         opts.Policies.OnException<ApiException>(ex =>
                 ex.StatusCode is HttpStatusCode.PreconditionFailed)
-            .RetryWithCooldown(500.Milliseconds(), 1.Seconds(), 3.Seconds(), 5.Seconds(), 10.Seconds())
-            .Then.MoveToErrorQueue(); // For now, move to DLQ for manual inspection
-            //.Then.Discard();
+            .RetryWithCooldown(500.Milliseconds(), 1.Seconds(), 3.Seconds(), 5.Seconds(), 10.Seconds()) // Must in total exceed ASB duplicate detection window
+            .Then.Discard().And<RetryAtEndOfBucket>();
 
         // Handle 422 errors, which may be caused by timing/duplicate messages, but might also be other issues, so try a few times
         // then move to error queue for manual inspection.
@@ -207,12 +215,17 @@ static void BuildAndRun(string[] args)
             {
                 x.BaseAddress = settings.DialogportenAdapter.Altinn.InternalStorageEndpoint;
                 x.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", settings.DialogportenAdapter.Altinn.SubscriptionKey);
+                x.DefaultRequestHeaders.Add("User-Agent", settings.DialogportenAdapter.UserAgent);
             })
             .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
             .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>()
             .Services
         .AddRefitClient<IDialogportenApi>()
-            .ConfigureHttpClient(x => x.BaseAddress = settings.DialogportenAdapter.Dialogporten.BaseUri)
+            .ConfigureHttpClient(x =>
+            {
+                x.BaseAddress = settings.DialogportenAdapter.Dialogporten.BaseUri;
+                x.DefaultRequestHeaders.Add("User-Agent", settings.DialogportenAdapter.UserAgent);
+            })
             .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
             .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>()
             .Services
@@ -221,6 +234,7 @@ static void BuildAndRun(string[] args)
             {
                 x.BaseAddress = settings.DialogportenAdapter.Altinn.InternalRegisterEndpoint;
                 x.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", settings.DialogportenAdapter.Altinn.SubscriptionKey);
+                x.DefaultRequestHeaders.Add("User-Agent", settings.DialogportenAdapter.UserAgent);
             })
             .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
             .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>()
@@ -311,3 +325,25 @@ ILoggerFactory CreateBootstrapLoggerFactory() => LoggerFactory.Create(builder =>
         options.SingleLine = true;
         options.TimestampFormat = "yyyy-MM-dd HH:mm:ss ";
     }));
+
+
+internal sealed class RetryAtEndOfBucket() : UserDefinedContinuation("Retry at end of next bucket")
+{
+    private readonly TimeSpan _bucket = TimeSpan.FromMinutes(1);
+
+    public override async ValueTask ExecuteAsync(
+        IEnvelopeLifecycle lifecycle, IWolverineRuntime runtime,
+        DateTimeOffset now, Activity? activity)
+    {
+        var utcTicks = now.UtcTicks;
+        var bucketStartUtcTicks = utcTicks - (utcTicks % _bucket.Ticks);
+        var bucketStartUtc = new DateTimeOffset(bucketStartUtcTicks, TimeSpan.Zero);
+        var bucketEndUtc = bucketStartUtc + _bucket * 2 - TimeSpan.FromMilliseconds(1);
+
+        var env = lifecycle.Envelope?.Id.ToString() ?? "<unknown>";
+
+        Console.WriteLine("## Scheduling " + env + " retry at the end of the current time bucket: " + bucketEndUtc + " (now: " + now.ToUniversalTime() + ")");
+
+        await lifecycle.ReScheduleAsync(bucketEndUtc);
+    }
+}
