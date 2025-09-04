@@ -229,7 +229,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
             isSilentUpdate: isMigration,
             cancellationToken: cancellationToken).EnsureSuccess();
 
-        updated.Revision = GetRevisionId(updateResult);
+        updated.Revision = updateResult.GetEtagHeader();
 
         foreach (var activityUpdateRequest in activityUpdateRequests)
         {
@@ -239,19 +239,8 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
                 updated.Revision.Value,
                 activityUpdateRequest.NewCreatedAt,
                 cancellationToken: cancellationToken).EnsureSuccess();
-            updated.Revision = GetRevisionId(result);
+            updated.Revision = result.GetEtagHeader();
         }
-    }
-
-    private Guid GetRevisionId(IApiResponse response)
-    {
-        if (!response.Headers.TryGetValues(IDialogportenApi.ETagHeader, out var eTagHeaderValues) ||
-            !Guid.TryParse(eTagHeaderValues.FirstOrDefault(), out var eTagGuid))
-        {
-            throw new InvalidOperationException("ETag header value is missing or invalid.");
-        }
-
-        return eTagGuid;
     }
 
     private async Task<Guid> RestoreDialog(Guid dialogId,
@@ -263,7 +252,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
             .Restore(dialogId, revision, disableAltinnEvents, cancellationToken)
             .EnsureSuccess();
 
-        return GetRevisionId(response);
+        return response.GetEtagHeader();
     }
 
     private static void PruneExistingImmutableEntities(DialogDto updated, DialogDto? existing)
