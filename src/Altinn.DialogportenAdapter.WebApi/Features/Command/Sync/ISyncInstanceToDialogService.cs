@@ -96,19 +96,14 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
 
         if (!syncAdapterSettings.DisableDelete && ShouldSoftDeleteDialog(instance, existingDialog))
         {
-            try
+            var response = await _dialogportenApi.Delete(
+                dialogId,
+                existingDialog.Revision!.Value,
+                isSilentUpdate: dto.IsMigration,
+                cancellationToken: cancellationToken);
+            if (!response.IsSuccessful && response.StatusCode != System.Net.HttpStatusCode.Gone)
             {
-                await _dialogportenApi.Delete(
-                    dialogId,
-                    existingDialog.Revision!.Value,
-                    isSilentUpdate: dto.IsMigration,
-                    cancellationToken: cancellationToken);
-                return;
-            }
-            catch (ApiException e) when (e.StatusCode == System.Net.HttpStatusCode.Gone)
-            {
-                // If the dialog is already soft-deleted in dialogporten we can ignore this error
-                return;
+                throw response.Error;
             }
         }
 
