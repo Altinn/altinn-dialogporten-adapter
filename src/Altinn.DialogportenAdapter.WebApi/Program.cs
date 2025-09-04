@@ -113,6 +113,8 @@ static void BuildAndRun(string[] args)
             {
                 HttpRequestException => true,
                 ApiException apiException when (int)apiException.StatusCode >= 500 => true,
+                AggregateException aggregateException when aggregateException.Flatten().InnerExceptions.Any(e =>
+                    e is ApiException ae && (int)ae.StatusCode >= 500) => true,
                 _ => false
             })
             .RetryWithCooldown(10.Seconds(), 20.Seconds()) // Must in total exceed ASB duplicate detection window
