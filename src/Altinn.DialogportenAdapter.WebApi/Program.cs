@@ -340,10 +340,6 @@ internal sealed class RetryAtEndOfBucket() : UserDefinedContinuation("Retry at e
         var bucketStartUtc = new DateTimeOffset(bucketStartUtcTicks, TimeSpan.Zero);
         var bucketEndUtc = bucketStartUtc + _bucket * 2 - TimeSpan.FromMilliseconds(1);
 
-        var env = lifecycle.Envelope?.Id.ToString() ?? "<unknown>";
-
-        Console.WriteLine("## Scheduling " + env + " retry at the end of the current time bucket: " + bucketEndUtc + " (now: " + now.ToUniversalTime() + ")");
-
         await lifecycle.ReScheduleAsync(bucketEndUtc);
     }
 }
