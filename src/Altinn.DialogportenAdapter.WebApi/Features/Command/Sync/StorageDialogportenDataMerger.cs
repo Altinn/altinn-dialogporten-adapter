@@ -1,4 +1,3 @@
-using System.Text;
 using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
@@ -94,9 +93,13 @@ internal sealed class StorageDialogportenDataMerger
             ? SystemLabel.Archive
             : SystemLabel.Default;
         var (party, activities) = await (
-            GetPartyUrn(dto.Instance.InstanceOwner.PartyId, cancellationToken),
-            _activityDtoTransformer.GetActivities(dto.Events, cancellationToken)
-        );
+                GetPartyUrn(dto.Instance.InstanceOwner.PartyId, cancellationToken),
+                _activityDtoTransformer.GetActivities(dto.Events, cancellationToken)
+            );
+
+
+        var (attachments, transmissions) = GetAttachmentAndTransmissions(activities, dialogStatus, dto.Instance.Data);
+
 
         return new DialogDto
         {
@@ -148,28 +151,122 @@ internal sealed class StorageDialogportenDataMerger
                 CreateDeleteAction(dto.DialogId, dto.Instance),
                 ..CreateCopyAction(dto.DialogId, dto.Instance, dto.Application)
             ],
-            Attachments = dto.Instance.Data
-                .Select(x => new AttachmentDto
-                {
-                    Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
-                    DisplayName = [new() {LanguageCode = "nb", Value = x.Filename ?? x.DataType}],
-                    Urls = [new()
-                    {
-                        Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
-                        ConsumerType = x.Filename is not null
-                            ? AttachmentUrlConsumerType.Gui
-                            : AttachmentUrlConsumerType.Api,
-                        MediaType = x.ContentType,
-                        Url = x.Filename is not null
-                            ? ToPortalUri(x.SelfLinks.Platform)
-                            : x.SelfLinks.Platform
-                    }]
-                })
-                .ToList(),
+            Transmissions = transmissions,
+            Attachments = attachments,
             Activities = activities
         };
     }
 
+    private (List<AttachmentDto> attachments, List<TransmissionDto> transmissions) GetAttachmentAndTransmissions(List<ActivityDto> activities, DialogStatus dialogStatus, List<DataElement> data)
+    {
+        List<TransmissionDto> transmissions = [];
+        List<AttachmentDto> attachments;
+        
+        if (dialogStatus is DialogStatus.Completed or DialogStatus.Awaiting)
+        {
+            var formSubmittedActivity = activities.FirstOrDefault(x => x.Type == DialogActivityType.FormSubmitted);
+            if (formSubmittedActivity is not null)
+            {
+                transmissions.Add(
+                    CreateArchivedTransmission(formSubmittedActivity, data)
+                );
+
+                attachments = data.Where(IsPerformedBySo).Select(x => new AttachmentDto
+                {
+                    Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
+                    DisplayName = [new() { LanguageCode = "nb", Value = x.Filename ?? x.DataType }],
+                    Urls =
+                    [
+                        new()
+                        {
+                            Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
+                            ConsumerType = x.Filename is not null
+                                ? AttachmentUrlConsumerType.Gui
+                                : AttachmentUrlConsumerType.Api,
+                            MediaType = x.ContentType,
+                            Url = x.Filename is not null
+                            ? ToPortalUri(x.SelfLinks.Platform)
+                            : x.SelfLinks.Platform
+                        }
+                    ]
+                }).ToList();
+                return (attachments, transmissions);
+            }
+        }
+        
+        attachments = data.Select(x => new AttachmentDto
+        {
+            Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
+            DisplayName = [new() { LanguageCode = "nb", Value = x.Filename ?? x.DataType }],
+            Urls =
+            [
+                new()
+                {
+                    Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
+                    ConsumerType = x.Filename is not null
+                        ? AttachmentUrlConsumerType.Gui
+                        : AttachmentUrlConsumerType.Api,
+                    MediaType = x.ContentType,
+                    Url = x.SelfLinks.Platform
+                }
+            ]
+        }).ToList();
+        
+        return (attachments, transmissions);
+
+    }
+
+    private TransmissionDto CreateArchivedTransmission(ActivityDto activity, List<DataElement> data)
+    {
+        var transmission = new TransmissionDto
+        {
+            Id = activity.Id.Value.ToVersion7(activity.CreatedAt.Value),
+            Type = DialogTransmissionType.Submission,
+            Sender = activity.PerformedBy,
+            Content = new TransmissionContentDto
+            {
+                Title = new ContentValueDto
+                {
+                    Value =
+                    [
+                        new LocalizationDto
+                        {
+                            Value = "Content",
+                            LanguageCode = "nb"
+                        }
+                    ],
+                    MediaType = "text/plain"
+                }
+            },
+            Attachments = data
+                .Where(x => !IsPerformedBySo(x))
+                .Select(x => new TransmissionAttachmentDto()
+                {
+                    Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
+                    DisplayName = [new() { LanguageCode = "nb", Value = x.Filename ?? x.DataType }],
+                    Urls =
+                    [
+                        new()
+                        {
+                            Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
+                            ConsumerType = x.Filename is not null
+                                ? AttachmentUrlConsumerType.Gui
+                                : AttachmentUrlConsumerType.Api,
+                            MediaType = x.ContentType,
+                            Url = x.Filename is not null
+                            ? ToPortalUri(x.SelfLinks.Platform)
+                            : x.SelfLinks.Platform
+                        }
+                    ]
+                }).ToList()
+        };
+        return transmission;
+    }
+
+    private static bool IsPerformedBySo(DataElement data)
+    {
+        return data.LastChangedBy.Length == 9;
+    }
     private async Task<string> GetPartyUrn(string partyId, CancellationToken cancellationToken)
     {
         var response = await _registerRepository.GetActorUrnByPartyId([partyId], cancellationToken);
