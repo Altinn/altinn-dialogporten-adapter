@@ -1,8 +1,10 @@
+using System.Security.Cryptography.Xml;
 using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.Platform.Storage.Interface.Models;
+using Microsoft.Extensions.Azure;
 
 namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 
@@ -155,118 +157,114 @@ internal sealed class StorageDialogportenDataMerger
             Attachments = attachments,
             Activities = activities
         };
+
     }
 
+    // Amund:
+    // Flere inn steg
+    // alltid
+    // bruk diff tid for hvilken t
+    // profit
     private (List<AttachmentDto> attachments, List<TransmissionDto> transmissions) GetAttachmentAndTransmissions(List<ActivityDto> activities, DialogStatus dialogStatus, List<DataElement> data)
     {
-        List<TransmissionDto> transmissions = [];
-        List<AttachmentDto> attachments;
-        
-        if (dialogStatus is DialogStatus.Completed or DialogStatus.Awaiting)
-        {
-            var formSubmittedActivity = activities.FirstOrDefault(x => x.Type == DialogActivityType.FormSubmitted);
-            if (formSubmittedActivity is not null)
-            {
-                transmissions.Add(
-                    CreateArchivedTransmission(formSubmittedActivity, data)
-                );
+        var formSubmittedActivities = activities.Where(x => x.Type == DialogActivityType.FormSubmitted).ToList();
 
-                attachments = data.Where(IsPerformedBySo).Select(x => new AttachmentDto
-                {
-                    Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
-                    DisplayName = [new() { LanguageCode = "nb", Value = x.Filename ?? x.DataType }],
-                    Urls =
-                    [
-                        new()
-                        {
-                            Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
-                            ConsumerType = x.Filename is not null
-                                ? AttachmentUrlConsumerType.Gui
-                                : AttachmentUrlConsumerType.Api,
-                            MediaType = x.ContentType,
-                            Url = x.Filename is not null
-                            ? ToPortalUri(x.SelfLinks.Platform)
-                            : x.SelfLinks.Platform
-                        }
-                    ]
-                }).ToList();
-                return (attachments, transmissions);
-            }
-        }
-        
-        attachments = data.Select(x => new AttachmentDto
+
+        if (formSubmittedActivities.Count == 0)
         {
-            Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
-            DisplayName = [new() { LanguageCode = "nb", Value = x.Filename ?? x.DataType }],
+            return (data.Select(CreateAttachmentDto).ToList(), []);
+        }
+
+        return (
+                data.Where(IsPerformedBySo).Select(CreateAttachmentDto).ToList(),
+                CreateArchivedTransmission(formSubmittedActivities, data)
+            );
+    }
+
+    private AttachmentDto CreateAttachmentDto(DataElement data) =>
+        new()
+        {
+            Id = Guid.Parse(data.Id).ToVersion7(data.Created.Value),
+            DisplayName = [new() { LanguageCode = "nb", Value = data.Filename ?? data.DataType }],
             Urls =
             [
                 new()
                 {
-                    Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
-                    ConsumerType = x.Filename is not null
+                    Id = Guid.Parse(data.Id).ToVersion7(data.Created.Value),
+                    ConsumerType = data.Filename is not null
                         ? AttachmentUrlConsumerType.Gui
                         : AttachmentUrlConsumerType.Api,
-                    MediaType = x.ContentType,
-                    Url = x.SelfLinks.Platform
+                    MediaType = data.ContentType,
+                    Url = data.Filename is not null
+                        ? ToPortalUri(data.SelfLinks.Platform)
+                        : data.SelfLinks.Platform
                 }
             ]
-        }).ToList();
-        
-        return (attachments, transmissions);
-
-    }
-
-    private TransmissionDto CreateArchivedTransmission(ActivityDto activity, List<DataElement> data)
-    {
-        var transmission = new TransmissionDto
-        {
-            Id = activity.Id.Value.ToVersion7(activity.CreatedAt.Value),
-            Type = DialogTransmissionType.Submission,
-            Sender = activity.PerformedBy,
-            Content = new TransmissionContentDto
-            {
-                Title = new ContentValueDto
-                {
-                    Value =
-                    [
-                        new LocalizationDto
-                        {
-                            Value = "Content",
-                            LanguageCode = "nb"
-                        }
-                    ],
-                    MediaType = "text/plain"
-                }
-            },
-            Attachments = data
-                .Where(x => !IsPerformedBySo(x))
-                .Select(x => new TransmissionAttachmentDto()
-                {
-                    Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
-                    DisplayName = [new() { LanguageCode = "nb", Value = x.Filename ?? x.DataType }],
-                    Urls =
-                    [
-                        new()
-                        {
-                            Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
-                            ConsumerType = x.Filename is not null
-                                ? AttachmentUrlConsumerType.Gui
-                                : AttachmentUrlConsumerType.Api,
-                            MediaType = x.ContentType,
-                            Url = x.Filename is not null
-                            ? ToPortalUri(x.SelfLinks.Platform)
-                            : x.SelfLinks.Platform
-                        }
-                    ]
-                }).ToList()
         };
-        return transmission;
+
+    private List<TransmissionDto> CreateArchivedTransmission(List<ActivityDto> formSubmittedActivities, List<DataElement> data)
+    {
+        var transmissions = formSubmittedActivities.OrderBy(x => x.CreatedAt)
+            .Aggregate((Transmissions: new List<TransmissionDto>(), PreviousCreateAt: (DateTimeOffset?)null), (state, activity) =>
+            {
+                state.Transmissions.Add(new TransmissionDto
+                    {
+                        Id = activity.Id.Value.ToVersion7(activity.CreatedAt.Value),
+                        Type = DialogTransmissionType.Submission,
+                        Sender = activity.PerformedBy,
+                        Content = new TransmissionContentDto
+                        {
+                            Title = new ContentValueDto
+                            {
+                                Value =
+                                [
+                                    new LocalizationDto
+                                    {
+                                        Value = "Content",
+                                        LanguageCode = "nb"
+                                    }
+                                ],
+                                MediaType = "text/plain"
+                            }
+                        },
+                        Attachments = data.Where(a =>
+                                !IsPerformedBySo(a) &&
+                                a.LastChanged < activity.CreatedAt &&
+                                a.LastChanged > state.PreviousCreateAt
+                            )
+                            .Select(x => new TransmissionAttachmentDto()
+                            {
+                                Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
+                                DisplayName = [new() { LanguageCode = "nb", Value = x.Filename ?? x.DataType }],
+                                Urls =
+                                [
+                                    new()
+                                    {
+                                        Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
+                                        ConsumerType = x.Filename is not null
+                                            ? AttachmentUrlConsumerType.Gui
+                                            : AttachmentUrlConsumerType.Api,
+                                        MediaType = x.ContentType,
+                                        Url = x.Filename is not null
+                                            ? ToPortalUri(x.SelfLinks.Platform)
+                                            : x.SelfLinks.Platform
+                                    }
+                                ]
+                            }).ToList()
+                    }
+                );
+                state.PreviousCreateAt = activity.CreatedAt;
+                return state;
+            }, state => state.Transmissions);
+
+        return transmissions;
     }
 
     private static bool IsPerformedBySo(DataElement data)
     {
         return data.LastChangedBy.Length == 9;
     }
+
     private async Task<string> GetPartyUrn(string partyId, CancellationToken cancellationToken)
     {
         var response = await _registerRepository.GetActorUrnByPartyId([partyId], cancellationToken);
@@ -339,47 +337,59 @@ internal sealed class StorageDialogportenDataMerger
         // Step 4: derive a summary from the derived instance status alone
         List<LocalizationDto> summary = instanceDerivedStatus switch
         {
-            InstanceDerivedStatus.ArchivedUnconfirmed => [
+            InstanceDerivedStatus.ArchivedUnconfirmed =>
+            [
                 new() { LanguageCode = "nb", Value = "Innsendingen er maskinelt kontrollert og formidlet, venter på endelig bekreftelse. Du kan åpne dialogen for å se en foreløpig kvittering." },
                 new() { LanguageCode = "nn", Value = "Innsendinga er maskinelt kontrollert og formidla, ventar på endeleg stadfesting. Du kan opne dialogen for å sjå ei førebels kvittering." },
-                new() { LanguageCode = "en", Value = "The submission has been automatically checked and forwarded, awaiting final confirmation. You can open the dialog to see a preliminary receipt." }
+                new()
+                {
+                    LanguageCode = "en", Value = "The submission has been automatically checked and forwarded, awaiting final confirmation. You can open the dialog to see a preliminary receipt."
+                }
             ],
-            InstanceDerivedStatus.ArchivedConfirmed => [
+            InstanceDerivedStatus.ArchivedConfirmed =>
+            [
                 new() { LanguageCode = "nb", Value = "Innsendingen er bekreftet mottatt. Du kan åpne dialogen for å se din kvittering." },
                 new() { LanguageCode = "nn", Value = "Innsendinga er stadfesta motteken. Du kan opne dialogen for å sjå di kvittering." },
                 new() { LanguageCode = "en", Value = "The submission has been confirmed as received. You can open the dialog to see your receipt." }
             ],
-            InstanceDerivedStatus.Rejected => [
+            InstanceDerivedStatus.Rejected =>
+            [
                 new() { LanguageCode = "nb", Value = "Innsendingen ble avvist. Åpne dialogen for mer informasjon." },
                 new() { LanguageCode = "nn", Value = "Innsendinga vart avvist. Opne dialogen for meir informasjon." },
                 new() { LanguageCode = "en", Value = "The submission was rejected. Open the dialog for more information." }
             ],
-            InstanceDerivedStatus.AwaitingServiceOwnerFeedback => [
+            InstanceDerivedStatus.AwaitingServiceOwnerFeedback =>
+            [
                 new() { LanguageCode = "nb", Value = "Innsendingen er maskinelt kontrollert og formidlet, venter på tilbakemelding." },
                 new() { LanguageCode = "nn", Value = "Innsendinga er maskinelt kontrollert og formidla, ventar på tilbakemelding." },
                 new() { LanguageCode = "en", Value = "The submission has been automatically checked and forwarded, awaiting feedback." }
             ],
-            InstanceDerivedStatus.AwaitingConfirmation => [
+            InstanceDerivedStatus.AwaitingConfirmation =>
+            [
                 new() { LanguageCode = "nb", Value = "Innsendingen må bekreftes for å gå til neste steg." },
                 new() { LanguageCode = "nn", Value = "Innsendinga må stadfestast for å gå til neste steg." },
                 new() { LanguageCode = "en", Value = "The submission must be confirmed to proceed to the next step." }
             ],
-            InstanceDerivedStatus.AwaitingSignature => [
+            InstanceDerivedStatus.AwaitingSignature =>
+            [
                 new() { LanguageCode = "nb", Value = "Innsendingen må signeres for å gå til neste steg." },
                 new() { LanguageCode = "nn", Value = "Innsendinga må signerast for å gå til neste steg." },
                 new() { LanguageCode = "en", Value = "The submission must be signed to proceed to the next step." }
             ],
-            InstanceDerivedStatus.AwaitingAdditionalUserInput => [
+            InstanceDerivedStatus.AwaitingAdditionalUserInput =>
+            [
                 new() { LanguageCode = "nb", Value = "Innsendingen er under arbeid og trenger flere opplysninger for å gå til neste steg." },
                 new() { LanguageCode = "nn", Value = "Innsendinga er under arbeid og treng fleire opplysningar for å gå til neste steg." },
                 new() { LanguageCode = "en", Value = "The submission is in progress and requires more information to proceed to the next step." }
             ],
-            InstanceDerivedStatus.AwaitingInitialUserInput => [
+            InstanceDerivedStatus.AwaitingInitialUserInput =>
+            [
                 new() { LanguageCode = "nb", Value = "Innsendingen er klar for å fylles ut." },
                 new() { LanguageCode = "nn", Value = "Innsendinga er klar til å fyllast ut." },
                 new() { LanguageCode = "en", Value = "The submission is ready to be filled out." }
             ],
-            _ => [ // Default case
+            _ =>
+            [ // Default case
                 new() { LanguageCode = "nb", Value = "Innsendingen er klar for å fylles ut." },
                 new() { LanguageCode = "nn", Value = "Innsendinga er klar til å fyllast ut." },
                 new() { LanguageCode = "en", Value = "The submission is ready to be filled out." }
@@ -403,7 +413,8 @@ internal sealed class StorageDialogportenDataMerger
                 Id = goToActionId,
                 Action = "read",
                 Priority = DialogGuiActionPriority.Primary,
-                Title = [
+                Title =
+                [
                     new() { LanguageCode = "nb", Value = "Se innsendt skjema" },
                     new() { LanguageCode = "nn", Value = "Sjå innsendt skjema" },
                     new() { LanguageCode = "en", Value = "See submitted form" }
@@ -428,7 +439,8 @@ internal sealed class StorageDialogportenDataMerger
             Action = "write",
             AuthorizationAttribute = authorizationAttribute,
             Priority = DialogGuiActionPriority.Primary,
-            Title = [
+            Title =
+            [
                 new() { LanguageCode = "nb", Value = "Gå til skjemautfylling" },
                 new() { LanguageCode = "nn", Value = "Gå til skjemautfylling" },
                 new() { LanguageCode = "en", Value = "Go to form completion" }
@@ -448,7 +460,8 @@ internal sealed class StorageDialogportenDataMerger
             Action = "delete",
             Priority = DialogGuiActionPriority.Secondary,
             IsDeleteDialogAction = true,
-            Title = [
+            Title =
+            [
                 new() { LanguageCode = "nb", Value = "Slett" },
                 new() { LanguageCode = "nn", Value = "Slett" },
                 new() { LanguageCode = "en", Value = "Delete" }
@@ -475,7 +488,8 @@ internal sealed class StorageDialogportenDataMerger
             Id = dialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.Copy),
             Action = "instantiate",
             Priority = DialogGuiActionPriority.Tertiary,
-            Title = [
+            Title =
+            [
                 new() { LanguageCode = "nb", Value = "Lag ny kopi" },
                 new() { LanguageCode = "nn", Value = "Lag ny kopi" },
                 new() { LanguageCode = "en", Value = "Create new copy" }
@@ -523,7 +537,7 @@ internal sealed class StorageDialogportenDataMerger
         while (enumerator.MoveNext())
         {
             if (!separator.AsSpan().TryCopyTo(titleSpan, ref offset)
-                || !enumerator.Current.AsSpan().TryCopyTo(titleSpan, ref offset))
+             || !enumerator.Current.AsSpan().TryCopyTo(titleSpan, ref offset))
             {
                 break;
             }
@@ -559,10 +573,10 @@ internal sealed class StorageDialogportenDataMerger
         var priorityCapacity = Constants.PriorityLimits
             .GroupJoin(result, x => x.Priority, x => x.Priority,
                 (priorityLimit, existingActions) =>
-                (
-                    Priority: priorityLimit.Priority,
-                    Capacity: priorityLimit.Limit - existingActions.Count()
-                ))
+                    (
+                        Priority: priorityLimit.Priority,
+                        Capacity: priorityLimit.Limit - existingActions.Count()
+                    ))
             .Where(x => x.Capacity > 0)
             .OrderBy(x => x.Priority);
 
