@@ -223,7 +223,11 @@ static void BuildAndRun(string[] args)
             .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>()
             .Services
         .AddRefitClient<IRegisterApi>()
-            .ConfigureHttpClient(x => x.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", settings.DialogportenAdapter.Altinn.SubscriptionKey))
+            .ConfigureHttpClient(x =>
+            {
+                x.BaseAddress = settings.DialogportenAdapter.Altinn.InternalRegisterEndpoint;
+                x.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", settings.DialogportenAdapter.Altinn.SubscriptionKey);
+            })
             .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
             .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>()
             .Services
