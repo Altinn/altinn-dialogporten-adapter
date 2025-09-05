@@ -14,8 +14,7 @@ public sealed record DialogportenAdapterSettings(
     AltinnPlatformSettings Altinn,
     DialogportenSettings Dialogporten,
     AdapterSettings Adapter,
-    AuthenticationSettings Authentication,
-    string UserAgent = "Altinn.DialogportenAdapter");
+    AuthenticationSettings Authentication);
 
 public sealed record AuthenticationSettings(string JwtBearerWellKnown);
 

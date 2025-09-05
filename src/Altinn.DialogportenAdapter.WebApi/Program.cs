@@ -215,27 +215,17 @@ static void BuildAndRun(string[] args)
             {
                 x.BaseAddress = settings.DialogportenAdapter.Altinn.InternalStorageEndpoint;
                 x.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", settings.DialogportenAdapter.Altinn.SubscriptionKey);
-                x.DefaultRequestHeaders.Add("User-Agent", settings.DialogportenAdapter.UserAgent);
             })
             .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
             .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>()
             .Services
         .AddRefitClient<IDialogportenApi>()
-            .ConfigureHttpClient(x =>
-            {
-                x.BaseAddress = settings.DialogportenAdapter.Dialogporten.BaseUri;
-                x.DefaultRequestHeaders.Add("User-Agent", settings.DialogportenAdapter.UserAgent);
-            })
+            .ConfigureHttpClient(x => x.BaseAddress = settings.DialogportenAdapter.Dialogporten.BaseUri)
             .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
             .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>()
             .Services
         .AddRefitClient<IRegisterApi>()
-            .ConfigureHttpClient(x =>
-            {
-                x.BaseAddress = settings.DialogportenAdapter.Altinn.InternalRegisterEndpoint;
-                x.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", settings.DialogportenAdapter.Altinn.SubscriptionKey);
-                x.DefaultRequestHeaders.Add("User-Agent", settings.DialogportenAdapter.UserAgent);
-            })
+            .ConfigureHttpClient(x => x.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", settings.DialogportenAdapter.Altinn.SubscriptionKey))
             .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
             .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>()
             .Services
