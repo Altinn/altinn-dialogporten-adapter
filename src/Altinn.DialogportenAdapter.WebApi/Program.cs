@@ -83,11 +83,10 @@ static void BuildAndRun(string[] args)
         opts.ConfigureAdapterDefaults(builder.Environment,
             settings.WolverineSettings.ServiceBusConnectionString);
         opts.Policies.AllListeners(x => x
-            .ListenerCount(settings.WolverineSettings.ListenerCount)
             .ProcessInline());
         opts.Policies.AllSenders(x => x.SendInline());
 
-        // NOTE! The queue is using duplicate detection with a 20-second window, which means any re-queueing within
+        // NOTE! The queues are using duplicate detection with a 20-second window, which means any re-queueing within
         // that window will be treated as a duplicate and the message will be silently dropped by ASB.
         // This means that the retry attempts here must be spaced out to exceed that window.
         //
@@ -128,15 +127,14 @@ static void BuildAndRun(string[] args)
             .AndPauseProcessing(30.Seconds()); // Give some time for upstream to recover before processing more messages
 
         opts.ListenToAzureServiceBusQueue(ContractConstants.AdapterQueueName)
-            .ConfigureQueue(q =>
-            {
-                // NOTE! This can ONLY be set at queue creation time
-                q.RequiresDuplicateDetection = true;
+            .ConfigureDeduplicatedQueueDefaults()
+            .ListenerCount(80.PercentOf(settings.WolverineSettings.ListenerCount));
 
-                // 20 seconds is the minimum allowed by ASB duplicate detection according to
-                // https://learn.microsoft.com/en-us/azure/service-bus-messaging/duplicate-detection#duplicate-detection-window-size
-                q.DuplicateDetectionHistoryTimeWindow = 20.Seconds();
-            });
+        // Also listen to the history queue with a fewer number of listeners.
+        opts.ListenToAzureServiceBusQueue(ContractConstants.AdapterHistoryQueueName)
+            .ConfigureDeduplicatedQueueDefaults()
+            .ListenerCount(20.PercentOf(settings.WolverineSettings.ListenerCount));
+
     });
 
     builder.Services.RegisterMaskinportenClientDefinition<SettingsJwkClientDefinition>(

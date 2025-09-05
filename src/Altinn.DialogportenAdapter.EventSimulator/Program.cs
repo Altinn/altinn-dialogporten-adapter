@@ -62,7 +62,7 @@ static Task BuildAndRun(string[] args)
         opts.PublishMessage<MigratePartitionCommand>()
             .ToAzureServiceBusQueue(ContractConstants.EventSimulatorQueueName);
         opts.PublishMessage<SyncInstanceCommand>()
-            .ToAzureServiceBusQueue(ContractConstants.AdapterQueueName);
+            .ToAzureServiceBusQueue(ContractConstants.AdapterHistoryQueueName);
 
         // Do we need to use duplicate detection?
         // .ConfigureQueue(x => x.RequiresDuplicateDetection = true)
