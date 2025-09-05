@@ -329,17 +329,16 @@ ILoggerFactory CreateBootstrapLoggerFactory() => LoggerFactory.Create(builder =>
 
 internal sealed class RetryAtEndOfBucket() : UserDefinedContinuation("Retry at end of next bucket")
 {
-    private readonly TimeSpan _bucket = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan Bucket = TimeSpan.FromMinutes(1);
 
     public override async ValueTask ExecuteAsync(
         IEnvelopeLifecycle lifecycle, IWolverineRuntime runtime,
         DateTimeOffset now, Activity? activity)
     {
-        var utcTicks = now.UtcTicks;
-        var bucketStartUtcTicks = utcTicks - (utcTicks % _bucket.Ticks);
-        var bucketStartUtc = new DateTimeOffset(bucketStartUtcTicks, TimeSpan.Zero);
-        var bucketEndUtc = bucketStartUtc + _bucket * 2 - TimeSpan.FromMilliseconds(1);
-
+        // Round up to the next bucket end
+        var bucketNumber = (now.UtcTicks + Bucket.Ticks - 1) / Bucket.Ticks;
+        var bucketEndUtcTicks = bucketNumber * Bucket.Ticks;
+        var bucketEndUtc = new DateTimeOffset(bucketEndUtcTicks, TimeSpan.Zero);
         await lifecycle.ReScheduleAsync(bucketEndUtc);
     }
 }
