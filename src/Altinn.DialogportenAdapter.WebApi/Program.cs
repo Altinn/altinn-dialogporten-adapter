@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using Altinn.ApiClients.Dialogporten;
 using Altinn.ApiClients.Maskinporten.Extensions;
@@ -24,6 +25,7 @@ using Refit;
 using Wolverine;
 using Wolverine.AzureServiceBus;
 using Wolverine.ErrorHandling;
+using Wolverine.Runtime;
 using ZiggyCreatures.Caching.Fusion;
 using Constants = Altinn.DialogportenAdapter.WebApi.Common.Constants;
 using ContractConstants = Altinn.DialogportenAdapter.Contracts.Constants;
@@ -92,31 +94,35 @@ static void BuildAndRun(string[] args)
         // By default, Wolverine will immediately send a message to the error queue if an exception is thrown, unless
         // it is handled by a policy below.
 
-        // Handle 412 which is caused by timing/duplicate messages. If we're not able to handle it after retries, just drop it.
-        opts.Policies.OnException<ApiException>(ex =>
-                ex.StatusCode is HttpStatusCode.PreconditionFailed)
-            .RetryWithCooldown(500.Milliseconds(), 1.Seconds(), 3.Seconds(), 5.Seconds(), 10.Seconds())
-            .Then.MoveToErrorQueue(); // For now, move to DLQ for manual inspection
-            //.Then.Discard();
+        // Handle 410, which we get when trying to DELETE an already deleted dialog. Just discard.
+        opts.Policies
+            .OnException<ApiException>(ex => ex.StatusCode is HttpStatusCode.Gone)
+            .Discard();
+
+        // We use Azure Service Bus duplicate detection (with InstanceId as the key) to prevent processing the same
+        // instance multiple times. However, duplicate detection only applies within a short time window (currently
+        // 20s). If the queue backlog grows faster than we can drain it, two messages with the same InstanceId may
+        // still be processed concurrently once we catch up, causing dialog update conflicts. Our approach is to rely
+        // on Service Bus to collapse (squash) repeated deliveries of the same InstanceId by rescheduling the message
+        // instead of performing inline retries. This eliminates per-message retry loops and reduces contention.
+        opts.Policies
+            .OnException<ApiException>(ex => ex.StatusCode is HttpStatusCode.PreconditionFailed)
+            .Requeue(maxAttempts: 5)
+            .Then.MoveToErrorQueue();
 
         // Handle 422 errors, which may be caused by timing/duplicate messages, but might also be other issues, so try a few times
         // then move to error queue for manual inspection.
-        opts.Policies.OnException<ApiException>(ex =>
-                ex.StatusCode is HttpStatusCode.UnprocessableEntity)
-            .RetryWithCooldown(500.Milliseconds(), 1.Seconds(), 3.Seconds(), 5.Seconds(), 10.Seconds())
+        opts.Policies
+            .OnException<ApiException>(ex => ex.StatusCode is HttpStatusCode.UnprocessableEntity)
+            .RetryWithCooldown(500.Milliseconds(), 1.Seconds(), 3.Seconds(), 5.Seconds(), 10.Seconds()) // Must in total exceed ASB duplicate detection window
             .Then.MoveToErrorQueue();
 
         // 5xx errors are usually transient (upstream being down/overloaded), so try a few times with a cooldown to ensure we're moved
         // beyond the ASB duplicate detection window before re-scheduling indefinitely. HttpRequestExceptions indicates
         // network issues, DNS issues, etc. which are usually transient, so handle this the same as 5xx errors.
-        opts.Policies.OnException(ex => ex switch
-            {
-                HttpRequestException => true,
-                ApiException apiException when (int)apiException.StatusCode >= 500 => true,
-                AggregateException aggregateException when aggregateException.Flatten().InnerExceptions.Any(e =>
-                    e is ApiException ae && (int)ae.StatusCode >= 500) => true,
-                _ => false
-            })
+        opts.Policies.OnException<HttpRequestException>()
+            .Or<ApiException>(x => (int)x.StatusCode >= 500)
+            .OrInner<ApiException>(x => (int)x.StatusCode >= 500)
             .RetryWithCooldown(10.Seconds(), 20.Seconds()) // Must in total exceed ASB duplicate detection window
             .Then.ScheduleRetryIndefinitely(30.Seconds(), 60.Seconds(), 2.Minutes())
             .AndPauseProcessing(30.Seconds()); // Give some time for upstream to recover before processing more messages
@@ -217,11 +223,7 @@ static void BuildAndRun(string[] args)
             .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>()
             .Services
         .AddRefitClient<IRegisterApi>()
-            .ConfigureHttpClient(x =>
-            {
-                x.BaseAddress = settings.DialogportenAdapter.Altinn.InternalRegisterEndpoint;
-                x.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", settings.DialogportenAdapter.Altinn.SubscriptionKey);
-            })
+            .ConfigureHttpClient(x => x.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", settings.DialogportenAdapter.Altinn.SubscriptionKey))
             .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
             .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>()
             .Services
