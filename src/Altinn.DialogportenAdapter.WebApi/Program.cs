@@ -99,13 +99,16 @@ static void BuildAndRun(string[] args)
             .OnException<ApiException>(ex => ex.StatusCode is HttpStatusCode.Gone)
             .Discard();
 
-        // Handle 412 which is caused by timing/duplicate messages. Try a few times, then reschedule at the end of the
-        // next time bucket of 1 minute duration (ie. a message handled at 13:00:00, 13:00:47 or 13:00:59 will be
-        // scheduled to 13:01:59. Placing them within the same de-duplication window will reduce the number of duplicates to deal with.
+        // We use Azure Service Bus duplicate detection (with InstanceId as the key) to prevent processing the same
+        // instance multiple times. However, duplicate detection only applies within a short time window (currently
+        // 20s). If the queue backlog grows faster than we can drain it, two messages with the same InstanceId may
+        // still be processed concurrently once we catch up, causing dialog update conflicts. Our approach is to rely
+        // on Service Bus to collapse (squash) repeated deliveries of the same InstanceId by rescheduling the message
+        // instead of performing inline retries. This eliminates per-message retry loops and reduces contention.
         opts.Policies
             .OnException<ApiException>(ex => ex.StatusCode is HttpStatusCode.PreconditionFailed)
-            .RetryWithCooldown(500.Milliseconds(), 1.Seconds(), 3.Seconds(), 5.Seconds(), 10.Seconds()) // Must in total exceed ASB duplicate detection window
-            .Then.Discard().And<RetryAtEndOfBucket>();
+            .Requeue(maxAttempts: 5)
+            .Then.MoveToErrorQueue();
 
         // Handle 422 errors, which may be caused by timing/duplicate messages, but might also be other issues, so try a few times
         // then move to error queue for manual inspection.
@@ -320,20 +323,3 @@ ILoggerFactory CreateBootstrapLoggerFactory() => LoggerFactory.Create(builder =>
         options.SingleLine = true;
         options.TimestampFormat = "yyyy-MM-dd HH:mm:ss ";
     }));
-
-
-internal sealed class RetryAtEndOfBucket() : UserDefinedContinuation("Retry at end of next bucket")
-{
-    private static readonly TimeSpan Bucket = TimeSpan.FromMinutes(1);
-
-    public override async ValueTask ExecuteAsync(
-        IEnvelopeLifecycle lifecycle, IWolverineRuntime runtime,
-        DateTimeOffset now, Activity? activity)
-    {
-        // Round up to the next bucket end
-        var bucketNumber = (now.UtcTicks + Bucket.Ticks - 1) / Bucket.Ticks;
-        var bucketEndUtcTicks = bucketNumber * Bucket.Ticks;
-        var bucketEndUtc = new DateTimeOffset(bucketEndUtcTicks, TimeSpan.Zero);
-        await lifecycle.ReScheduleAsync(bucketEndUtc);
-    }
-}
