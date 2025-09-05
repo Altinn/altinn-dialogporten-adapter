@@ -95,36 +95,31 @@ static void BuildAndRun(string[] args)
         // it is handled by a policy below.
 
         // Handle 410, which we get when trying to DELETE an already deleted dialog. Just discard.
-        opts.Policies.OnException<ApiException>(ex =>
-                ex.StatusCode is HttpStatusCode.Gone)
+        opts.Policies
+            .OnException<ApiException>(ex => ex.StatusCode is HttpStatusCode.Gone)
             .Discard();
 
         // Handle 412 which is caused by timing/duplicate messages. Try a few times, then reschedule at the end of the
         // next time bucket of 1 minute duration (ie. a message handled at 13:00:00, 13:00:47 or 13:00:59 will be
         // scheduled to 13:01:59. Placing them within the same de-duplication window will reduce the number of duplicates to deal with.
-        opts.Policies.OnException<ApiException>(ex =>
-                ex.StatusCode is HttpStatusCode.PreconditionFailed)
+        opts.Policies
+            .OnException<ApiException>(ex => ex.StatusCode is HttpStatusCode.PreconditionFailed)
             .RetryWithCooldown(500.Milliseconds(), 1.Seconds(), 3.Seconds(), 5.Seconds(), 10.Seconds()) // Must in total exceed ASB duplicate detection window
             .Then.Discard().And<RetryAtEndOfBucket>();
 
         // Handle 422 errors, which may be caused by timing/duplicate messages, but might also be other issues, so try a few times
         // then move to error queue for manual inspection.
-        opts.Policies.OnException<ApiException>(ex =>
-                ex.StatusCode is HttpStatusCode.UnprocessableEntity)
-            .RetryWithCooldown(500.Milliseconds(), 1.Seconds(), 3.Seconds(), 5.Seconds(), 10.Seconds())
+        opts.Policies
+            .OnException<ApiException>(ex => ex.StatusCode is HttpStatusCode.UnprocessableEntity)
+            .RetryWithCooldown(500.Milliseconds(), 1.Seconds(), 3.Seconds(), 5.Seconds(), 10.Seconds()) // Must in total exceed ASB duplicate detection window
             .Then.MoveToErrorQueue();
 
         // 5xx errors are usually transient (upstream being down/overloaded), so try a few times with a cooldown to ensure we're moved
         // beyond the ASB duplicate detection window before re-scheduling indefinitely. HttpRequestExceptions indicates
         // network issues, DNS issues, etc. which are usually transient, so handle this the same as 5xx errors.
-        opts.Policies.OnException(ex => ex switch
-            {
-                HttpRequestException => true,
-                ApiException apiException when (int)apiException.StatusCode >= 500 => true,
-                AggregateException aggregateException when aggregateException.Flatten().InnerExceptions.Any(e =>
-                    e is ApiException ae && (int)ae.StatusCode >= 500) => true,
-                _ => false
-            })
+        opts.Policies.OnException<HttpRequestException>()
+            .Or<ApiException>(x => (int)x.StatusCode >= 500)
+            .OrInner<ApiException>(x => (int)x.StatusCode >= 500)
             .RetryWithCooldown(10.Seconds(), 20.Seconds()) // Must in total exceed ASB duplicate detection window
             .Then.ScheduleRetryIndefinitely(30.Seconds(), 60.Seconds(), 2.Minutes())
             .AndPauseProcessing(30.Seconds()); // Give some time for upstream to recover before processing more messages
