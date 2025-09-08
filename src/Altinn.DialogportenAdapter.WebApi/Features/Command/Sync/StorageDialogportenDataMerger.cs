@@ -160,7 +160,7 @@ internal sealed class StorageDialogportenDataMerger
         List<ActivityDto> activities, 
         List<DataElement> data)
     {
-        var queue = new Queue<DataElement>(data
+        var dataElementQueue = new Queue<DataElement>(data
             .Where(x => !IsPerformedBySo(x))
             .OrderBy(x => x.Created.Value));
 
@@ -184,7 +184,7 @@ internal sealed class StorageDialogportenDataMerger
                         MediaType = "text/plain"
                     }
                 },
-                Attachments = queue
+                Attachments = dataElementQueue
                     .DequeueWhile(e => e.LastChanged <= a.CreatedAt)
                     .Select(CreateTransmissionAttachmentDto)
                     .ToList()
@@ -219,7 +219,7 @@ internal sealed class StorageDialogportenDataMerger
         
         var attachments = data
             .Where(IsPerformedBySo)
-            .Concat(queue) // any remaining attachments not already included in transmissions
+            .Concat(dataElementQueue) // any remaining attachments not already included in transmissions
             .Select(CreateAttachmentDto)
             .ToList();
         
