@@ -97,7 +97,7 @@ internal sealed class StorageDialogportenDataMerger
                 _activityDtoTransformer.GetActivities(dto.Events, cancellationToken)
             );
 
-        var (attachments, transmissions) = GetAttachmentAndTransmissions(activities, dialogStatus, dto.Instance.Data);
+        var (attachments, transmissions) = GetAttachmentAndTransmissions(activities, dto.Instance.Data);
 
         return new DialogDto
         {
@@ -156,20 +156,74 @@ internal sealed class StorageDialogportenDataMerger
 
     }
     
-    private (List<AttachmentDto> attachments, List<TransmissionDto> transmissions) GetAttachmentAndTransmissions(List<ActivityDto> activities, DialogStatus dialogStatus, List<DataElement> data)
+    private (List<AttachmentDto> attachments, List<TransmissionDto> transmissions) GetAttachmentAndTransmissions(
+        List<ActivityDto> activities, 
+        List<DataElement> data)
     {
-        var formSubmittedActivities = activities.Where(x => x.Type == DialogActivityType.FormSubmitted).ToList();
+        var queue = new Queue<DataElement>(data
+            .Where(x => !IsPerformedBySo(x))
+            .OrderBy(x => x.Created.Value));
 
-
-        if (formSubmittedActivities.Count == 0)
-        {
-            return (data.Select(CreateAttachmentDto).ToList(), []);
-        }
-
-        return (
-                data.Where(IsPerformedBySo).Select(CreateAttachmentDto).ToList(),
-                CreateArchivedTransmissions(formSubmittedActivities, data)
-            );
+        var transmissions = activities
+            .Where(x => x.Type is DialogActivityType.FormSubmitted)
+            .OrderBy(x => x.CreatedAt)
+            .Select((a, i) => new TransmissionDto
+            {
+                Id = a.Id!.Value.ToVersion7(a.CreatedAt!.Value),
+                Type = DialogTransmissionType.Submission,
+                Sender = a.PerformedBy,
+                Content = new TransmissionContentDto
+                {
+                    Title = new ContentValueDto
+                    {
+                        Value = [
+                            new() { LanguageCode = "nb", Value = $"Innsending {i + 1}" },
+                            new() { LanguageCode = "nn", Value = $"Innsending {i + 1}" },
+                            new() { LanguageCode = "en", Value = $"Submission {i + 1}" }
+                        ],
+                        MediaType = "text/plain"
+                    }
+                },
+                Attachments = queue
+                    .DequeueWhile(e => e.LastChanged <= a.CreatedAt)
+                    .Select(CreateTransmissionAttachmentDto)
+                    .ToList()
+            })
+            .ToList();
+        
+        // TODO: Should we group remaining attachments between last submitted event, and dialog archival into a transmission?
+        // if (dialogStatus is DialogStatus.Completed)
+        // {
+        //     transmissions.Add(new TransmissionDto
+        //     {
+        //         Id = activity.Id!.Value.ToVersion7(activity.CreatedAt!.Value),
+        //         Type = DialogTransmissionType.,
+        //         Sender = activity.PerformedBy,
+        //         Content = new TransmissionContentDto
+        //         {
+        //             Title = new ContentValueDto
+        //             {
+        //                 Value = [
+        //                     new() { LanguageCode = "nb", Value = $"Innsending {i + 1}" },
+        //                     new() { LanguageCode = "nn", Value = $"Innsending {i + 1}" },
+        //                     new() { LanguageCode = "en", Value = $"Submission {i + 1}" }
+        //                 ],
+        //                 MediaType = "text/plain"
+        //             }
+        //         },
+        //         Attachments = queue.DequeueWhile(_ => true)
+        //             .Select(CreateTransmissionAttachmentDto)
+        //             .ToList()
+        //     });
+        // }
+        
+        var attachments = data
+            .Where(IsPerformedBySo)
+            .Concat(queue) // any remaining attachments not already included in transmissions
+            .Select(CreateAttachmentDto)
+            .ToList();
+        
+        return (attachments, transmissions);
     }
 
     private AttachmentDto CreateAttachmentDto(DataElement data) =>
@@ -193,63 +247,25 @@ internal sealed class StorageDialogportenDataMerger
             ]
         };
 
-    private List<TransmissionDto> CreateArchivedTransmissions(List<ActivityDto> formSubmittedActivities, List<DataElement> data)
-    {
-        var transmissions = formSubmittedActivities.OrderBy(x => x.CreatedAt)
-            .Aggregate((Transmissions: new List<TransmissionDto>(), PreviousCreateAt: (DateTimeOffset?)null), (state, activity) =>
-            {
-                state.Transmissions.Add(new TransmissionDto
-                    {
-                        Id = activity.Id.Value.ToVersion7(activity.CreatedAt.Value),
-                        Type = DialogTransmissionType.Submission,
-                        Sender = activity.PerformedBy,
-                        Content = new TransmissionContentDto
-                        {
-                            Title = new ContentValueDto
-                            {
-                                Value =
-                                [
-                                    new LocalizationDto
-                                    {
-                                        Value = "Content",
-                                        LanguageCode = "nb"
-                                    }
-                                ],
-                                MediaType = "text/plain"
-                            }
-                        },
-                        Attachments = data.Where(a =>
-                                !IsPerformedBySo(a) &&
-                                a.LastChanged < activity.CreatedAt &&
-                                a.LastChanged > state.PreviousCreateAt
-                            )
-                            .Select(x => new TransmissionAttachmentDto()
-                            {
-                                Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
-                                DisplayName = [new() { LanguageCode = "nb", Value = x.Filename ?? x.DataType }],
-                                Urls =
-                                [
-                                    new()
-                                    {
-                                        Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
-                                        ConsumerType = x.Filename is not null
-                                            ? AttachmentUrlConsumerType.Gui
-                                            : AttachmentUrlConsumerType.Api,
-                                        MediaType = x.ContentType,
-                                        Url = x.Filename is not null
-                                            ? ToPortalUri(x.SelfLinks.Platform)
-                                            : x.SelfLinks.Platform
-                                    }
-                                ]
-                            }).ToList()
-                    }
-                );
-                state.PreviousCreateAt = activity.CreatedAt;
-                return state;
-            }, state => state.Transmissions);
-
-        return transmissions;
-    }
+    private TransmissionAttachmentDto CreateTransmissionAttachmentDto(DataElement data) =>
+        new()
+        {
+            Id = Guid.Parse(data.Id).ToVersion7(data.Created.Value),
+            DisplayName = [new() { LanguageCode = "nb", Value = data.Filename ?? data.DataType }],
+            Urls =
+            [
+                new()
+                {
+                    ConsumerType = data.Filename is not null
+                        ? AttachmentUrlConsumerType.Gui
+                        : AttachmentUrlConsumerType.Api,
+                    MediaType = data.ContentType,
+                    Url = data.Filename is not null
+                        ? ToPortalUri(data.SelfLinks.Platform)
+                        : data.SelfLinks.Platform
+                }
+            ]
+        };
 
     private static bool IsPerformedBySo(DataElement data)
     {
