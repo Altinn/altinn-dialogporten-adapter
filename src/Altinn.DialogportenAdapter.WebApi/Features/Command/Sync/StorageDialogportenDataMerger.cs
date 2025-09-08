@@ -1,10 +1,8 @@
-using System.Security.Cryptography.Xml;
 using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.Platform.Storage.Interface.Models;
-using Microsoft.Extensions.Azure;
 
 namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 
@@ -99,9 +97,7 @@ internal sealed class StorageDialogportenDataMerger
                 _activityDtoTransformer.GetActivities(dto.Events, cancellationToken)
             );
 
-
         var (attachments, transmissions) = GetAttachmentAndTransmissions(activities, dialogStatus, dto.Instance.Data);
-
 
         return new DialogDto
         {
@@ -159,12 +155,7 @@ internal sealed class StorageDialogportenDataMerger
         };
 
     }
-
-    // Amund:
-    // Flere inn steg
-    // alltid
-    // bruk diff tid for hvilken t
-    // profit
+    
     private (List<AttachmentDto> attachments, List<TransmissionDto> transmissions) GetAttachmentAndTransmissions(List<ActivityDto> activities, DialogStatus dialogStatus, List<DataElement> data)
     {
         var formSubmittedActivities = activities.Where(x => x.Type == DialogActivityType.FormSubmitted).ToList();
@@ -177,7 +168,7 @@ internal sealed class StorageDialogportenDataMerger
 
         return (
                 data.Where(IsPerformedBySo).Select(CreateAttachmentDto).ToList(),
-                CreateArchivedTransmission(formSubmittedActivities, data)
+                CreateArchivedTransmissions(formSubmittedActivities, data)
             );
     }
 
@@ -202,7 +193,7 @@ internal sealed class StorageDialogportenDataMerger
             ]
         };
 
-    private List<TransmissionDto> CreateArchivedTransmission(List<ActivityDto> formSubmittedActivities, List<DataElement> data)
+    private List<TransmissionDto> CreateArchivedTransmissions(List<ActivityDto> formSubmittedActivities, List<DataElement> data)
     {
         var transmissions = formSubmittedActivities.OrderBy(x => x.CreatedAt)
             .Aggregate((Transmissions: new List<TransmissionDto>(), PreviousCreateAt: (DateTimeOffset?)null), (state, activity) =>
