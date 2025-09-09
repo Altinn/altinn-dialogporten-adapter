@@ -57,6 +57,7 @@ static void BuildAndRun(string[] args)
         .AddLocalDevelopmentSettings(builder.Environment);
 
     var settings = builder.Configuration.Get<Settings>()!;
+    builder.Services.AddOptions<Settings>().Bind(builder.Configuration);
 
     if (builder.Configuration.TryGetApplicationInsightsConnectionString(out var appInsightsConnectionString))
     {
@@ -185,7 +186,6 @@ static void BuildAndRun(string[] args)
                 .Build();
         })
         .AddOpenApi()
-        .AddSingleton(settings)
         .AddDialogportenClient(x =>
         {
             x.Maskinporten = settings.DialogportenAdapter.Maskinporten;

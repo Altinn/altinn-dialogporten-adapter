@@ -3,6 +3,7 @@ using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.Platform.Storage.Interface.Models;
+using Microsoft.Extensions.Options;
 
 namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 
@@ -21,11 +22,11 @@ internal sealed class StorageDialogportenDataMerger
     private readonly IRegisterRepository _registerRepository;
 
     public StorageDialogportenDataMerger(
-        Settings settings,
+        IOptionsSnapshot<Settings> settings,
         ActivityDtoTransformer activityDtoTransformer,
         IRegisterRepository registerRepository)
     {
-        _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _settings = settings.Value ?? throw new ArgumentNullException(nameof(settings));
         _activityDtoTransformer = activityDtoTransformer ?? throw new ArgumentNullException(nameof(activityDtoTransformer));
         _registerRepository = registerRepository ?? throw new ArgumentNullException(nameof(registerRepository));
     }
@@ -97,7 +98,7 @@ internal sealed class StorageDialogportenDataMerger
                 _activityDtoTransformer.GetActivities(dto.Events, cancellationToken)
             );
 
-        var (attachments, transmissions) = GetAttachmentAndTransmissions(activities, dto.Instance.Data);
+        var (attachments, transmissions) = GetAttachmentAndTransmissions(dto, activities);
 
         return new DialogDto
         {
@@ -155,11 +156,19 @@ internal sealed class StorageDialogportenDataMerger
         };
 
     }
-    
+
     private (List<AttachmentDto> attachments, List<TransmissionDto> transmissions) GetAttachmentAndTransmissions(
-        List<ActivityDto> activities, 
-        List<DataElement> data)
+        MergeDto dto,
+        List<ActivityDto> activities)
     {
+        var appSettings = dto.Application.GetSyncAdapterSettings();
+        var data = dto.Instance.Data;
+        if (appSettings.DisableAddTransmissions || 
+            !_settings.DialogportenAdapter.Adapter.FeatureFlag.EnableSubmissionTransmissions)
+        {
+            return (data.Select(CreateAttachmentDto).ToList(), []);
+        }
+        
         var dataElementQueue = new Queue<DataElement>(data
             .Where(x => !IsPerformedBySo(x))
             .OrderBy(x => x.Created.Value));
