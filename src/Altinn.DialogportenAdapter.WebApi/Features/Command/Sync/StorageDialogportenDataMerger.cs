@@ -177,9 +177,9 @@ internal sealed class StorageDialogportenDataMerger
                     Title = new ContentValueDto
                     {
                         Value = [
-                            new() { LanguageCode = "nb", Value = $"Innsending {i + 1}" },
-                            new() { LanguageCode = "nn", Value = $"Innsending {i + 1}" },
-                            new() { LanguageCode = "en", Value = $"Submission {i + 1}" }
+                            new() { LanguageCode = "nb", Value = $"Innsending #{i + 1}" },
+                            new() { LanguageCode = "nn", Value = $"Innsending #{i + 1}" },
+                            new() { LanguageCode = "en", Value = $"Submission #{i + 1}" }
                         ],
                         MediaType = "text/plain"
                     }
@@ -190,32 +190,6 @@ internal sealed class StorageDialogportenDataMerger
                     .ToList()
             })
             .ToList();
-        
-        // TODO: Should we group remaining attachments between last submitted event, and dialog archival into a transmission?
-        // if (dialogStatus is DialogStatus.Completed)
-        // {
-        //     transmissions.Add(new TransmissionDto
-        //     {
-        //         Id = activity.Id!.Value.ToVersion7(activity.CreatedAt!.Value),
-        //         Type = DialogTransmissionType.,
-        //         Sender = activity.PerformedBy,
-        //         Content = new TransmissionContentDto
-        //         {
-        //             Title = new ContentValueDto
-        //             {
-        //                 Value = [
-        //                     new() { LanguageCode = "nb", Value = $"Innsending {i + 1}" },
-        //                     new() { LanguageCode = "nn", Value = $"Innsending {i + 1}" },
-        //                     new() { LanguageCode = "en", Value = $"Submission {i + 1}" }
-        //                 ],
-        //                 MediaType = "text/plain"
-        //             }
-        //         },
-        //         Attachments = queue.DequeueWhile(_ => true)
-        //             .Select(CreateTransmissionAttachmentDto)
-        //             .ToList()
-        //     });
-        // }
         
         var attachments = data
             .Where(IsPerformedBySo)
