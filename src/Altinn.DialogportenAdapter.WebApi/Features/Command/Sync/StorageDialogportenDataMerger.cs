@@ -129,6 +129,10 @@ internal sealed class StorageDialogportenDataMerger
                     MediaType = MediaTypes.PlainText,
                     Value = dto.Application.Title
                         .Where(x => !string.IsNullOrWhiteSpace(x.Value))
+
+                        // Skip language codes that Dialogporten won't accept (ie non-ISO 639-codes),
+                        // crossing our fingers for it remains any valid ones
+                        .Where(x => LanguageCodes.IsValidCultureCode(x.Key))
                         .Select(x => new LocalizationDto
                         {
                             LanguageCode = x.Key,
