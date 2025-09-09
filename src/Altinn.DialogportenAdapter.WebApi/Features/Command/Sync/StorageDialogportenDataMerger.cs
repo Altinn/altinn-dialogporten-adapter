@@ -311,7 +311,7 @@ internal sealed class StorageDialogportenDataMerger
                     new() { LanguageCode = "nn", Value = "Sjå innsendt skjema" },
                     new() { LanguageCode = "en", Value = "See submitted form" }
                 ],
-                Url = ToPortalUri($"{platformBaseUri}/receipt/{instance.Id})")
+                Url = ToPortalUri($"{platformBaseUri}/receipt/{instance.Id}")
             };
         }
 
