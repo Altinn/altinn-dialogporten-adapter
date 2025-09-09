@@ -37,5 +37,5 @@ public static class LanguageCodes
     };
 
     public static bool IsValidTwoLetterLanguageCode(string? languageCode) =>
-        languageCode is not null && Codes.Contains(languageCode.ToUpperInvariant());
+        languageCode is not null && Codes.Contains(languageCode);
 }
