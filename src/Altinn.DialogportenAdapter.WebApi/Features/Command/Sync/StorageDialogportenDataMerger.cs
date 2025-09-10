@@ -95,7 +95,7 @@ internal sealed class StorageDialogportenDataMerger
             : SystemLabel.Default;
         var (party, activities) = await (
             GetPartyUrn(dto.Instance.InstanceOwner.PartyId, cancellationToken),
-            _activityDtoTransformer.GetActivities(dto.Events, cancellationToken)
+            _activityDtoTransformer.GetActivities(dto.Events, dto.Instance.InstanceOwner, cancellationToken)
         );
 
         return new DialogDto
