@@ -3,9 +3,11 @@ using Altinn.ApiClients.Maskinporten.Config;
 
 namespace Altinn.DialogportenAdapter.WebApi;
 
-public sealed record Settings(
-    DialogportenAdapterSettings DialogportenAdapter,
-    WolverineSettings WolverineSettings);
+public sealed class Settings
+{
+    public required DialogportenAdapterSettings DialogportenAdapter { get; init; }
+    public required WolverineSettings WolverineSettings { get; init; }
+}
 
 public sealed record WolverineSettings(string ServiceBusConnectionString, int ListenerCount = 50);
 
@@ -23,7 +25,7 @@ public sealed record AdapterSettings(Uri BaseUri, AdapterFeatureFlagSettings? Fe
     public AdapterFeatureFlagSettings FeatureFlag { get; } = FeatureFlag ?? new AdapterFeatureFlagSettings();
 }
 
-public sealed record AdapterFeatureFlagSettings(bool EnableSubmissionTransmissions = true);
+public sealed record AdapterFeatureFlagSettings(bool EnableSubmissionTransmissions = false);
 
 public sealed record DialogportenSettings(Uri BaseUri);
 
