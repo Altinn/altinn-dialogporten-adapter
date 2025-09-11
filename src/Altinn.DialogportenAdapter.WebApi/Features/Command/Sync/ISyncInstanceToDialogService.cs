@@ -57,6 +57,12 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
             return;
         }
 
+        if (InstanceOwnerIsSelfIdentified(instance))
+        {
+            // We skip these for now as we do not have a good way to identify the user in dialogporten
+            return;
+        }
+
         if (ShouldUpdateInstanceWithDialogId(instance, dialogId))
         {
             // Update the instance with the dialogId before we start to modify the dialog
@@ -94,7 +100,6 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
                 existingDialog.Revision!.Value,
                 isSilentUpdate: dto.IsMigration,
                 cancellationToken: cancellationToken);
-            return;
         }
 
         if (ShouldRestoreDialog(instance, existingDialog))
@@ -112,6 +117,15 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         var mergeDto = new MergeDto(dialogId, existingDialog, application, instance, events, dto.IsMigration);
         var updatedDialog = await _dataMerger.Merge(mergeDto, cancellationToken);
         await UpsertDialog(updatedDialog, existingDialog, syncAdapterSettings, dto.IsMigration, cancellationToken);
+    }
+
+    private static bool InstanceOwnerIsSelfIdentified(Instance? instance)
+    {
+        return instance is not null
+               && instance.InstanceOwner.OrganisationNumber is null
+               && instance.InstanceOwner.PersonNumber is null
+               && instance.InstanceOwner.PartyId is not null
+               && instance.InstanceOwner.Username is not null;
     }
 
     private static void EnsureNotNull(
@@ -213,7 +227,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
             isSilentUpdate: isMigration,
             cancellationToken: cancellationToken).EnsureSuccess();
 
-        updated.Revision = GetRevisionId(updateResult);
+        updated.Revision = updateResult.GetEtagHeader();
 
         foreach (var activityUpdateRequest in activityUpdateRequests)
         {
@@ -223,19 +237,8 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
                 updated.Revision.Value,
                 activityUpdateRequest.NewCreatedAt,
                 cancellationToken: cancellationToken).EnsureSuccess();
-            updated.Revision = GetRevisionId(result);
+            updated.Revision = result.GetEtagHeader();
         }
-    }
-
-    private Guid GetRevisionId(IApiResponse response)
-    {
-        if (!response.Headers.TryGetValues(IDialogportenApi.ETagHeader, out var eTagHeaderValues) ||
-            !Guid.TryParse(eTagHeaderValues.FirstOrDefault(), out var eTagGuid))
-        {
-            throw new InvalidOperationException("ETag header value is missing or invalid.");
-        }
-
-        return eTagGuid;
     }
 
     private async Task<Guid> RestoreDialog(Guid dialogId,
@@ -247,7 +250,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
             .Restore(dialogId, revision, disableAltinnEvents, cancellationToken)
             .EnsureSuccess();
 
-        return GetRevisionId(response);
+        return response.GetEtagHeader();
     }
 
     private static void PruneExistingImmutableEntities(DialogDto updated, DialogDto? existing)
