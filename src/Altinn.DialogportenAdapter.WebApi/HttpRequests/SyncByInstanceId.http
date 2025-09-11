@@ -1,4 +1,4 @@
-@instanceId = 50939580/281a31af-4034-4fbf-bb7c-0a2850cee31d
+@instanceId = 51185069/b2dbd6dc-9121-464d-bb5e-254bdf10b9de
 
 ### Log into maskinporten
 // @no-log
@@ -30,3 +30,11 @@ Authorization: Bearer {{maskinportenToken}}
 Content-Type: application/json
 
 {{syncDialogDto}}
+
+> {%
+    if (response.status < 200 || response.status >= 300) {
+        client.test("Request failed with status: " + response.status, function() {
+            throw new Error("HTTP " + response.status + ": " + response.body);
+        });
+    }
+%}
