@@ -113,7 +113,13 @@ static void BuildAndRun(string[] args)
         // then move to error queue for manual inspection.
         opts.Policies
             .OnException<ApiException>(ex => ex.StatusCode is HttpStatusCode.UnprocessableEntity)
-            .RetryWithCooldown(500.Milliseconds(), 1.Seconds(), 3.Seconds(), 5.Seconds(), 10.Seconds()) // Must in total exceed ASB duplicate detection window
+            .RetryWithCooldown(500.Milliseconds(), 1.Seconds(), 3.Seconds(), 5.Seconds(), 10.Seconds())
+            .Then.MoveToErrorQueue();
+
+        // Attempt to handle errors most likely caused by expired/invalid tokens. If retries don't help, move to error queue for manual inspection.
+        opts.Policies
+            .OnException<ApiException>(ex => ex.StatusCode is HttpStatusCode.Unauthorized)
+            .RetryWithCooldown(500.Milliseconds(), 1.Seconds(), 3.Seconds(), 5.Seconds(), 10.Seconds())
             .Then.MoveToErrorQueue();
 
         // 5xx errors are usually transient (upstream being down/overloaded), so try a few times with a cooldown to ensure we're moved
