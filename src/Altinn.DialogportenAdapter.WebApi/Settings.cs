@@ -3,9 +3,11 @@ using Altinn.ApiClients.Maskinporten.Config;
 
 namespace Altinn.DialogportenAdapter.WebApi;
 
-public sealed record Settings(
-    DialogportenAdapterSettings DialogportenAdapter,
-    WolverineSettings WolverineSettings);
+public sealed class Settings
+{
+    public required DialogportenAdapterSettings DialogportenAdapter { get; init; }
+    public required WolverineSettings WolverineSettings { get; init; }
+}
 
 public sealed record WolverineSettings(string ServiceBusConnectionString, int ListenerCount = 50);
 
@@ -18,7 +20,12 @@ public sealed record DialogportenAdapterSettings(
 
 public sealed record AuthenticationSettings(string JwtBearerWellKnown);
 
-public record AdapterSettings(Uri BaseUri);
+public sealed record AdapterSettings(Uri BaseUri, AdapterFeatureFlagSettings? FeatureFlag = null)
+{
+    public AdapterFeatureFlagSettings FeatureFlag { get; } = FeatureFlag ?? new AdapterFeatureFlagSettings();
+}
+
+public sealed record AdapterFeatureFlagSettings(bool EnableSubmissionTransmissions = false);
 
 public sealed record DialogportenSettings(Uri BaseUri);
 
@@ -28,7 +35,7 @@ public sealed record AltinnPlatformSettings(Uri BaseUri, Uri InternalStorageEndp
     public Uri GetPlatformUri() => new($"{BaseUri.Scheme}://platform.{BaseUri.Host}");
 }
 
-public record KeyVaultSettings(string ClientId, string ClientSecret, string TenantId, string SecretUri);
+public sealed record KeyVaultSettings(string ClientId, string ClientSecret, string TenantId, string SecretUri);
 
 internal sealed record LocalDevelopmentSettings(bool MockDialogportenApi, bool DisableAuth)
 {

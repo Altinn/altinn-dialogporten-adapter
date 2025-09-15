@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Azure.Extensions.AspNetCore.Configuration.Secrets;
 using Azure.Identity;
 using Microsoft.Extensions.FileProviders;
 
@@ -37,7 +38,9 @@ internal static class ConfigurationExtensions
             clientId: kvSettings.ClientId,
             clientSecret: kvSettings.ClientSecret);
 
-        config.AddAzureKeyVault(new Uri(kvSettings.SecretUri), azureCredentials);
+        config.AddAzureKeyVault(new Uri(kvSettings.SecretUri), azureCredentials, 
+            new AzureKeyVaultConfigurationOptions{ ReloadInterval = TimeSpan.FromMinutes(5) });
+        
         return config;
     }
 
