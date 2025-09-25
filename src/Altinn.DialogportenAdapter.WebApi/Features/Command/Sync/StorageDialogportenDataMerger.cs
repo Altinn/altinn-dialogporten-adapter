@@ -1,4 +1,3 @@
-using System.Text;
 using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
@@ -35,12 +34,37 @@ internal sealed class StorageDialogportenDataMerger
     {
         var existing = dto.ExistingDialog.DeepClone();
         var storageDialog = await ToDialogDto(dto, cancellationToken);
+        
+        var syncAdapterSettings = dto.Application.GetSyncAdapterSettings();
+        
         if (existing is null)
         {
+            storageDialog.DueAt = syncAdapterSettings.DisableSyncDueAt 
+                ? storageDialog.DueAt 
+                : null;
+            
+            storageDialog.Activities = syncAdapterSettings.DisableAddActivities 
+                ? storageDialog.Activities 
+                : [];
+
+            storageDialog.Attachments = syncAdapterSettings.DisableSyncAttachments
+                ? storageDialog.Attachments
+                : [];
+
+            storageDialog.Transmissions = syncAdapterSettings.DisableAddTransmissions
+                ? storageDialog.Transmissions
+                : [];
+            
+            storageDialog.Content.Summary = syncAdapterSettings.DisableSyncContentSummary 
+                ? storageDialog.Content.Summary 
+                : null!;
+            
+            storageDialog.Status = syncAdapterSettings.DisableSyncStatus
+                ? storageDialog.Status 
+                : DialogStatus.NotApplicable;
+            
             return storageDialog;
         }
-
-        var syncAdapterSettings = dto.Application.GetSyncAdapterSettings();
 
         existing.DueAt = syncAdapterSettings.DisableSyncDueAt
             ? existing.DueAt
