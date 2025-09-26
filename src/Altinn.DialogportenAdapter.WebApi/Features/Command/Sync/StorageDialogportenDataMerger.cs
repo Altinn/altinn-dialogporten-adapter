@@ -39,29 +39,37 @@ internal sealed class StorageDialogportenDataMerger
         
         if (existing is null)
         {
-            storageDialog.DueAt = syncAdapterSettings.DisableSyncDueAt 
-                ? storageDialog.DueAt 
-                : null;
+            storageDialog.DueAt = syncAdapterSettings.DisableSyncDueAt
+                ? null
+                : storageDialog.DueAt;
             
-            storageDialog.Activities = syncAdapterSettings.DisableAddActivities 
-                ? storageDialog.Activities 
-                : [];
+            storageDialog.Content.Summary = syncAdapterSettings.DisableSyncContentSummary
+                ? null!
+                : storageDialog.Content.Summary;
+
+            storageDialog.Activities = syncAdapterSettings.DisableAddActivities
+                ? []
+                : storageDialog.Activities;
 
             storageDialog.Attachments = syncAdapterSettings.DisableSyncAttachments
-                ? storageDialog.Attachments
-                : [];
+                ? []
+                : storageDialog.Attachments;
 
             storageDialog.Transmissions = syncAdapterSettings.DisableAddTransmissions
-                ? storageDialog.Transmissions
-                : [];
-            
-            storageDialog.Content.Summary = syncAdapterSettings.DisableSyncContentSummary 
-                ? storageDialog.Content.Summary 
-                : null!;
-            
+                ? []
+                : storageDialog.Transmissions;
+
             storageDialog.Status = syncAdapterSettings.DisableSyncStatus
-                ? storageDialog.Status 
-                : DialogStatus.NotApplicable;
+                ? DialogStatus.NotApplicable
+                : storageDialog.Status;
+            
+            storageDialog.GuiActions = syncAdapterSettings.DisableSyncGuiActions
+                ? null!
+                : storageDialog.GuiActions; 
+            
+            storageDialog.ApiActions = syncAdapterSettings.DisableSyncApiActions
+                ? null!
+                : storageDialog.ApiActions;
             
             return storageDialog;
         }
