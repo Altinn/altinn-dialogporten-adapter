@@ -1,0 +1,67 @@
+name: .NET Analysis
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'test/k6/**'
+      - '.github/**'
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+jobs:
+  build-test-analyze:
+    name: Build, test & analyze
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup .NET
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          dotnet-version: |
+            9.0.x
+      - name: Set up Java
+        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+          distribution: 'temurin'
+          java-version: 17
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis
+      - name: Install SonarCloud scanners
+        run: |
+          dotnet tool install --global dotnet-sonarscanner
+      - name: Build & Test
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Needed to get PR information, if any
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          dotnet-sonarscanner begin /k:"Altinn_altinn-dialogporten-adapter" /o:"altinn" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.cs.opencover.reportsPaths="**/coverage.opencover.xml"
+
+          dotnet build Altinn.DialogportenAdapter.sln -v q
+
+          dotnet test Altinn.DialogportenAdapter.sln \
+          -v q \
+          --collect:"XPlat Code Coverage" \
+          --results-directory TestResults/ \
+          --logger "trx;" \
+          --configuration release \
+          -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+      - name: Complete sonar analysis
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Needed to get PR information, if any
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          dotnet-sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: TestResults
+          path: '**/TestResults/*.trx'
+      - name: Process unit test result
+        if: always()
+        uses: NasAmin/trx-parser@359b39f5319df4478443ef1f0eb952f159896995 # v0.7.0
+        with:
+          TRX_PATH: ${{ github.workspace }}/TestResults
+          REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}

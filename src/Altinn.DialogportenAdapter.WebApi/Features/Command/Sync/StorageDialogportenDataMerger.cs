@@ -3,6 +3,7 @@ using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.Platform.Storage.Interface.Models;
+using Microsoft.Extensions.Options;
 
 namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 
@@ -21,11 +22,11 @@ internal sealed class StorageDialogportenDataMerger
     private readonly IRegisterRepository _registerRepository;
 
     public StorageDialogportenDataMerger(
-        Settings settings,
+        IOptionsSnapshot<Settings> settings,
         ActivityDtoTransformer activityDtoTransformer,
         IRegisterRepository registerRepository)
     {
-        _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _settings = settings.Value ?? throw new ArgumentNullException(nameof(settings));
         _activityDtoTransformer = activityDtoTransformer ?? throw new ArgumentNullException(nameof(activityDtoTransformer));
         _registerRepository = registerRepository ?? throw new ArgumentNullException(nameof(registerRepository));
     }
@@ -126,9 +127,11 @@ internal sealed class StorageDialogportenDataMerger
             ? SystemLabel.Archive
             : SystemLabel.Default;
         var (party, activities) = await (
-            GetPartyUrn(dto.Instance.InstanceOwner.PartyId, cancellationToken),
-            _activityDtoTransformer.GetActivities(dto.Events, dto.Instance.InstanceOwner, cancellationToken)
-        );
+                GetPartyUrn(dto.Instance.InstanceOwner.PartyId, cancellationToken),
+                _activityDtoTransformer.GetActivities(dto.Events, dto.Instance.InstanceOwner, cancellationToken)
+            );
+
+        var (attachments, transmissions) = GetAttachmentAndTransmissions(dto, activities);
 
         return new DialogDto
         {
@@ -184,26 +187,109 @@ internal sealed class StorageDialogportenDataMerger
                 CreateDeleteAction(dto.DialogId, dto.Instance),
                 ..CreateCopyAction(dto.DialogId, dto.Instance, dto.Application)
             ],
-            Attachments = dto.Instance.Data
-                .Select(x => new AttachmentDto
-                {
-                    Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
-                    DisplayName = [new() {LanguageCode = "nb", Value = x.Filename ?? x.DataType}],
-                    Urls = [new()
-                    {
-                        Id = Guid.Parse(x.Id).ToVersion7(x.Created.Value),
-                        ConsumerType = x.Filename is not null
-                            ? AttachmentUrlConsumerType.Gui
-                            : AttachmentUrlConsumerType.Api,
-                        MediaType = x.ContentType,
-                        Url = x.Filename is not null
-                            ? ToPortalUri(x.SelfLinks.Platform)
-                            : x.SelfLinks.Platform
-                    }]
-                })
-                .ToList(),
+            Transmissions = transmissions,
+            Attachments = attachments,
             Activities = activities
         };
+
+    }
+
+    private (List<AttachmentDto> attachments, List<TransmissionDto> transmissions) GetAttachmentAndTransmissions(
+        MergeDto dto,
+        List<ActivityDto> activities)
+    {
+        var appSettings = dto.Application.GetSyncAdapterSettings();
+        var data = dto.Instance.Data;
+        if (appSettings.DisableAddTransmissions || 
+            !_settings.DialogportenAdapter.Adapter.FeatureFlag.EnableSubmissionTransmissions)
+        {
+            return (data.Select(CreateAttachmentDto).ToList(), []);
+        }
+        
+        var dataElementQueue = new Queue<DataElement>(data
+            .Where(x => !IsPerformedBySo(x))
+            .OrderBy(x => x.Created.Value));
+
+        var transmissions = activities
+            .Where(x => x.Type is DialogActivityType.FormSubmitted)
+            .OrderBy(x => x.CreatedAt)
+            .Select((a, i) => new TransmissionDto
+            {
+                Id = a.Id!.Value.ToVersion7(a.CreatedAt!.Value),
+                Type = DialogTransmissionType.Submission,
+                Sender = a.PerformedBy,
+                Content = new TransmissionContentDto
+                {
+                    Title = new ContentValueDto
+                    {
+                        Value = [
+                            new() { LanguageCode = "nb", Value = $"Innsending #{i + 1}" },
+                            new() { LanguageCode = "nn", Value = $"Innsending #{i + 1}" },
+                            new() { LanguageCode = "en", Value = $"Submission #{i + 1}" }
+                        ],
+                        MediaType = "text/plain"
+                    }
+                },
+                Attachments = dataElementQueue
+                    .DequeueWhile(e => e.LastChanged <= a.CreatedAt)
+                    .Select(CreateTransmissionAttachmentDto)
+                    .ToList()
+            })
+            .ToList();
+        
+        var attachments = data
+            .Where(IsPerformedBySo)
+            .Concat(dataElementQueue) // any remaining attachments not already included in transmissions
+            .Select(CreateAttachmentDto)
+            .ToList();
+        
+        return (attachments, transmissions);
+    }
+
+    private AttachmentDto CreateAttachmentDto(DataElement data) =>
+        new()
+        {
+            Id = Guid.Parse(data.Id).ToVersion7(data.Created.Value),
+            DisplayName = [new() { LanguageCode = "nb", Value = data.Filename ?? data.DataType }],
+            Urls =
+            [
+                new()
+                {
+                    Id = Guid.Parse(data.Id).ToVersion7(data.Created.Value),
+                    ConsumerType = data.Filename is not null
+                        ? AttachmentUrlConsumerType.Gui
+                        : AttachmentUrlConsumerType.Api,
+                    MediaType = data.ContentType,
+                    Url = data.Filename is not null
+                        ? ToPortalUri(data.SelfLinks.Platform)
+                        : data.SelfLinks.Platform
+                }
+            ]
+        };
+
+    private TransmissionAttachmentDto CreateTransmissionAttachmentDto(DataElement data) =>
+        new()
+        {
+            Id = Guid.Parse(data.Id).ToVersion7(data.Created.Value),
+            DisplayName = [new() { LanguageCode = "nb", Value = data.Filename ?? data.DataType }],
+            Urls =
+            [
+                new()
+                {
+                    ConsumerType = data.Filename is not null
+                        ? AttachmentUrlConsumerType.Gui
+                        : AttachmentUrlConsumerType.Api,
+                    MediaType = data.ContentType,
+                    Url = data.Filename is not null
+                        ? ToPortalUri(data.SelfLinks.Platform)
+                        : data.SelfLinks.Platform
+                }
+            ]
+        };
+
+    private static bool IsPerformedBySo(DataElement data)
+    {
+        return data.LastChangedBy.Length == 9;
     }
 
     private async Task<string> GetPartyUrn(string partyId, CancellationToken cancellationToken)
