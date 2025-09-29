@@ -8,14 +8,15 @@ public static class PolicyExtensions
 
     public static IAdditionalActions RetryWithJitteredCooldown(this PolicyExpression policyExpression, params TimeSpan[] delays)
     {
-        // Jitter +/- 50% on the supplied delays
+        var jittered = new TimeSpan[delays.Length];
+
         for (var i = 0; i < delays.Length; i++)
         {
-            delays[i] += TimeSpan.FromMilliseconds(Random.Next(
-                (int)(-delays[i].TotalMilliseconds / 2),
-                (int)(delays[i].TotalMilliseconds / 2)));
+            var delay = delays[i];
+            var factor = 0.5 + Random.Shared.NextDouble(); // +/- 50 %
+            jittered[i] = TimeSpan.FromMilliseconds(delay.TotalMilliseconds * factor);
         }
 
-        return policyExpression.RetryWithCooldown(delays);
+        return policyExpression.RetryWithCooldown(jittered);
     }
 }
