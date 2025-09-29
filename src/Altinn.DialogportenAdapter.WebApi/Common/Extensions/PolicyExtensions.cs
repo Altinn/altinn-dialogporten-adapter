@@ -4,8 +4,6 @@ namespace Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 
 public static class PolicyExtensions
 {
-    private static readonly Random Random = new();
-
     public static IAdditionalActions RetryWithJitteredCooldown(this PolicyExpression policyExpression, params TimeSpan[] delays)
     {
         var jittered = new TimeSpan[delays.Length];
