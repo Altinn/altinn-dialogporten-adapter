@@ -30,20 +30,4 @@ public static class WolverineOptionsExtentions
 
         return opts;
     }
-
-    public static AzureServiceBusQueueListenerConfiguration ConfigureDeduplicatedQueueDefaults(
-        this AzureServiceBusQueueListenerConfiguration config)
-    {
-        ArgumentNullException.ThrowIfNull(config);
-
-        return config.ConfigureQueue(q =>
-        {
-            // NOTE! This can ONLY be set at queue creation time
-            q.RequiresDuplicateDetection = true;
-
-            // 20 seconds is the minimum allowed by ASB duplicate detection according to
-            // https://learn.microsoft.com/en-us/azure/service-bus-messaging/duplicate-detection#duplicate-detection-window-size
-            q.DuplicateDetectionHistoryTimeWindow = TimeSpan.FromSeconds(20);
-        });
-    }
 }
