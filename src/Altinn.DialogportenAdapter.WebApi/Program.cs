@@ -104,7 +104,8 @@ static void BuildAndRun(string[] args)
         opts.Policies
             .OnException<ApiException>(ex => ex.StatusCode
                 is HttpStatusCode.PreconditionFailed or HttpStatusCode.UnprocessableEntity)
-            .RetryWithJitteredCooldown(1.Seconds(), 3.Seconds(), 5.Seconds());
+            .RetryWithJitteredCooldown(1.Seconds(), 3.Seconds(), 5.Seconds())
+            .Then.MoveToErrorQueue();
 
         // Attempt to handle errors most likely caused by expired/invalid tokens. If retries don't help, move to error queue for manual inspection.
         opts.Policies
