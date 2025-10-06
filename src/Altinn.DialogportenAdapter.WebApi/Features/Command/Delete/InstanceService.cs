@@ -1,6 +1,7 @@
 using Altinn.ApiClients.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
+using Altinn.Platform.Storage.Interface.Models;
 
 namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Delete;
 
@@ -41,6 +42,11 @@ internal sealed class InstanceService
             return DeleteInstanceResult.Unauthorized;
         }
 
+        if (!await IsDeletable(instance, cancellationToken))
+        {
+            return DeleteInstanceResult.Unauthorized;
+        }
+
         // TODO: Skal vi utlede hard delete i noen tilfeller? Basert på status = draft?
         await _storageApi.DeleteInstance(request.PartyId, request.InstanceGuid, hard: false, cancellationToken);
         return DeleteInstanceResult.Success;
@@ -54,5 +60,22 @@ internal sealed class InstanceService
             : token;
         var result = _dialogTokenValidator.Validate(token, dialogId, ["delete"]);
         return result.IsValid;
+    }
+
+    private async Task<bool> IsDeletable(Instance instance, CancellationToken cancellationToken)
+    {
+        if (!instance.Status.Archived.HasValue)
+        {
+            return true;
+        }
+
+        var app = await _storageApi.GetApplication(instance.AppId, cancellationToken).ContentOrDefault();
+        if (app?.PreventInstanceDeletionForDays == null)
+        {
+            return true;
+        }
+
+        var deletableAt = instance.Status.Archived!.Value.Date.AddDays(app.PreventInstanceDeletionForDays.Value);
+        return deletableAt <= DateTime.UtcNow.Date;
     }
 }
