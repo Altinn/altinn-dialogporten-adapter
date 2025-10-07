@@ -87,59 +87,47 @@ static void BuildAndRun(string[] args)
             .ProcessInline());
         opts.Policies.AllSenders(x => x.SendInline());
 
-        // NOTE! The queues are using duplicate detection with a 20-second window, which means any re-queueing within
-        // that window will be treated as a duplicate and the message will be silently dropped by ASB.
-        // This means that the retry attempts here must be spaced out to exceed that window.
-        //
-        // By default, Wolverine will immediately send a message to the error queue if an exception is thrown, unless
-        // it is handled by a policy below.
-
         // Handle 410, which we get when trying to DELETE an already deleted dialog. Just discard.
         opts.Policies
             .OnException<ApiException>(ex => ex.StatusCode is HttpStatusCode.Gone)
             .Discard();
 
-        // We use Azure Service Bus duplicate detection (with InstanceId as the key) to prevent processing the same
-        // instance multiple times. However, duplicate detection only applies within a short time window (currently
-        // 20s). If the queue backlog grows faster than we can drain it, two messages with the same InstanceId may
-        // still be processed concurrently once we catch up, causing dialog update conflicts. Our approach is to rely
-        // on Service Bus to collapse (squash) repeated deliveries of the same InstanceId by rescheduling the message
-        // instead of performing inline retries. This eliminates per-message retry loops and reduces contention.
+        // If the queue backlog grows faster than we can drain it (ie. due to downtime), two messages with the same
+        // InstanceId may still be processed concurrently once we catch up, causing dialog
+        // update conflicts. Ie. the (somewhat theoretical) scenario:
+        // 1. An update message is sent at time X
+        // 2. Adapter process A fetches the instance at time X and starts processing
+        // 3. Another update message is sent at time X+1
+        // 4. Adapter process B fetches the instance at time X+1 and starts processing
+        // 5. Process A finishes and commits new dialog (new revision)
+        // 6. Process B finishes and tries to update dialog, but gets a 412
         opts.Policies
-            .OnException<ApiException>(ex => ex.StatusCode is HttpStatusCode.PreconditionFailed)
-            .Requeue(maxAttempts: 5)
-            .Then.MoveToErrorQueue();
-
-        // Handle 422 errors, which may be caused by timing/duplicate messages, but might also be other issues, so try a few times
-        // then move to error queue for manual inspection.
-        opts.Policies
-            .OnException<ApiException>(ex => ex.StatusCode is HttpStatusCode.UnprocessableEntity)
-            .RetryWithCooldown(500.Milliseconds(), 1.Seconds(), 3.Seconds(), 5.Seconds(), 10.Seconds())
+            .OnException<ApiException>(ex => ex.StatusCode
+                is HttpStatusCode.PreconditionFailed or HttpStatusCode.UnprocessableEntity)
+            .RetryWithJitteredCooldown(1.Seconds(), 3.Seconds(), 5.Seconds())
             .Then.MoveToErrorQueue();
 
         // Attempt to handle errors most likely caused by expired/invalid tokens. If retries don't help, move to error queue for manual inspection.
         opts.Policies
             .OnException<ApiException>(ex => ex.StatusCode is HttpStatusCode.Unauthorized)
-            .RetryWithCooldown(500.Milliseconds(), 1.Seconds(), 3.Seconds(), 5.Seconds(), 10.Seconds())
+            .RetryWithJitteredCooldown(1.Seconds(), 3.Seconds(), 5.Seconds())
             .Then.MoveToErrorQueue();
 
-        // 5xx errors are usually transient (upstream being down/overloaded), so try a few times with a cooldown to ensure we're moved
-        // beyond the ASB duplicate detection window before re-scheduling indefinitely. HttpRequestExceptions indicates
-        // network issues, DNS issues, etc. which are usually transient, so handle this the same as 5xx errors.
+        // 5xx errors are usually transient (upstream being down/overloaded), so try a few times with a cooldown before
+        // re-scheduling indefinitely. HttpRequestExceptions indicates network issues, DNS issues, etc. which are usually
+        // transient, so handle this the same as 5xx errors.
         opts.Policies.OnException<HttpRequestException>()
             .Or<ApiException>(x => (int)x.StatusCode >= 500)
             .OrInner<ApiException>(x => (int)x.StatusCode >= 500)
-            .RetryWithCooldown(10.Seconds(), 20.Seconds()) // Must in total exceed ASB duplicate detection window
+            .RetryWithCooldown(10.Seconds(), 20.Seconds())
             .Then.ScheduleRetryIndefinitely(30.Seconds(), 60.Seconds(), 2.Minutes())
             .AndPauseProcessing(30.Seconds()); // Give some time for upstream to recover before processing more messages
 
         opts.ListenToAzureServiceBusQueue(ContractConstants.AdapterQueueName)
-            .ConfigureDeduplicatedQueueDefaults()
             .ListenerCount(80.PercentOf(settings.WolverineSettings.ListenerCount));
 
         // Also listen to the history queue with a fewer number of listeners.
         opts.ListenToAzureServiceBusQueue(ContractConstants.AdapterHistoryQueueName)
-            .ConfigureDeduplicatedQueueDefaults()
             .ListenerCount(20.PercentOf(settings.WolverineSettings.ListenerCount));
 
     });
