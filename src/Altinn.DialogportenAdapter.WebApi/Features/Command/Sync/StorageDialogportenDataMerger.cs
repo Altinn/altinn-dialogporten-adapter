@@ -75,9 +75,8 @@ internal sealed class StorageDialogportenDataMerger
             return storageDialog;
         }
 
-        var syncAdapterSettings = dto.Application.GetSyncAdapterSettings();
-
         existing.IsApiOnly = storageDialog.IsApiOnly;
+        
         existing.DueAt = syncAdapterSettings.DisableSyncDueAt
             ? existing.DueAt
             : storageDialog.DueAt;
