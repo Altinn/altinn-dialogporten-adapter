@@ -35,14 +35,48 @@ internal sealed class StorageDialogportenDataMerger
     {
         var existing = dto.ExistingDialog.DeepClone();
         var storageDialog = await ToDialogDto(dto, cancellationToken);
+        
+        var syncAdapterSettings = dto.Application.GetSyncAdapterSettings();
+        
         if (existing is null)
         {
+            storageDialog.DueAt = syncAdapterSettings.DisableSyncDueAt
+                ? null
+                : storageDialog.DueAt;
+            
+            storageDialog.Content.Summary = syncAdapterSettings.DisableSyncContentSummary
+                ? null!
+                : storageDialog.Content.Summary;
+
+            storageDialog.Activities = syncAdapterSettings.DisableAddActivities
+                ? []
+                : storageDialog.Activities;
+
+            storageDialog.Attachments = syncAdapterSettings.DisableSyncAttachments
+                ? []
+                : storageDialog.Attachments;
+
+            storageDialog.Transmissions = syncAdapterSettings.DisableAddTransmissions
+                ? []
+                : storageDialog.Transmissions;
+
+            storageDialog.Status = syncAdapterSettings.DisableSyncStatus
+                ? DialogStatus.NotApplicable
+                : storageDialog.Status;
+            
+            storageDialog.GuiActions = syncAdapterSettings.DisableSyncGuiActions
+                ? null!
+                : storageDialog.GuiActions; 
+            
+            storageDialog.ApiActions = syncAdapterSettings.DisableSyncApiActions
+                ? null!
+                : storageDialog.ApiActions;
+            
             return storageDialog;
         }
 
-        var syncAdapterSettings = dto.Application.GetSyncAdapterSettings();
-
         existing.IsApiOnly = storageDialog.IsApiOnly;
+        
         existing.DueAt = syncAdapterSettings.DisableSyncDueAt
             ? existing.DueAt
             : storageDialog.DueAt;
