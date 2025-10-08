@@ -53,7 +53,7 @@ internal sealed class InstanceService
             {
                 return new DeleteResponse.NotDeletableYet(
                     instance.Status.Archived.Value,
-                    app.PreventInstanceDeletionForDays.Value,
+                    app.PreventInstanceDeletionForDays!.Value,
                     instance.Status.Archived.Value.AddDays(app.PreventInstanceDeletionForDays.Value));
             }
         }
