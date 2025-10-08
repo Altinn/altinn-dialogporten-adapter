@@ -49,12 +49,12 @@ internal sealed class InstanceService
         if (instance.Status.Archived.HasValue)
         {
             var app = await _storageApi.GetApplication(instance.AppId, cancellationToken).ContentOrDefault();
-            if (!IsDeletable(instance, app))
+            if (app != null && !IsDeletable(instance, app))
             {
                 return new DeleteResponse.NotDeletableYet(
                     instance.Status.Archived.Value,
                     app.PreventInstanceDeletionForDays.Value,
-                    DateTimeOffset.UtcNow.Date.AddDays(app.PreventInstanceDeletionForDays.Value));
+                    instance.Status.Archived.Value.AddDays(app.PreventInstanceDeletionForDays.Value));
             }
         }
 
