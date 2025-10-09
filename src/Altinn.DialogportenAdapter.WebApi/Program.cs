@@ -103,9 +103,20 @@ static void BuildAndRun(string[] args)
         // 6. Process B finishes and tries to update dialog, but gets a 412
         opts.Policies
             .OnException<ApiException>(ex => ex.StatusCode
-                is HttpStatusCode.PreconditionFailed or HttpStatusCode.UnprocessableEntity)
+                is HttpStatusCode.PreconditionFailed)
             .RetryWithJitteredCooldown(1.Seconds(), 3.Seconds(), 5.Seconds())
             .Then.MoveToErrorQueue();
+
+        // 422s may be caused by concurrency issues (conflicting creates with same IDs), so we initially retry a few times with jitter.
+        // It may however also be caused by caching issues, ie. when a very recent service resource is referred which we have not
+        // yet cached, or a very new organization. In those cases, we need to reschedule the message for later processing to give time for caches to expire.
+        opts.Policies
+            .OnException<ApiException>(ex => ex.StatusCode
+                is HttpStatusCode.UnprocessableEntity)
+            .RetryWithJitteredCooldown(1.Seconds(), 3.Seconds(), 5.Seconds())
+            .Then.ScheduleRetry(10.Seconds(), 30.Seconds(), 1.Minutes(), 5.Minutes(), 5.Minutes(), 10.Minutes())
+            .Then.MoveToErrorQueue();
+
 
         // Attempt to handle errors most likely caused by expired/invalid tokens. If retries don't help, move to error queue for manual inspection.
         opts.Policies
