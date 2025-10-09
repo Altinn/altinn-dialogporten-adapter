@@ -272,7 +272,9 @@ internal sealed class StorageDialogportenDataMerger
     private TransmissionAttachmentDto CreateTransmissionAttachmentDto(DataElement data) =>
         new()
         {
-            Id = Guid.Parse(data.Id).ToVersion7(data.Created.Value),
+            // Ensure unique IDs when the same DataElement appears as both TransmissionAttachment and Attachment
+            // This prevents ID collisions that would cause conflicts in Dialogporten
+            Id = Guid.CreateVersion7(data.Created!.Value), 
             DisplayName = [new() { LanguageCode = "nb", Value = data.Filename ?? data.DataType }],
             Urls =
             [
