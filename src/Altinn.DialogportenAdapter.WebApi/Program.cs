@@ -125,11 +125,12 @@ static void BuildAndRun(string[] args)
             .Then.MoveToErrorQueue();
 
         // 5xx errors are usually transient (upstream being down/overloaded), so try a few times with a cooldown before
-        // re-scheduling indefinitely. HttpRequestExceptions indicates network issues, DNS issues, etc. which are usually
+        // re-scheduling indefinitely, as is timeouts (TaskCancelledExceptions). HttpRequestExceptions indicates network issues, DNS issues, etc. which are usually
         // transient, so handle this the same as 5xx errors.
         opts.Policies.OnException<HttpRequestException>()
             .Or<ApiException>(x => (int)x.StatusCode >= 500)
             .OrInner<ApiException>(x => (int)x.StatusCode >= 500)
+            .Or<TaskCanceledException>()
             .RetryWithCooldown(10.Seconds(), 20.Seconds())
             .Then.ScheduleRetryIndefinitely(30.Seconds(), 60.Seconds(), 2.Minutes())
             .AndPauseProcessing(30.Seconds()); // Give some time for upstream to recover before processing more messages
