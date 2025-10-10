@@ -1,0 +1,17 @@
+name: Add issues and PRs to project
+
+on:
+  issues:
+    types: [opened, reopened, transferred, labeled]
+  pull_request:
+    types: [opened, reopened, labeled]
+
+jobs:
+  add-to-project:
+    name: Add issue to project
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/add-to-project@244f685bbbc3b7adfa846e08b69b5b77571133e # v1.0.2
+        with:
+          project-url: https://github.com/orgs/Altinn/projects/146
+          github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}
