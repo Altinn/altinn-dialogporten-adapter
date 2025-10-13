@@ -135,11 +135,11 @@ static void BuildAndRun(string[] args)
             .AndPauseProcessing(30.Seconds()); // Give some time for upstream to recover before processing more messages
 
         opts.ListenToAzureServiceBusQueue(ContractConstants.AdapterQueueName)
-            .ListenerCount(80.PercentOf(settings.WolverineSettings.ListenerCount));
+            .ListenerCount(70.PercentOf(settings.WolverineSettings.ListenerCount));
 
         // Also listen to the history queue with a fewer number of listeners.
         opts.ListenToAzureServiceBusQueue(ContractConstants.AdapterHistoryQueueName)
-            .ListenerCount(20.PercentOf(settings.WolverineSettings.ListenerCount));
+            .ListenerCount(30.PercentOf(settings.WolverineSettings.ListenerCount));
 
     });
 
