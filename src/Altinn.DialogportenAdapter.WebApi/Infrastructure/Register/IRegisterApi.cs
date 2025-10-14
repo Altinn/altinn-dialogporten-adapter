@@ -13,7 +13,7 @@ internal sealed record PartyQueryResponse(
 );
 
 internal sealed record PartyIdentifier(
-    int PartyId,
+    int? PartyId,
     string DisplayName,
     string? PersonIdentifier,
     string? OrganizationIdentifier

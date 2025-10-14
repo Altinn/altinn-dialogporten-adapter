@@ -131,17 +131,6 @@ internal sealed class ActivityDtoTransformer
             return new ActorDto { ActorType = ActorType.ServiceOwner };
         }
 
-        // The register party query API doesn't currently support Altinn 2 enterprise users, so if we at this point are left with
-        // an unresolved user-id and the authentication level is exactly 3, it is extremely likely that this is an Altinn 2 enterprise user.
-
-        // As a workaround until the register API starts supporting these users, we will therefore assume that this is an Altinn 2 enterprise user
-        // and just return the instance owner as the actor (which should be set with an organization number, as Altinn 2 enterprise users can only access
-        // instances owned by organizations)
-        if (user is { AuthenticationLevel: 3, UserId: not null } && !string.IsNullOrWhiteSpace(instanceOwner.OrganisationNumber))
-        {
-            return new ActorDto { ActorType = ActorType.PartyRepresentative, ActorId = $"{Constants.OrganizationUrnPrefix}{instanceOwner.OrganisationNumber}" };
-        }
-
         throw new InvalidOperationException($"{nameof(PlatformUser)} could not be converted to {nameof(ActorDto)}: {JsonSerializer.Serialize(user)}.");
     }
 }
