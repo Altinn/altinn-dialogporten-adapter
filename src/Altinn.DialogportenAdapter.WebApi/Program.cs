@@ -290,12 +290,13 @@ static void BuildAndRun(string[] args)
             {
                 DeleteResponse.Success => Results.NoContent(),
                 DeleteResponse.UnAuthorized => Results.Unauthorized(),
+                DeleteResponse.NotFound => Results.NotFound(),
                 DeleteResponse.NotDeletableYet notYet => Results.Problem(
                     type: "urn:altinn:problem:minimum-persistence-lifetime-not-satisfied",
                     title: "Deletion not allowed during minimum persistence lifetime period",
                     statusCode: StatusCodes.Status422UnprocessableEntity,
                     detail: "The instance cannot be deleted yet because it is still within the configured minimum persistence lifetime period after archiving.",
-                    instance: $"https://platform.altinn.no/storage/api/v1/instances/{instanceOwner}/{instanceGuid}",
+                    instance: $"{settings.DialogportenAdapter.Altinn.GetPlatformUri()}instance/{instanceOwner}/{instanceGuid}",
                     extensions: new Dictionary<string, object?>
                     {
                         ["archivedAt"] = notYet.ArchivedAt.ToString("yyyy-MM-ddTHH:mm:ssZ"),

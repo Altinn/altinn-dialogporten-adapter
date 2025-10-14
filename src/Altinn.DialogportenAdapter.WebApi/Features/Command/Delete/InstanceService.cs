@@ -54,7 +54,7 @@ internal sealed class InstanceService
                 return new DeleteResponse.NotDeletableYet(
                     instance.Status.Archived.Value,
                     app.PreventInstanceDeletionForDays!.Value,
-                    instance.Status.Archived.Value.AddDays(app.PreventInstanceDeletionForDays.Value));
+                    instance.Status.Archived.Value.Date.AddDays(app.PreventInstanceDeletionForDays.Value));
             }
         }
 
@@ -80,7 +80,8 @@ internal sealed class InstanceService
             return true;
         }
 
-        var deletableAt = instance.Status.Archived!.Value.Date.AddDays(app.PreventInstanceDeletionForDays.Value);
+        var instanceDate = instance.Status.Archived!.Value.Date;
+        var deletableAt = instanceDate.AddDays(app.PreventInstanceDeletionForDays.Value);
         return deletableAt <= DateTime.UtcNow.Date;
     }
 }
