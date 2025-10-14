@@ -35,15 +35,15 @@ internal sealed class StorageDialogportenDataMerger
     {
         var existing = dto.ExistingDialog.DeepClone();
         var storageDialog = await ToDialogDto(dto, cancellationToken);
-        
+
         var syncAdapterSettings = dto.Application.GetSyncAdapterSettings();
-        
+
         if (existing is null)
         {
             storageDialog.DueAt = syncAdapterSettings.DisableSyncDueAt
                 ? null
                 : storageDialog.DueAt;
-            
+
             storageDialog.Content.Summary = syncAdapterSettings.DisableSyncContentSummary
                 ? null!
                 : storageDialog.Content.Summary;
@@ -63,20 +63,20 @@ internal sealed class StorageDialogportenDataMerger
             storageDialog.Status = syncAdapterSettings.DisableSyncStatus
                 ? DialogStatus.NotApplicable
                 : storageDialog.Status;
-            
+
             storageDialog.GuiActions = syncAdapterSettings.DisableSyncGuiActions
                 ? null!
-                : storageDialog.GuiActions; 
-            
+                : storageDialog.GuiActions;
+
             storageDialog.ApiActions = syncAdapterSettings.DisableSyncApiActions
                 ? null!
                 : storageDialog.ApiActions;
-            
+
             return storageDialog;
         }
 
         existing.IsApiOnly = storageDialog.IsApiOnly;
-        
+
         existing.DueAt = syncAdapterSettings.DisableSyncDueAt
             ? existing.DueAt
             : storageDialog.DueAt;
@@ -202,12 +202,12 @@ internal sealed class StorageDialogportenDataMerger
     {
         var appSettings = dto.Application.GetSyncAdapterSettings();
         var data = dto.Instance.Data;
-        if (appSettings.DisableAddTransmissions || 
+        if (appSettings.DisableAddTransmissions ||
             !_settings.DialogportenAdapter.Adapter.FeatureFlag.EnableSubmissionTransmissions)
         {
             return (data.Select(CreateAttachmentDto).ToList(), []);
         }
-        
+
         var dataElementQueue = new Queue<DataElement>(data
             .Where(x => !IsPerformedBySo(x))
             .OrderBy(x => x.Created.Value));
@@ -238,13 +238,13 @@ internal sealed class StorageDialogportenDataMerger
                     .ToList()
             })
             .ToList();
-        
+
         var attachments = data
             .Where(IsPerformedBySo)
             .Concat(dataElementQueue) // any remaining attachments not already included in transmissions
             .Select(CreateAttachmentDto)
             .ToList();
-        
+
         return (attachments, transmissions);
     }
 
@@ -274,7 +274,7 @@ internal sealed class StorageDialogportenDataMerger
         {
             // Ensure unique IDs when the same DataElement appears as both TransmissionAttachment and Attachment
             // This prevents ID collisions that would cause conflicts in Dialogporten
-            Id = Guid.CreateVersion7(data.Created!.Value), 
+            Id = Guid.CreateVersion7(data.Created!.Value),
             DisplayName = [new() { LanguageCode = "nb", Value = data.Filename ?? data.DataType }],
             Urls =
             [
@@ -302,7 +302,7 @@ internal sealed class StorageDialogportenDataMerger
 
         if (!response.TryGetValue(partyId, out var actorUrn))
         {
-            throw new InvalidOperationException($"Party with id {partyId} not found.");
+            throw new PartyNotFoundException(partyId);
         }
 
         return actorUrn.StartsWith(Constants.DisplayNameUrnPrefix)
