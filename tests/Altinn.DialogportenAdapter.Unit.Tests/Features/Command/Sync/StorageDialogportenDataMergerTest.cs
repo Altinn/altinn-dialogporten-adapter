@@ -8,7 +8,7 @@ public class StorageDialogportenDataMergerTest
 {
 
     [Fact]
-    public void Test1()
+    public void SimpleTest()
     {
         var instance = new Instance
         {
@@ -37,9 +37,9 @@ public class StorageDialogportenDataMergerTest
                 }
             ]
         };
-        var a = ApplicationTextParser.GetLocalizationsFromApplicationTexts("title", instance, texts, status);
+        var localizations = ApplicationTextParser.GetLocalizationsFromApplicationTexts("title", instance, texts, status);
 
-        Assert.Single(a);
-        Assert.Equal("begone task any", a.First().Value);
+        Assert.Single(localizations);
+        Assert.Equal("begone task any", localizations.First().Value);
     }
 }
