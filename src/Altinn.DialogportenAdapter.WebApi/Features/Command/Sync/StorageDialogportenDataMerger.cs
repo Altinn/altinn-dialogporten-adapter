@@ -176,7 +176,7 @@ internal sealed class StorageDialogportenDataMerger
             },
             GuiActions =
             [
-                CreateGoToAction(dto.DialogId, dto.Instance),
+                CreateGoToAction(dto.DialogId, dto.Instance, dto.ApplicationTexts, instanceDerivedStatus),
                 CreateDeleteAction(dto.DialogId, dto.Instance),
                 ..CreateCopyAction(dto.DialogId, dto.Instance, dto.Application)
             ],
@@ -343,11 +343,40 @@ internal sealed class StorageDialogportenDataMerger
     private List<LocalizationDto> GetSummary(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
     {
         var summary = ApplicationTextParser.GetLocalizationsFromApplicationTexts(nameof(DialogDto.Content.Summary), instance, applicationTexts, instanceDerivedStatus);
-        return summary.Count > 0 ? summary :
-            GetSummaryFallback(instanceDerivedStatus);
+        return summary.Count > 0
+            ? summary
+            : GetSummaryFallback(instanceDerivedStatus);
     }
 
-    private List<LocalizationDto> GetTitle(Instance instance, Application app, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
+    private static List<LocalizationDto> GetPrimaryAction(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
+    {
+        var primaryAction = ApplicationTextParser.GetLocalizationsFromApplicationTexts("primaryactionlabel", instance, applicationTexts, instanceDerivedStatus);
+        return primaryAction.Count > 0
+            ? GetPrimaryFallback(instance)
+            : primaryAction;
+    }
+
+    private static List<LocalizationDto> GetPrimaryFallback(Instance instance)
+    {
+        if (instance.Status.IsArchived)
+        {
+            return
+            [
+                new() { LanguageCode = "nb", Value = "Se innsendt skjema" },
+                new() { LanguageCode = "nn", Value = "Sjå innsendt skjema" },
+                new() { LanguageCode = "en", Value = "See submitted form" }
+            ];
+        }
+
+        return
+        [
+            new() { LanguageCode = "nb", Value = "Gå til skjemautfylling" },
+            new() { LanguageCode = "nn", Value = "Gå til skjemautfylling" },
+            new() { LanguageCode = "en", Value = "Go to form completion" }
+        ];
+    }
+
+    private static List<LocalizationDto> GetTitle(Instance instance, Application app, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
     {
         var title = ApplicationTextParser.GetLocalizationsFromApplicationTexts(nameof(DialogDto.Content.Title), instance, applicationTexts, instanceDerivedStatus);
 
@@ -385,7 +414,7 @@ internal sealed class StorageDialogportenDataMerger
     /// <param name="instanceDerivedStatus"></param>
     /// <returns></returns>
     /// <exception cref="NotImplementedException"></exception>
-    private List<LocalizationDto> GetSummaryFallback(InstanceDerivedStatus instanceDerivedStatus)
+    private static List<LocalizationDto> GetSummaryFallback(InstanceDerivedStatus instanceDerivedStatus)
     {
         // TODO! Check application texts! See https://github.com/Altinn/dialogporten/issues/2081
 
@@ -451,7 +480,7 @@ internal sealed class StorageDialogportenDataMerger
 
     }
 
-    private GuiActionDto CreateGoToAction(Guid dialogId, Instance instance)
+    private GuiActionDto CreateGoToAction(Guid dialogId, Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
     {
         var goToActionId = dialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.GoTo);
         if (instance.Status.IsArchived)
@@ -466,12 +495,7 @@ internal sealed class StorageDialogportenDataMerger
                 Id = goToActionId,
                 Action = "read",
                 Priority = DialogGuiActionPriority.Primary,
-                Title =
-                [
-                    new() { LanguageCode = "nb", Value = "Se innsendt skjema" },
-                    new() { LanguageCode = "nn", Value = "Sjå innsendt skjema" },
-                    new() { LanguageCode = "en", Value = "See submitted form" }
-                ],
+                Title = GetPrimaryAction(instance, applicationTexts, instanceDerivedStatus),
                 Url = ToPortalUri($"{platformBaseUri}/receipt/{instance.Id}")
             };
         }
@@ -492,12 +516,7 @@ internal sealed class StorageDialogportenDataMerger
             Action = "write",
             AuthorizationAttribute = authorizationAttribute,
             Priority = DialogGuiActionPriority.Primary,
-            Title =
-            [
-                new() { LanguageCode = "nb", Value = "Gå til skjemautfylling" },
-                new() { LanguageCode = "nn", Value = "Gå til skjemautfylling" },
-                new() { LanguageCode = "en", Value = "Go to form completion" }
-            ],
+            Title = GetPrimaryAction(instance, applicationTexts, instanceDerivedStatus),
             Url = ToPortalUri($"{appBaseUri}/#/instance/{instance.Id}")
         };
     }
