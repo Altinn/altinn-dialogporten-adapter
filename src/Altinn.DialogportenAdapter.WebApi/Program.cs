@@ -117,6 +117,12 @@ static void BuildAndRun(string[] args)
             .Then.ScheduleRetry(10.Seconds(), 30.Seconds(), 1.Minutes(), 5.Minutes(), 5.Minutes(), 10.Minutes())
             .Then.MoveToErrorQueue();
 
+        // PartyNotFoundExceptions may happen due to desyncs between Altinn 2 and Altinn 3 register. Reschedule for a retry after a while,
+        // eventually failing to error queue for manual inspection if the party is still not found.
+        opts.Policies
+            .OnException<PartyNotFoundException>()
+            .ScheduleRetry(1.Minutes(), 10.Minutes(), 30.Minutes())
+            .Then.MoveToErrorQueue();
 
         // Attempt to handle errors most likely caused by expired/invalid tokens. If retries don't help, move to error queue for manual inspection.
         opts.Policies
