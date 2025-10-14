@@ -40,12 +40,13 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         var dialogId = dto.InstanceId.ToVersion7(dto.InstanceCreatedAt);
 
         // Fetch events, application, instance and existing dialog in parallel
-        var (existingDialog, application, instance, events) = await (
-            _dialogportenApi.Get(dialogId, cancellationToken).ContentOrDefault(),
-            _storageApi.GetApplication(dto.AppId, cancellationToken).ContentOrDefault(),
-            _storageApi.GetInstance(dto.PartyId, dto.InstanceId, cancellationToken).ContentOrDefault(),
-            _storageApi.GetInstanceEvents(dto.PartyId, dto.InstanceId, Constants.SupportedEventTypes, cancellationToken).ContentOrDefault()
-        );
+        var (existingDialog, application, applicationTexts, instance, events) = await (
+                _dialogportenApi.Get(dialogId, cancellationToken).ContentOrDefault(),
+                _storageApi.GetApplication(dto.AppId, cancellationToken).ContentOrDefault(),
+                GetApplicationTexts(dto.AppId, cancellationToken), // Amund: Look!
+                _storageApi.GetInstance(dto.PartyId, dto.InstanceId, cancellationToken).ContentOrDefault(),
+                _storageApi.GetInstanceEvents(dto.PartyId, dto.InstanceId, Constants.SupportedEventTypes, cancellationToken).ContentOrDefault()
+            );
 
         if (instance is null && existingDialog is null)
         {
@@ -114,7 +115,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         EnsureNotNull(application, instance, events);
 
         // Create or update the dialog with the fetched data
-        var mergeDto = new MergeDto(dialogId, existingDialog, application, instance, events, dto.IsMigration);
+        var mergeDto = new MergeDto(dialogId, existingDialog, application, applicationTexts, instance, events, dto.IsMigration);
         var updatedDialog = await _dataMerger.Merge(mergeDto, cancellationToken);
         await UpsertDialog(updatedDialog, existingDialog, syncAdapterSettings, dto.IsMigration, cancellationToken);
     }
@@ -122,10 +123,10 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
     private static bool InstanceOwnerIsSelfIdentified(Instance? instance)
     {
         return instance is not null
-               && instance.InstanceOwner.OrganisationNumber is null
-               && instance.InstanceOwner.PersonNumber is null
-               && instance.InstanceOwner.PartyId is not null
-               && instance.InstanceOwner.Username is not null;
+         && instance.InstanceOwner.OrganisationNumber is null
+         && instance.InstanceOwner.PersonNumber is null
+         && instance.InstanceOwner.PartyId is not null
+         && instance.InstanceOwner.Username is not null;
     }
 
     private static void EnsureNotNull(
@@ -151,9 +152,9 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
     private static bool IsDialogSyncDisabled(Instance? instance)
     {
         return instance?.DataValues is not null
-               && instance.DataValues.TryGetValue(Constants.InstanceDataValueDisableSyncKey, out var disableSyncString)
-               && bool.TryParse(disableSyncString, out var disableSync)
-               && disableSync;
+         && instance.DataValues.TryGetValue(Constants.InstanceDataValueDisableSyncKey, out var disableSyncString)
+         && bool.TryParse(disableSyncString, out var disableSync)
+         && disableSync;
     }
 
     private static bool BothIsDeleted(Instance? instance, DialogDto? existingDialog)
@@ -189,9 +190,9 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         }
 
         return instance.DataValues is null
-           || !instance.DataValues.TryGetValue(Constants.InstanceDataValueDialogIdKey, out var dialogIdString)
-           || !Guid.TryParse(dialogIdString, out var instanceDialogId)
-           || instanceDialogId != dialogId;
+         || !instance.DataValues.TryGetValue(Constants.InstanceDataValueDialogIdKey, out var dialogIdString)
+         || !Guid.TryParse(dialogIdString, out var instanceDialogId)
+         || instanceDialogId != dialogId;
     }
 
     private Task UpsertDialog(DialogDto updated,
@@ -217,7 +218,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
     {
         var activityUpdateRequests = existing?.Activities
             .Join(updated.Activities, x => x.Id, x => x.Id, (prev, next) => (prev, next))
-            .Where(x => x.prev.Type == DialogActivityType.FormSaved &&  x.prev.CreatedAt < x.next.CreatedAt)
+            .Where(x => x.prev.Type == DialogActivityType.FormSaved && x.prev.CreatedAt < x.next.CreatedAt)
             .Select(x => new { ActivityId = x.next.Id!.Value, NewCreatedAt = x.next.CreatedAt!.Value })
             .ToArray() ?? [];
 
@@ -276,5 +277,28 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
                 { Constants.InstanceDataValueDialogIdKey, dialogId.ToString() }
             }
         }, cancellationToken);
+    }
+
+
+    public async Task<ApplicationTexts> GetApplicationTexts(string appId, CancellationToken cancellationToken = default) // Amund: ikke være her!
+    {
+        string[] predefinedLanguages = ["nb", "nn", "en"];
+        var orgApp = appId.Split('/');
+        var tasks = predefinedLanguages.Select(lang => _storageApi.GetApplicationTexts(orgApp[0], orgApp[1], lang, cancellationToken));
+        var responses = await Task.WhenAll(tasks);
+
+        var textResources = responses
+            .Where(response => response.IsSuccessful)
+            .Select(response => response.Content!)
+            .ToList();
+
+        return new ApplicationTexts
+        {
+            Translations = textResources.Select(textResource => new ApplicationTextsTranslation
+            {
+                Language = textResource.Language,
+                Texts = textResource.Resources.ToDictionary(x => x.Id, x => x.Value)
+            }).ToList()
+        };
     }
 }

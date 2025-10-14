@@ -7,6 +7,9 @@ internal interface IStorageApi
 {
     [Get("/storage/api/v1/applications/{**appId}")]
     Task<IApiResponse<Application>> GetApplication(string appId, CancellationToken cancellationToken = default);
+    
+    [Get("/storage/api/v1/applications/{org}/{app}/texts/{language}")]
+    Task<IApiResponse<TextResource>> GetApplicationTexts(string org, string app, string language, CancellationToken cancellationToken = default);
 
     [Get("/storage/api/v1/instances/{partyId}/{instanceId}")]
     Task<IApiResponse<Instance>> GetInstance(string partyId, Guid instanceId, CancellationToken cancellationToken = default);
@@ -21,4 +24,5 @@ internal interface IStorageApi
 
     [Delete("/storage/api/v1/sbl/instances/{partyId}/{instanceId}")]
     Task DeleteInstance(string partyId, Guid instanceId, [Query] bool hard = false, CancellationToken cancellationToken = default);
+    
 }
