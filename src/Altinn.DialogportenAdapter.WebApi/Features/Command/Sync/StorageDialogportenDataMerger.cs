@@ -314,7 +314,7 @@ internal sealed class StorageDialogportenDataMerger
     {
         var instanceDerivedStatus = instance.Process?.CurrentTask?.AltinnTaskType?.ToLower() switch
         {
-            _ when instance.Status.IsArchived => (instance.CompleteConfirmations?.Count ?? 0) != 0
+            _ when instance.Status.IsArchived => IsConsideredConfirmed(instance)
                 ? InstanceDerivedStatus.ArchivedConfirmed
                 : InstanceDerivedStatus.ArchivedUnconfirmed,
             "reject" => InstanceDerivedStatus.Rejected,
@@ -347,6 +347,16 @@ internal sealed class StorageDialogportenDataMerger
         };
 
         return (instanceDerivedStatus, dialogStatus);
+    }
+
+    private static bool IsConsideredConfirmed(Instance instance)
+    {
+        if (instance.DataValues.ContainsKey("A2ArchRef")) // Archived in Altinn 2, always considered confirmed
+        {
+            return true;
+        }
+
+        return (instance.CompleteConfirmations?.Count ?? 0) != 0;
     }
 
     /// <summary>
