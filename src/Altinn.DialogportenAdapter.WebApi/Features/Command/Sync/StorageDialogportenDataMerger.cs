@@ -177,8 +177,8 @@ internal sealed class StorageDialogportenDataMerger
             GuiActions =
             [
                 CreateGoToAction(dto.DialogId, dto.Instance, dto.ApplicationTexts, instanceDerivedStatus),
-                CreateDeleteAction(dto.DialogId, dto.Instance),
-                ..CreateCopyAction(dto.DialogId, dto.Instance, dto.Application)
+                CreateDeleteAction(dto.DialogId, dto.Instance, dto.ApplicationTexts, instanceDerivedStatus),
+                ..CreateCopyAction(dto.DialogId, dto.Instance, dto.Application, dto.ApplicationTexts, instanceDerivedStatus)
             ],
             Transmissions = transmissions,
             Attachments = attachments,
@@ -356,6 +356,24 @@ internal sealed class StorageDialogportenDataMerger
             : primaryAction;
     }
 
+    private static List<LocalizationDto> GetSecondaryAction(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
+    {
+
+        var secondaryAction = ApplicationTextParser.GetLocalizationsFromApplicationTexts("secondaryactionlabel", instance, applicationTexts, instanceDerivedStatus);
+        return secondaryAction.Count > 0
+            ? GetSecondaryFallback(instance)
+            : secondaryAction;
+    }
+
+    private static List<LocalizationDto> GetTernaryAction(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
+    {
+        var ternaryAction = ApplicationTextParser.GetLocalizationsFromApplicationTexts("ternaryactionlabel", instance, applicationTexts, instanceDerivedStatus);
+        return ternaryAction.Count > 0
+            ? GetSecondaryFallback(instance)
+            : ternaryAction;
+        ;
+    }
+
     private static List<LocalizationDto> GetPrimaryFallback(Instance instance)
     {
         if (instance.Status.IsArchived)
@@ -373,6 +391,16 @@ internal sealed class StorageDialogportenDataMerger
             new() { LanguageCode = "nb", Value = "Gå til skjemautfylling" },
             new() { LanguageCode = "nn", Value = "Gå til skjemautfylling" },
             new() { LanguageCode = "en", Value = "Go to form completion" }
+        ];
+    }
+
+    private static List<LocalizationDto> GetSecondaryFallback(Instance instance)
+    {
+        return
+        [
+            new() { LanguageCode = "nb", Value = "Slett" },
+            new() { LanguageCode = "nn", Value = "Slett" },
+            new() { LanguageCode = "en", Value = "Delete" }
         ];
     }
 
@@ -521,7 +549,7 @@ internal sealed class StorageDialogportenDataMerger
         };
     }
 
-    private GuiActionDto CreateDeleteAction(Guid dialogId, Instance instance)
+    private GuiActionDto CreateDeleteAction(Guid dialogId, Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
     {
         var adapterBaseUri = _settings.DialogportenAdapter.Adapter.BaseUri
             .ToString()
@@ -532,18 +560,14 @@ internal sealed class StorageDialogportenDataMerger
             Action = "delete",
             Priority = DialogGuiActionPriority.Secondary,
             IsDeleteDialogAction = true,
-            Title =
-            [
-                new() { LanguageCode = "nb", Value = "Slett" },
-                new() { LanguageCode = "nn", Value = "Slett" },
-                new() { LanguageCode = "en", Value = "Delete" }
-            ],
+            Title = GetSecondaryAction(instance, applicationTexts, instanceDerivedStatus),
+
             Url = $"{adapterBaseUri}/api/v1/instance/{instance.Id}",
             HttpMethod = HttpVerb.DELETE
         };
     }
 
-    private IEnumerable<GuiActionDto> CreateCopyAction(Guid dialogId, Instance instance, Application application)
+    private IEnumerable<GuiActionDto> CreateCopyAction(Guid dialogId, Instance instance, Application application, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
     {
         var copyEnabled = application.CopyInstanceSettings?.Enabled ?? false;
         if (!instance.Status.IsArchived || !copyEnabled)
@@ -560,12 +584,7 @@ internal sealed class StorageDialogportenDataMerger
             Id = dialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.Copy),
             Action = "instantiate",
             Priority = DialogGuiActionPriority.Tertiary,
-            Title =
-            [
-                new() { LanguageCode = "nb", Value = "Lag ny kopi" },
-                new() { LanguageCode = "nn", Value = "Lag ny kopi" },
-                new() { LanguageCode = "en", Value = "Create new copy" }
-            ],
+            Title = GetTernaryAction(instance, applicationTexts, instanceDerivedStatus),
             Url = ToPortalUri($"{appBaseUri}/legacy/instances/{instance.Id}/copy"),
             HttpMethod = HttpVerb.GET
         };

@@ -43,7 +43,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         var (existingDialog, application, applicationTexts, instance, events) = await (
                 _dialogportenApi.Get(dialogId, cancellationToken).ContentOrDefault(),
                 _storageApi.GetApplication(dto.AppId, cancellationToken).ContentOrDefault(),
-                GetApplicationTexts(dto.AppId, cancellationToken), // Amund: Look!
+                GetApplicationTexts(dto.AppId, cancellationToken),
                 _storageApi.GetInstance(dto.PartyId, dto.InstanceId, cancellationToken).ContentOrDefault(),
                 _storageApi.GetInstanceEvents(dto.PartyId, dto.InstanceId, Constants.SupportedEventTypes, cancellationToken).ContentOrDefault()
             );
@@ -280,7 +280,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
     }
 
 
-    public async Task<ApplicationTexts> GetApplicationTexts(string appId, CancellationToken cancellationToken = default) // Amund: ikke være her!
+    private async Task<ApplicationTexts> GetApplicationTexts(string appId, CancellationToken cancellationToken = default)
     {
         string[] predefinedLanguages = ["nb", "nn", "en"];
         var orgApp = appId.Split('/');
