@@ -121,6 +121,12 @@ internal sealed class ActivityDtoTransformer
                 : new ActorDto { ActorType = ActorType.PartyRepresentative, ActorId = actorUrn };
         }
 
+        // Altinn 2 end user system id
+        if (user.EndUserSystemId.HasValue)
+        {
+            return new ActorDto { ActorType = ActorType.PartyRepresentative, ActorName = $"EUS #{user.EndUserSystemId.Value}" };
+        }
+
         if (!string.IsNullOrWhiteSpace(user.SystemUserOwnerOrgNo))
         {
             return new ActorDto { ActorType = ActorType.PartyRepresentative, ActorId = $"{Constants.OrganizationUrnPrefix}{user.SystemUserOwnerOrgNo}" };
