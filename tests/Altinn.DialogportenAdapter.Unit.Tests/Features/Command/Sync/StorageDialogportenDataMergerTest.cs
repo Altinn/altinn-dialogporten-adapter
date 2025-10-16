@@ -20,7 +20,6 @@ public class StorageDialogportenDataMergerTest
                 }
             }
         };
-        var status = InstanceDerivedStatus.Rejected;
         var texts = new ApplicationTexts
         {
             Translations =
@@ -37,7 +36,7 @@ public class StorageDialogportenDataMergerTest
                 }
             ]
         };
-        var localizations = ApplicationTextParser.GetLocalizationsFromApplicationTexts("title", instance, texts, status);
+        var localizations = ApplicationTextParser.GetLocalizationsFromApplicationTexts("title", instance, texts, InstanceDerivedStatus.Rejected);
 
         Assert.Single(localizations);
         Assert.Equal("begone task any", localizations.First().Value);
