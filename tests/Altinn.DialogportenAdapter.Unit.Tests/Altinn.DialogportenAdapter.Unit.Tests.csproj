@@ -26,4 +26,8 @@
         <Using Include="Xunit"/>
     </ItemGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="..\..\src\Altinn.DialogportenAdapter.WebApi\Altinn.DialogportenAdapter.WebApi.csproj" />
+    </ItemGroup>
+
 </Project>
