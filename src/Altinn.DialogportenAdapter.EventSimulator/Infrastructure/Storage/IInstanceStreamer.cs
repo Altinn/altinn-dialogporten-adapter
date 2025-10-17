@@ -107,6 +107,10 @@ internal sealed class InstanceStreamer : IInstanceStreamer
             .AddIf(appId is not null, "appId", appId!)
             .AddIf(partyId is not null, "instanceOwner.partyId", partyId);
 
+        // Force inclusion of all Altinn versions (1, 2, 3)
+        // https://github.com/Altinn/altinn-storage/blob/f577a916d4d071c8f9e6e6e3d1bdd3c734c8e164/src/Storage/Controllers/InstancesController.cs#L229-L233
+        queryString.Add("MainVersionExclude", "99");
+
         var next = $"storage/api/v1/instances{queryString}";
 
         while (next is not null)
