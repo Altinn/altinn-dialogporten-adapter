@@ -352,8 +352,8 @@ internal sealed class StorageDialogportenDataMerger
     {
         var primaryAction = ApplicationTextParser.GetLocalizationsFromApplicationTexts("primaryactionlabel", instance, applicationTexts, instanceDerivedStatus);
         return primaryAction.Count > 0
-            ? GetPrimaryFallback(instance)
-            : primaryAction;
+            ? primaryAction
+            : GetPrimaryFallback(instance);
     }
 
     private static List<LocalizationDto> GetSecondaryAction(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
@@ -361,16 +361,16 @@ internal sealed class StorageDialogportenDataMerger
 
         var secondaryAction = ApplicationTextParser.GetLocalizationsFromApplicationTexts("secondaryactionlabel", instance, applicationTexts, instanceDerivedStatus);
         return secondaryAction.Count > 0
-            ? GetSecondaryFallback(instance)
-            : secondaryAction;
+            ? secondaryAction
+            : GetSecondaryFallback(instance);
     }
 
     private static List<LocalizationDto> GetTernaryAction(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
     {
         var ternaryAction = ApplicationTextParser.GetLocalizationsFromApplicationTexts("ternaryactionlabel", instance, applicationTexts, instanceDerivedStatus);
         return ternaryAction.Count > 0
-            ? GetSecondaryFallback(instance)
-            : ternaryAction;
+            ? ternaryAction
+            : GetSecondaryFallback(instance);
         ;
     }
 
@@ -408,7 +408,7 @@ internal sealed class StorageDialogportenDataMerger
     {
         var title = ApplicationTextParser.GetLocalizationsFromApplicationTexts(nameof(DialogDto.Content.Title), instance, applicationTexts, instanceDerivedStatus);
 
-        if (title.Count > 0) return GetTitleFallback(instance, app);
+        if (title.Count == 0) return GetTitleFallback(instance, app);
 
         foreach (var localizationDto in title)
         {
