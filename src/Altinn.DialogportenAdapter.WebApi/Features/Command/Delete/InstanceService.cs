@@ -80,7 +80,7 @@ internal sealed class InstanceService
             return true;
         }
 
-        var instanceDate = instance.Status.Archived!.Value.Date;
+        var instanceDate = instance.Status.Archived!.Value.ToUniversalTime().Date;
         var deletableAt = instanceDate.AddDays(app.PreventInstanceDeletionForDays.Value);
         return deletableAt <= DateTime.UtcNow.Date;
     }
