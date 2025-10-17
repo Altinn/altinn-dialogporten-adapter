@@ -1,16 +1,21 @@
 using Altinn.ApiClients.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
+using Altinn.Platform.Storage.Interface.Models;
 
 namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Delete;
 
 internal sealed record DeleteInstanceDto(string PartyId, Guid InstanceGuid, string DialogToken);
 
-internal enum DeleteInstanceResult
+public abstract record DeleteResponse
 {
-    Success,
-    InstanceNotFound,
-    Unauthorized
+    public sealed record Success : DeleteResponse;
+    
+    public sealed record NotFound : DeleteResponse;
+
+    public sealed record UnAuthorized : DeleteResponse;
+
+    public sealed record NotDeletableYet(DateTimeOffset ArchivedAt, int GracePeriod, DateTimeOffset DeletionAllowedAt) : DeleteResponse;
 }
 
 internal sealed class InstanceService
@@ -24,7 +29,7 @@ internal sealed class InstanceService
         _dialogTokenValidator = dialogTokenValidator ?? throw new ArgumentNullException(nameof(dialogTokenValidator));
     }
 
-    public async Task<DeleteInstanceResult> Delete(DeleteInstanceDto request, CancellationToken cancellationToken)
+    public async Task<DeleteResponse> Delete(DeleteInstanceDto request, CancellationToken cancellationToken)
     {
         var instance = await _storageApi
             .GetInstance(request.PartyId, request.InstanceGuid, cancellationToken)
@@ -32,18 +37,30 @@ internal sealed class InstanceService
 
         if (instance is null)
         {
-            return DeleteInstanceResult.InstanceNotFound;
+            return new DeleteResponse.NotFound();
         }
 
         var dialogId = request.InstanceGuid.ToVersion7(instance.Created!.Value);
         if (!ValidateDialogToken(request.DialogToken, dialogId))
         {
-            return DeleteInstanceResult.Unauthorized;
+            return new DeleteResponse.UnAuthorized();
+        }
+
+        if (instance.Status.Archived.HasValue)
+        {
+            var app = await _storageApi.GetApplication(instance.AppId, cancellationToken).ContentOrDefault();
+            if (app != null && !IsDeletable(instance, app))
+            {
+                return new DeleteResponse.NotDeletableYet(
+                    instance.Status.Archived.Value,
+                    app.PreventInstanceDeletionForDays!.Value,
+                    instance.Status.Archived.Value.Date.AddDays(app.PreventInstanceDeletionForDays.Value));
+            }
         }
 
         // TODO: Skal vi utlede hard delete i noen tilfeller? Basert på status = draft?
         await _storageApi.DeleteInstance(request.PartyId, request.InstanceGuid, hard: false, cancellationToken);
-        return DeleteInstanceResult.Success;
+        return new DeleteResponse.Success();
     }
 
     private bool ValidateDialogToken(ReadOnlySpan<char> token, Guid dialogId)
@@ -54,5 +71,17 @@ internal sealed class InstanceService
             : token;
         var result = _dialogTokenValidator.Validate(token, dialogId, ["delete"]);
         return result.IsValid;
+    }
+
+    private static bool IsDeletable(Instance instance, Application app)
+    {
+        if (app.PreventInstanceDeletionForDays == null)
+        {
+            return true;
+        }
+
+        var instanceDate = instance.Status.Archived!.Value.ToUniversalTime().Date;
+        var deletableAt = instanceDate.AddDays(app.PreventInstanceDeletionForDays.Value);
+        return deletableAt <= DateTime.UtcNow.Date;
     }
 }

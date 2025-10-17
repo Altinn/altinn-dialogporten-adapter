@@ -25,7 +25,6 @@ using Refit;
 using Wolverine;
 using Wolverine.AzureServiceBus;
 using Wolverine.ErrorHandling;
-using Wolverine.Runtime;
 using ZiggyCreatures.Caching.Fusion;
 using Constants = Altinn.DialogportenAdapter.WebApi.Common.Constants;
 using ContractConstants = Altinn.DialogportenAdapter.Contracts.Constants;
@@ -166,7 +165,7 @@ static void BuildAndRun(string[] args)
             x.FailSafeThrottleDuration = TimeSpan.FromMinutes(30);
 
             // Factory timeouts
-             x.FactorySoftTimeout = TimeSpan.FromSeconds(1);
+            x.FactorySoftTimeout = TimeSpan.FromSeconds(1);
             // Disabling hard timeouts as we don't want to handle SyntheticTimeoutException.
             // x.FactoryHardTimeout = TimeSpan.FromSeconds(2);
         });
@@ -307,9 +306,22 @@ static void BuildAndRun(string[] args)
             var request = new DeleteInstanceDto(instanceOwner, instanceGuid, authorization);
             return await instanceService.Delete(request, cancellationToken) switch
             {
-                DeleteInstanceResult.Success => Results.NoContent(),
-                DeleteInstanceResult.InstanceNotFound => Results.NotFound(),
-                DeleteInstanceResult.Unauthorized => Results.Unauthorized(),
+                DeleteResponse.Success => Results.NoContent(),
+                DeleteResponse.UnAuthorized => Results.Unauthorized(),
+                DeleteResponse.NotFound => Results.NotFound(),
+                DeleteResponse.NotDeletableYet notYet => Results.Problem(
+                    type: "urn:altinn:problem:minimum-persistence-lifetime-not-satisfied",
+                    title: "Deletion not allowed during minimum persistence lifetime period",
+                    statusCode: StatusCodes.Status422UnprocessableEntity,
+                    detail: "The instance cannot be deleted yet because it is still within the configured minimum persistence lifetime period after archiving.",
+                    instance: $"{settings.DialogportenAdapter.Altinn.GetPlatformUri()}instance/{instanceOwner}/{instanceGuid}",
+                    extensions: new Dictionary<string, object?>
+                    {
+                        ["archivedAt"] = notYet.ArchivedAt.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                        ["gracePeriodDays"] = notYet.GracePeriod,
+                        ["deletionAllowedAt"] = notYet.DeletionAllowedAt.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                    }
+                ),
                 _ => Results.InternalServerError()
             };
         })
