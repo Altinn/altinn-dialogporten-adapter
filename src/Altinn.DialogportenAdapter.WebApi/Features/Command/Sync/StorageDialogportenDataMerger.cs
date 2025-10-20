@@ -351,7 +351,7 @@ internal sealed class StorageDialogportenDataMerger
 
     private static bool IsConsideredConfirmed(Instance instance)
     {
-        if (instance.DataValues.ContainsKey("A2ArchRef")) // Archived in Altinn 2, always considered confirmed
+        if (instance.DataValues is not null && instance.DataValues.ContainsKey("A2ArchRef")) // Archived in Altinn 2, always considered confirmed
         {
             return true;
         }
