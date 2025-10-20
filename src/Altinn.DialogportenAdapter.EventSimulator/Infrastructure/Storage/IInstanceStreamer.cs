@@ -109,7 +109,7 @@ internal sealed class InstanceStreamer : IInstanceStreamer
 
         // Force inclusion of all Altinn versions (1, 2, 3)
         // https://github.com/Altinn/altinn-storage/blob/f577a916d4d071c8f9e6e6e3d1bdd3c734c8e164/src/Storage/Controllers/InstancesController.cs#L229-L233
-        queryString.Add("MainVersionExclude", "99");
+        queryString.Add("MainVersionExclude", "0");
 
         var next = $"storage/api/v1/instances{queryString}";
 
