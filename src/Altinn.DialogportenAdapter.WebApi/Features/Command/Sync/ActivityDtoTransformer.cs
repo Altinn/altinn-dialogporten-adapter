@@ -103,7 +103,7 @@ internal sealed class ActivityDtoTransformer
     private async Task<Dictionary<int, string>> LookupUsers(List<InstanceEvent> events, CancellationToken cancellationToken)
     {
         var actorUrnByUserUrn = await _registerRepository.GetActorUrnByUserId(
-            events.Where(x => x.User.UserId.HasValue)
+            events.Where(x => x.User?.UserId != null)
                 .Select(x => x.User.UserId!.Value.ToString())
                 .Distinct(),
             cancellationToken
