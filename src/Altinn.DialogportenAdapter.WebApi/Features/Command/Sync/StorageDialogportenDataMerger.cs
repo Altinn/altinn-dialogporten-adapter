@@ -362,7 +362,7 @@ internal sealed class StorageDialogportenDataMerger
         var secondaryAction = ApplicationTextParser.GetLocalizationsFromApplicationTexts("secondaryactionlabel", instance, applicationTexts, instanceDerivedStatus);
         return secondaryAction.Count > 0
             ? secondaryAction
-            : GetSecondaryFallback(instance);
+            : GetSecondaryFallback();
     }
 
     private static List<LocalizationDto> GetTertiaryAction(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
@@ -370,8 +370,17 @@ internal sealed class StorageDialogportenDataMerger
         var ternaryAction = ApplicationTextParser.GetLocalizationsFromApplicationTexts("tertiaryactionlabel", instance, applicationTexts, instanceDerivedStatus);
         return ternaryAction.Count > 0
             ? ternaryAction
-            : GetSecondaryFallback(instance);
+            : GetTertiaryFallback();
         ;
+    }
+    private static List<LocalizationDto> GetTertiaryFallback()
+    {
+        return
+        [
+            new() { LanguageCode = "nb", Value = "Lag ny kopi" },
+            new() { LanguageCode = "nn", Value = "Lag ny kopi" },
+            new() { LanguageCode = "en", Value = "Create new copy" }
+        ];
     }
 
     private static List<LocalizationDto> GetPrimaryFallback(Instance instance)
@@ -394,7 +403,7 @@ internal sealed class StorageDialogportenDataMerger
         ];
     }
 
-    private static List<LocalizationDto> GetSecondaryFallback(Instance instance)
+    private static List<LocalizationDto> GetSecondaryFallback()
     {
         return
         [
@@ -444,7 +453,6 @@ internal sealed class StorageDialogportenDataMerger
     /// <exception cref="NotImplementedException"></exception>
     private static List<LocalizationDto> GetSummaryFallback(InstanceDerivedStatus instanceDerivedStatus)
     {
-        // TODO! Check application texts! See https://github.com/Altinn/dialogporten/issues/2081
 
         // Step 4: derive a summary from the derived instance status alone
         List<LocalizationDto> summary = instanceDerivedStatus switch
@@ -584,7 +592,7 @@ internal sealed class StorageDialogportenDataMerger
             Id = dialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.Copy),
             Action = "instantiate",
             Priority = DialogGuiActionPriority.Tertiary,
-            Title = GetTernaryAction(instance, applicationTexts, instanceDerivedStatus),
+            Title = GetTertiaryAction(instance, applicationTexts, instanceDerivedStatus),
             Url = ToPortalUri($"{appBaseUri}/legacy/instances/{instance.Id}/copy"),
             HttpMethod = HttpVerb.GET
         };
