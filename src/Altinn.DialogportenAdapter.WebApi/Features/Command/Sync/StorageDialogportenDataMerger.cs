@@ -367,7 +367,7 @@ internal sealed class StorageDialogportenDataMerger
 
     private static List<LocalizationDto> GetTertiaryAction(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
     {
-        var ternaryAction = ApplicationTextParser.GetLocalizationsFromApplicationTexts("ternaryactionlabel", instance, applicationTexts, instanceDerivedStatus);
+        var ternaryAction = ApplicationTextParser.GetLocalizationsFromApplicationTexts("tertiaryactionlabel", instance, applicationTexts, instanceDerivedStatus);
         return ternaryAction.Count > 0
             ? ternaryAction
             : GetSecondaryFallback(instance);
