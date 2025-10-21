@@ -371,7 +371,6 @@ internal sealed class StorageDialogportenDataMerger
         return ternaryAction.Count > 0
             ? ternaryAction
             : GetTertiaryFallback();
-        ;
     }
     private static List<LocalizationDto> GetTertiaryFallback()
     {
