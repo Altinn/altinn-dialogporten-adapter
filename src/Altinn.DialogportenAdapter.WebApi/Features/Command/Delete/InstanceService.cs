@@ -54,7 +54,7 @@ internal sealed class InstanceService
                 return new DeleteResponse.NotDeletableYet(
                     instance.Status.Archived.Value,
                     app.PreventInstanceDeletionForDays!.Value,
-                    instance.Status.Archived.Value.Date.AddDays(app.PreventInstanceDeletionForDays.Value));
+                    instance.Status.Archived.Value.ToUniversalTime().Date.AddDays(app.PreventInstanceDeletionForDays.Value));
             }
         }
 
