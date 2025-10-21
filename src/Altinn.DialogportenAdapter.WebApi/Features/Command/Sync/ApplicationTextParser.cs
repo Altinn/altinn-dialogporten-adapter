@@ -17,7 +17,7 @@ public static class ApplicationTextParser
     /// EBNF:
     /// identifier       ::= "dp." content_type ( "." task_part )?
     /// task_part        ::= task ( "." state )?
-    /// content_type     ::= "title" | "summary"
+    /// content_type     ::= "title" | "summary" | "primaryactionlabel" | "secondaryactionlabel" | "tertiaryactionlabel"
     /// task             ::= specific_task | "_any_"
     /// specific_task    ::= alphanumeric_with_internal_dash_or_underscore
     /// state            ::= "archivedunconfirmed" | "archivedconfirmed" | "rejected"
