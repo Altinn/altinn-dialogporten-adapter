@@ -212,12 +212,15 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
             ? Task.CompletedTask
             : _dialogportenApi.Create(updated, isSilentUpdate: isMigration, cancellationToken: cancellationToken);
 
+    // PostgreSQL has a minimum time precision of 1 microsecond. To avoid issues with updates where the CreatedAt time is changed by less than this precision,
+    // we define an epsilon value of 1 microsecond to use when comparing timestamps.
+    private static readonly TimeSpan Epsilon = TimeSpan.FromMicroseconds(1);
     private async Task UpdateDialog(DialogDto updated, DialogDto? existing, bool isMigration,
         CancellationToken cancellationToken)
     {
         var activityUpdateRequests = existing?.Activities
             .Join(updated.Activities, x => x.Id, x => x.Id, (prev, next) => (prev, next))
-            .Where(x => x.prev.Type == DialogActivityType.FormSaved &&  x.prev.CreatedAt < x.next.CreatedAt)
+            .Where(x => x.prev.Type == DialogActivityType.FormSaved && (x.next.CreatedAt!.Value - x.prev.CreatedAt!.Value) > Epsilon)
             .Select(x => new { ActivityId = x.next.Id!.Value, NewCreatedAt = x.next.CreatedAt!.Value })
             .ToArray() ?? [];
 
