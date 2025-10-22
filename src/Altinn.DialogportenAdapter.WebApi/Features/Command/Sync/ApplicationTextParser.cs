@@ -1,7 +1,6 @@
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Altinn.Platform.Storage.Interface.Models;
-using JasperFx.CommandLine.TextualDisplays;
 
 namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 
