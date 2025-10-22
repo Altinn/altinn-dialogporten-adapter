@@ -30,3 +30,11 @@ Authorization: Bearer {{maskinportenToken}}
 Content-Type: application/json
 
 {{syncDialogDto}}
+
+> {%
+    if (response.status < 200 || response.status >= 300) {
+        client.test("Request failed with status: " + response.status, function() {
+            throw new Error("HTTP " + response.status + ": " + response.body);
+        });
+    }
+%}

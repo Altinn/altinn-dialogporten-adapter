@@ -1,11 +1,15 @@
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Altinn.Platform.Storage.Interface.Models;
+using JasperFx.CommandLine.TextualDisplays;
 
 namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 
 public static class ApplicationTextParser
 {
+    private const int MaxLength = 255;
+    private const string TruncateSuffix = "...";
+    private static int TruncateSuffixLength => TruncateSuffix.Length;
     /// <summary>
     /// This will attempt to find a particular key from the application texts for this app. The order of keys are as follows:
     /// 1. Active task for derived status
@@ -71,6 +75,11 @@ public static class ApplicationTextParser
                     continue;
                 }
 
+                if (textResource.Length > MaxLength)
+                {
+                    textResource = TruncateText(textResource);
+                }
+
                 localizations.Add(new LocalizationDto
                 {
                     LanguageCode = translation.Language,
@@ -81,5 +90,15 @@ public static class ApplicationTextParser
         }
 
         return localizations;
+    }
+    private static string TruncateText(ReadOnlySpan<char> textResource)
+    {
+        // Creates the truncated string without any intermediate string allocations
+        return string.Create(MaxLength, textResource, static (span, text) =>
+        {
+            text[..(MaxLength - TruncateSuffix.Length)].CopyTo(span);
+            TruncateSuffix.AsSpan().CopyTo(span[^TruncateSuffix.Length..]);
+        });
+
     }
 }
