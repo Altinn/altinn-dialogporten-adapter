@@ -38,9 +38,9 @@ public static class ApplicationTextParser
     /// dp.summary
     /// dp.summary.Task_1
     /// dp.summary.Task_1.archivedunconfirmed
-    /// dp.summary._any_.feedback
+    /// dp.summary._any_.rejected
     /// </example>
-    /// <param name="contentType">The requested content type. Should be Title, Summary or AdditionalInfo</param>
+    /// <param name="contentType">The requested content type. Should be title, summary, primaryactionlabel, secondaryactionlabel, or tertiaryactionlabel (case-insensitive)</param>
     /// <param name="instance">The app instance</param>
     /// <param name="applicationTexts">The application texts for all languages</param>
     /// <param name="instanceDerivedStatus">The instance derived status</param>
