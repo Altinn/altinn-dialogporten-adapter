@@ -9,7 +9,6 @@ public static class ApplicationTextParser
 {
     private const int MaxLength = 255;
     private const string TruncateSuffix = "...";
-    private static int TruncateSuffixLength => TruncateSuffix.Length;
     /// <summary>
     /// This will attempt to find a particular key from the application texts for this app. The order of keys are as follows:
     /// 1. Active task for derived status
