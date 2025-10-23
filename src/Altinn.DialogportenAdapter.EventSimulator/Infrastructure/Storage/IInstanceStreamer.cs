@@ -100,16 +100,13 @@ internal sealed class InstanceStreamer : IInstanceStreamer
         var client = _clientFactory.CreateClient(Constants.MaskinportenClientDefinitionKey);
         var queryString = QueryString
             .Create("order", $"{order}:lastChanged")
+            .Add("MainVersionExclude", "0") // Force inclusion of all Altinn versions (1, 2, 3)
             .Add("size", pageSize.ToString(CultureInfo.InvariantCulture))
             .AddIf(from.HasValue, "lastChanged", $"gt:{from?.ToUniversalTime():O}")
             .AddIf(to.HasValue, "lastChanged", $"lte:{to?.ToUniversalTime():O}")
             .AddIf(org is not null, "org", org!)
             .AddIf(appId is not null, "appId", appId!)
             .AddIf(partyId is not null, "instanceOwner.partyId", partyId);
-
-        // Force inclusion of all Altinn versions (1, 2, 3)
-        // https://github.com/Altinn/altinn-storage/blob/f577a916d4d071c8f9e6e6e3d1bdd3c734c8e164/src/Storage/Controllers/InstancesController.cs#L229-L233
-        queryString.Add("MainVersionExclude", "0");
 
         var next = $"storage/api/v1/instances{queryString}";
 
