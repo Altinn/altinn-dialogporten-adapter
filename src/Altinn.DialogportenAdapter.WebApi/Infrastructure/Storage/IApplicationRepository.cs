@@ -13,12 +13,14 @@ internal interface IApplicationRepository
 internal sealed class ApplicationRepository(IApplicationsApi applicationsApi, IFusionCache cache) : IApplicationRepository
 {
     public Task<Application?> GetApplication(string appId, CancellationToken cancellationToken) =>
-        cache.GetOrSetAsync(key: $"{nameof(Application)}:{appId}",
+        cache.GetOrSetAsync(
+            key: $"{nameof(Application)}:{appId}",
             factory: (ct) => FetchApplication(appId, ct),
             token: cancellationToken).AsTask();
 
     public Task<ApplicationTexts> GetApplicationTexts(string appId, CancellationToken cancellationToken) =>
-        cache.GetOrSetAsync(key: $"{nameof(ApplicationTexts)}:{appId}",
+        cache.GetOrSetAsync(
+            key: $"{nameof(ApplicationTexts)}:{appId}",
             factory: (ct) => FetchApplicationTexts(appId, ct),
             token: cancellationToken).AsTask();
 
