@@ -193,6 +193,7 @@ static void BuildAndRun(string[] args)
             x.ThrowOnPublicKeyFetchInit = false;
         })
         .AddTransient<IRegisterRepository, RegisterRepository>()
+        .AddTransient<IApplicationRepository, ApplicationRepository>()
         .AddTransient<ISyncInstanceToDialogService, SyncInstanceToDialogService>()
         .AddTransient<StorageDialogportenDataMerger>()
         .AddTransient<ActivityDtoTransformer>()

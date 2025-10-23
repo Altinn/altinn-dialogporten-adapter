@@ -20,17 +20,20 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
     private readonly IStorageApi _storageApi;
     private readonly IDialogportenApi _dialogportenApi;
     private readonly StorageDialogportenDataMerger _dataMerger;
+    private readonly IApplicationRepository _applicationRepository;
     private readonly ILogger<SyncInstanceToDialogService> _logger;
 
     public SyncInstanceToDialogService(
         IStorageApi storageApi,
         IDialogportenApi dialogportenApi,
         StorageDialogportenDataMerger dataMerger,
+        IApplicationRepository applicationRepository,
         ILogger<SyncInstanceToDialogService> logger)
     {
         _storageApi = storageApi ?? throw new ArgumentNullException(nameof(storageApi));
         _dialogportenApi = dialogportenApi ?? throw new ArgumentNullException(nameof(dialogportenApi));
         _dataMerger = dataMerger ?? throw new ArgumentNullException(nameof(dataMerger));
+        _applicationRepository = applicationRepository ?? throw new ArgumentNullException(nameof(applicationRepository));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -42,8 +45,8 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         // Fetch events, application, instance and existing dialog in parallel
         var (existingDialog, application, applicationTexts, instance, events) = await (
                 _dialogportenApi.Get(dialogId, cancellationToken).ContentOrDefault(),
-                _storageApi.GetApplication(dto.AppId, cancellationToken).ContentOrDefault(),
-                GetApplicationTexts(dto.AppId, cancellationToken),
+                _applicationRepository.GetApplication(dto.AppId, cancellationToken),
+                _applicationRepository.GetApplicationTexts(dto.AppId, cancellationToken),
                 _storageApi.GetInstance(dto.PartyId, dto.InstanceId, cancellationToken).ContentOrDefault(),
                 _storageApi.GetInstanceEvents(dto.PartyId, dto.InstanceId, Constants.SupportedEventTypes, cancellationToken).ContentOrDefault()
             );
@@ -277,28 +280,5 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
                 { Constants.InstanceDataValueDialogIdKey, dialogId.ToString() }
             }
         }, cancellationToken);
-    }
-
-
-    private async Task<ApplicationTexts> GetApplicationTexts(string appId, CancellationToken cancellationToken = default)
-    {
-        string[] predefinedLanguages = ["nb", "nn", "en"];
-        var orgApp = appId.Split('/');
-        var tasks = predefinedLanguages.Select(lang => _storageApi.GetApplicationTexts(orgApp[0], orgApp[1], lang, cancellationToken));
-        var responses = await Task.WhenAll(tasks);
-
-        var textResources = responses
-            .Where(response => response.IsSuccessful)
-            .Select(response => response.Content!)
-            .ToList();
-
-        return new ApplicationTexts
-        {
-            Translations = textResources.Select(textResource => new ApplicationTextsTranslation
-            {
-                Language = textResource.Language,
-                Texts = textResource.Resources.ToDictionary(x => x.Id, x => x.Value)
-            }).ToList()
-        };
     }
 }
