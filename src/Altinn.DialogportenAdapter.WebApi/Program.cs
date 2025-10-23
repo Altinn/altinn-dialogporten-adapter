@@ -103,8 +103,25 @@ static void BuildAndRun(string[] args)
         // 6. Process B finishes and tries to update dialog, but gets a 412
         opts.Policies
             .OnException<ApiException>(ex => ex.StatusCode
-                is HttpStatusCode.PreconditionFailed or HttpStatusCode.UnprocessableEntity)
+                is HttpStatusCode.PreconditionFailed)
             .RetryWithJitteredCooldown(1.Seconds(), 3.Seconds(), 5.Seconds())
+            .Then.MoveToErrorQueue();
+
+        // 422s may be caused by concurrency issues (conflicting creates with same IDs), so we initially retry a few times with jitter.
+        // It may however also be caused by caching issues, ie. when a very recent service resource is referred which we have not
+        // yet cached, or a very new organization. In those cases, we need to reschedule the message for later processing to give time for caches to expire.
+        opts.Policies
+            .OnException<ApiException>(ex => ex.StatusCode
+                is HttpStatusCode.UnprocessableEntity)
+            .RetryWithJitteredCooldown(1.Seconds(), 3.Seconds(), 5.Seconds())
+            .Then.ScheduleRetry(10.Seconds(), 30.Seconds(), 1.Minutes(), 5.Minutes(), 5.Minutes(), 10.Minutes())
+            .Then.MoveToErrorQueue();
+
+        // PartyNotFoundExceptions may happen due to desyncs between Altinn 2 and Altinn 3 register. Reschedule for a retry after a while,
+        // eventually failing to error queue for manual inspection if the party is still not found.
+        opts.Policies
+            .OnException<PartyNotFoundException>()
+            .ScheduleRetry(1.Minutes(), 10.Minutes(), 30.Minutes())
             .Then.MoveToErrorQueue();
 
         // Attempt to handle errors most likely caused by expired/invalid tokens. If retries don't help, move to error queue for manual inspection.
@@ -114,21 +131,22 @@ static void BuildAndRun(string[] args)
             .Then.MoveToErrorQueue();
 
         // 5xx errors are usually transient (upstream being down/overloaded), so try a few times with a cooldown before
-        // re-scheduling indefinitely. HttpRequestExceptions indicates network issues, DNS issues, etc. which are usually
+        // re-scheduling indefinitely, as is timeouts (TaskCanceledException). HttpRequestExceptions indicates network issues, DNS issues, etc. which are usually
         // transient, so handle this the same as 5xx errors.
         opts.Policies.OnException<HttpRequestException>()
             .Or<ApiException>(x => (int)x.StatusCode >= 500)
             .OrInner<ApiException>(x => (int)x.StatusCode >= 500)
+            .Or<TaskCanceledException>()
             .RetryWithCooldown(10.Seconds(), 20.Seconds())
             .Then.ScheduleRetryIndefinitely(30.Seconds(), 60.Seconds(), 2.Minutes())
             .AndPauseProcessing(30.Seconds()); // Give some time for upstream to recover before processing more messages
 
         opts.ListenToAzureServiceBusQueue(ContractConstants.AdapterQueueName)
-            .ListenerCount(80.PercentOf(settings.WolverineSettings.ListenerCount));
+            .ListenerCount(70.PercentOf(settings.WolverineSettings.ListenerCount));
 
         // Also listen to the history queue with a fewer number of listeners.
         opts.ListenToAzureServiceBusQueue(ContractConstants.AdapterHistoryQueueName)
-            .ListenerCount(20.PercentOf(settings.WolverineSettings.ListenerCount));
+            .ListenerCount(30.PercentOf(settings.WolverineSettings.ListenerCount));
 
     });
 

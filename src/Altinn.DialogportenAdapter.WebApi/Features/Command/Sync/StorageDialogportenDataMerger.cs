@@ -294,7 +294,7 @@ internal sealed class StorageDialogportenDataMerger
 
         if (!response.TryGetValue(partyId, out var actorUrn))
         {
-            throw new InvalidOperationException($"Party with id {partyId} not found.");
+            throw new PartyNotFoundException(partyId);
         }
 
         return actorUrn.StartsWith(Constants.DisplayNameUrnPrefix)
@@ -306,7 +306,7 @@ internal sealed class StorageDialogportenDataMerger
     {
         var instanceDerivedStatus = instance.Process?.CurrentTask?.AltinnTaskType?.ToLower() switch
         {
-            _ when instance.Status.IsArchived => (instance.CompleteConfirmations?.Count ?? 0) != 0
+            _ when instance.Status.IsArchived => IsConsideredConfirmed(instance)
                 ? InstanceDerivedStatus.ArchivedConfirmed
                 : InstanceDerivedStatus.ArchivedUnconfirmed,
             "reject" => InstanceDerivedStatus.Rejected,
@@ -436,6 +436,16 @@ internal sealed class StorageDialogportenDataMerger
                 Value = ToTitle(x.Value, instance.PresentationTexts?.Values)
             })
             .ToList();
+    }
+
+    private static bool IsConsideredConfirmed(Instance instance)
+    {
+        if (instance.DataValues is not null && instance.DataValues.ContainsKey("A2ArchRef")) // Archived in Altinn 2, always considered confirmed
+        {
+            return true;
+        }
+
+        return (instance.CompleteConfirmations?.Count ?? 0) != 0;
     }
 
     /// <summary>
