@@ -27,7 +27,11 @@ internal sealed class ApplicationRepository(IApplicationsApi applicationsApi, IF
     private async Task<ApplicationTexts> FetchApplicationTexts(string appId, CancellationToken cancellationToken)
     {
         string[] predefinedLanguages = ["nb", "nn", "en"];
-        var orgApp = appId.Split('/');
+        var orgApp = appId.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (orgApp.Length != 2)
+        {
+            throw new ArgumentException($"Expected appId in 'org/app' format, got '{appId}'.", nameof(appId));
+        }
         var tasks = predefinedLanguages.Select(lang => applicationsApi.GetApplicationTexts(orgApp[0], orgApp[1], lang, cancellationToken));
         var responses = await Task.WhenAll(tasks);
 

@@ -26,6 +26,7 @@ public static class ApplicationTextParser
     ///                    | "awaitingserviceownerfeedback" | "awaitingconfirmation"
     ///                    | "awaitingsignature" | "awaitingadditionaluserinput"
     ///                    | "awaitinginitialuserinput"
+    ///                    | "awaitinginitialuserinputfromprefill"
     /// alphanumeric_with_internal_dash_or_underscore ::= alphanumeric ( internal_char* alphanumeric )
     /// internal_char    ::= alphanumeric | "_" | "-"
     /// alphanumeric     ::= letter | digit
