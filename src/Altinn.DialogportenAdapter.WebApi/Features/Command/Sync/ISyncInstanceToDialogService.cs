@@ -142,7 +142,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
                 isSilentUpdate: true,
                 cancellationToken: cancellationToken);
         }
-}
+    }
 
     private static bool InstanceOwnerIsSelfIdentified(Instance? instance)
     {
