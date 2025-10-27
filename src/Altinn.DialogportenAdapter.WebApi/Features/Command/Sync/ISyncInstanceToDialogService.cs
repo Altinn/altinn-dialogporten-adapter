@@ -98,7 +98,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
 
         if (ShouldPurgeDialog(instance, existingDialog))
         {
-            if (!syncAdapterSettings.DisableDelete) return;
+            if (syncAdapterSettings.DisableDelete) return;
             await _dialogportenApi.Purge(
                 dialogId,
                 existingDialog.Revision!.Value,
@@ -109,7 +109,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
 
         if (ShouldSoftDeleteDialog(instance, existingDialog))
         {
-            if (!syncAdapterSettings.DisableDelete) return;
+            if (syncAdapterSettings.DisableDelete) return;
             await _dialogportenApi.Delete(
                 dialogId,
                 existingDialog.Revision!.Value,
