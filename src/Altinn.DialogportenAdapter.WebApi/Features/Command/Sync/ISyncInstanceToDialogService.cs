@@ -48,8 +48,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
 
         if (instance is null && existingDialog is null)
         {
-            _logger.LogWarning(
-                "No dialog or instance found for request. {PartyId},{InstanceId},{InstanceCreatedAt},{IsMigration}.",
+            _logger.LogWarning("No dialog or instance found for request. {PartyId},{InstanceId},{InstanceCreatedAt},{IsMigration}.",
                 dto.PartyId,
                 dto.InstanceId,
                 dto.InstanceCreatedAt,
@@ -131,11 +130,9 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         EnsureNotNull(application, instance, events);
 
         // Create or update the dialog with the fetched data
-        var mergeDto = new MergeDto(dialogId, existingDialog, application, instance, events,
-            dto.IsMigration || forceSilentUpsert);
+        var mergeDto = new MergeDto(dialogId, existingDialog, application, instance, events, dto.IsMigration || forceSilentUpsert);
         var updatedDialog = await _dataMerger.Merge(mergeDto, cancellationToken);
-       var revision = await UpsertDialog(updatedDialog, existingDialog, syncAdapterSettings, dto.IsMigration || forceSilentUpsert,
-            cancellationToken);
+        var revision = await UpsertDialog(updatedDialog, existingDialog, syncAdapterSettings, dto.IsMigration || forceSilentUpsert, cancellationToken);
 
         if (shouldDeleteAfterCreate)
         {
