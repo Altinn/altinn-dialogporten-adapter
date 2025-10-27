@@ -43,8 +43,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
             _dialogportenApi.Get(dialogId, cancellationToken).ContentOrDefault(),
             _storageApi.GetApplication(dto.AppId, cancellationToken).ContentOrDefault(),
             _storageApi.GetInstance(dto.PartyId, dto.InstanceId, cancellationToken).ContentOrDefault(),
-            _storageApi.GetInstanceEvents(dto.PartyId, dto.InstanceId, Constants.SupportedEventTypes, cancellationToken)
-                .ContentOrDefault()
+            _storageApi.GetInstanceEvents(dto.PartyId, dto.InstanceId, Constants.SupportedEventTypes, cancellationToken).ContentOrDefault()
         );
 
         if (instance is null && existingDialog is null)
