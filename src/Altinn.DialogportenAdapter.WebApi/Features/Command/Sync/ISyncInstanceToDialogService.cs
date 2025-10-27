@@ -134,7 +134,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         var updatedDialog = await _dataMerger.Merge(mergeDto, cancellationToken);
         var revision = await UpsertDialog(updatedDialog, existingDialog, syncAdapterSettings, dto.IsMigration || forceSilentUpsert, cancellationToken);
 
-        if (shouldDeleteAfterCreate)
+        if (shouldDeleteAfterCreate && revision != Guid.Empty)
         {
             await _dialogportenApi.Delete(
                 dialogId,
