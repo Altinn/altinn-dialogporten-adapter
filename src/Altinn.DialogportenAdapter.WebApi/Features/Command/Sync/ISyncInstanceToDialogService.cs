@@ -134,11 +134,11 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         var updatedDialog = await _dataMerger.Merge(mergeDto, cancellationToken);
         var revision = await UpsertDialog(updatedDialog, existingDialog, syncAdapterSettings, dto.IsMigration || forceSilentUpsert, cancellationToken);
 
-        if (shouldDeleteAfterCreate)
+        if (shouldDeleteAfterCreate && revision.HasValue)
         {
             await _dialogportenApi.Delete(
                 dialogId,
-                revision,
+                revision.Value,
                 isSilentUpdate: true,
                 cancellationToken: cancellationToken);
         }
@@ -224,27 +224,25 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
            || instanceDialogId != dialogId;
     }
 
-    private Task<Guid> UpsertDialog(DialogDto updated,
+    private async Task<Guid?> UpsertDialog(DialogDto updated,
         DialogDto? existing,
         SyncAdapterSettings settings,
         bool isMigration,
         CancellationToken cancellationToken) =>
         existing is null
-            ? CreateDialog(updated, settings, isMigration, cancellationToken)
-            : UpdateDialog(updated, existing, isMigration, cancellationToken);
+            ? await CreateDialog(updated, settings, isMigration, cancellationToken)
+            : await UpdateDialog(updated, existing, isMigration, cancellationToken);
 
-    private Task<Guid> CreateDialog(
-        DialogDto updated,
+    private async Task<Guid?> CreateDialog(
+        DialogDto dto,
         SyncAdapterSettings settings,
         bool isMigration,
-        CancellationToken cancellationToken) =>
-        settings.DisableCreate
-            ? Task.FromResult(Guid.Empty)
-            : CreateDialog(updated, isMigration, cancellationToken);
-
-    private async Task<Guid> CreateDialog(DialogDto dto, bool isMigration, CancellationToken cancellationToken)
+        CancellationToken cancellationToken)
     {
-        var createResult = await _dialogportenApi.Create(dto, isSilentUpdate: isMigration, cancellationToken: cancellationToken)
+        if (settings.DisableCreate) return null;
+        
+        var createResult = await _dialogportenApi
+            .Create(dto, isSilentUpdate: isMigration, cancellationToken: cancellationToken)
             .EnsureSuccess();
 
         return createResult.GetEtagHeader();
