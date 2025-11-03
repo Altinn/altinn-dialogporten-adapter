@@ -12,7 +12,7 @@ internal interface IDialogportenApi
     Task<IApiResponse<DialogDto>> Get(Guid dialogId, CancellationToken cancellationToken = default);
 
     [Post("/api/v1/serviceowner/dialogs")]
-    Task<Guid> Create([Body] DialogDto dto, [Query] bool isSilentUpdate = false, CancellationToken cancellationToken = default);
+    Task<IApiResponse> Create([Body] DialogDto dto, [Query] bool isSilentUpdate = false, CancellationToken cancellationToken = default);
 
     [Put("/api/v1/serviceowner/dialogs/{dto.Id}")]
     Task<IApiResponse> Update([Body] DialogDto dto, [Header(IfMatchHeader)] Guid revision, [Query] bool isSilentUpdate = false, CancellationToken cancellationToken = default);
