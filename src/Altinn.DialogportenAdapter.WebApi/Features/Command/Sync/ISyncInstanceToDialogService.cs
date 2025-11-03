@@ -206,7 +206,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         return instance is null or { Status.IsHardDeleted: true } && existingDialog is not null;
     }
 
-    private bool InstanceSoftDeletedAndDialogNotExisting(Instance? instance, DialogDto? existingDialog)
+    private static bool InstanceSoftDeletedAndDialogNotExisting(Instance? instance, DialogDto? existingDialog)
     {
         return instance is { Status.IsSoftDeleted: true } && existingDialog is null;
     }
