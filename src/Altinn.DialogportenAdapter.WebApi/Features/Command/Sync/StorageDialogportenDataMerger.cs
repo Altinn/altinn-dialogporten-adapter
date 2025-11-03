@@ -202,10 +202,11 @@ internal sealed class StorageDialogportenDataMerger
     {
         var appSettings = dto.Application.GetSyncAdapterSettings();
         var data = dto.Instance.Data;
+        var attachmentVisibility = ReceiptAttachmentVisibilityDecider.Create(dto.Application);
         if (appSettings.DisableAddTransmissions ||
             !_settings.DialogportenAdapter.Adapter.FeatureFlag.EnableSubmissionTransmissions)
         {
-            return (data.Select(CreateAttachmentDto).ToList(), []);
+            return (data.Select(d => CreateAttachmentDto(d, attachmentVisibility)).ToList(), []);
         }
 
         var dataElementQueue = new Queue<DataElement>(data
@@ -234,7 +235,7 @@ internal sealed class StorageDialogportenDataMerger
                 },
                 Attachments = dataElementQueue
                     .DequeueWhile(e => e.LastChanged <= a.CreatedAt)
-                    .Select(CreateTransmissionAttachmentDto)
+                    .Select(e => CreateTransmissionAttachmentDto(e, attachmentVisibility))
                     .ToList()
             })
             .ToList();
@@ -242,14 +243,22 @@ internal sealed class StorageDialogportenDataMerger
         var attachments = data
             .Where(IsPerformedBySo)
             .Concat(dataElementQueue) // any remaining attachments not already included in transmissions
-            .Select(CreateAttachmentDto)
+            .Select(d => CreateAttachmentDto(d, attachmentVisibility))
             .ToList();
 
         return (attachments, transmissions);
     }
 
-    private AttachmentDto CreateAttachmentDto(DataElement data) =>
-        new()
+    private AttachmentDto CreateAttachmentDto(DataElement data, ReceiptAttachmentVisibilityDecider attachmentVisibility)
+    {
+        var consumerType = attachmentVisibility.GetConsumerType(data);
+        var platformUrl = data.SelfLinks.Platform;
+
+        var url = consumerType is AttachmentUrlConsumerType.Gui && !string.IsNullOrEmpty(platformUrl)
+            ? ToPortalUri(platformUrl)
+            : platformUrl;
+
+        return new()
         {
             Id = Guid.Parse(data.Id).ToVersion7(data.Created.Value),
             DisplayName = [new() { LanguageCode = "nb", Value = data.Filename ?? data.DataType }],
@@ -258,19 +267,26 @@ internal sealed class StorageDialogportenDataMerger
                 new()
                 {
                     Id = Guid.Parse(data.Id).ToVersion7(data.Created.Value),
-                    ConsumerType = data.Filename is not null
-                        ? AttachmentUrlConsumerType.Gui
-                        : AttachmentUrlConsumerType.Api,
+                    ConsumerType = consumerType,
                     MediaType = data.ContentType,
-                    Url = data.Filename is not null
-                        ? ToPortalUri(data.SelfLinks.Platform)
-                        : data.SelfLinks.Platform
+                    Url = url
                 }
             ]
         };
+    }
 
-    private TransmissionAttachmentDto CreateTransmissionAttachmentDto(DataElement data) =>
-        new()
+    private TransmissionAttachmentDto CreateTransmissionAttachmentDto(
+        DataElement data,
+        ReceiptAttachmentVisibilityDecider attachmentVisibility)
+    {
+        var consumerType = attachmentVisibility.GetConsumerType(data);
+        var platformUrl = data.SelfLinks.Platform;
+
+        var url = consumerType is AttachmentUrlConsumerType.Gui && !string.IsNullOrEmpty(platformUrl)
+            ? ToPortalUri(platformUrl)
+            : platformUrl;
+
+        return new()
         {
             // Ensure unique IDs when the same DataElement appears as both TransmissionAttachment and Attachment
             // This prevents ID collisions that would cause conflicts in Dialogporten
@@ -280,16 +296,13 @@ internal sealed class StorageDialogportenDataMerger
             [
                 new()
                 {
-                    ConsumerType = data.Filename is not null
-                        ? AttachmentUrlConsumerType.Gui
-                        : AttachmentUrlConsumerType.Api,
+                    ConsumerType = consumerType,
                     MediaType = data.ContentType,
-                    Url = data.Filename is not null
-                        ? ToPortalUri(data.SelfLinks.Platform)
-                        : data.SelfLinks.Platform
+                    Url = url
                 }
             ]
         };
+    }
 
     private static bool IsPerformedBySo(DataElement data)
     {
