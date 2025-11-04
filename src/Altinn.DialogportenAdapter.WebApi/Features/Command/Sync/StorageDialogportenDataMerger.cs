@@ -213,6 +213,11 @@ internal sealed class StorageDialogportenDataMerger
             .Where(x => !IsPerformedBySo(x))
             .OrderBy(x => x.Created.Value));
 
+
+        // A2 Instances cant have more than 1 submission
+        // so we take all attachments into a single transmission.
+        var isA2 = IsA2Instance(dto.Instance);
+
         var transmissions = activities
             .Where(x => x.Type is DialogActivityType.FormSubmitted)
             .OrderBy(x => x.CreatedAt)
@@ -225,7 +230,8 @@ internal sealed class StorageDialogportenDataMerger
                 {
                     Title = new ContentValueDto
                     {
-                        Value = [
+                        Value =
+                        [
                             new() { LanguageCode = "nb", Value = $"Innsending #{i + 1}" },
                             new() { LanguageCode = "nn", Value = $"Innsending #{i + 1}" },
                             new() { LanguageCode = "en", Value = $"Submission #{i + 1}" }
@@ -234,7 +240,7 @@ internal sealed class StorageDialogportenDataMerger
                     }
                 },
                 Attachments = dataElementQueue
-                    .DequeueWhile(e => e.LastChanged <= a.CreatedAt)
+                    .DequeueWhile(e => e.LastChanged <= a.CreatedAt || isA2)
                     .Select(e => CreateTransmissionAttachmentDto(e, attachmentVisibility))
                     .ToList()
             })
@@ -364,12 +370,17 @@ internal sealed class StorageDialogportenDataMerger
 
     private static bool IsConsideredConfirmed(Instance instance)
     {
-        if (instance.DataValues is not null && instance.DataValues.ContainsKey("A2ArchRef")) // Archived in Altinn 2, always considered confirmed
+        if (IsA2Instance(instance)) // Archived in Altinn 2, always considered confirmed
         {
             return true;
         }
 
         return (instance.CompleteConfirmations?.Count ?? 0) != 0;
+    }
+
+    private static bool IsA2Instance(Instance instance)
+    {
+        return instance.DataValues is not null && instance.DataValues.ContainsKey("A2ArchRef");
     }
 
     /// <summary>
@@ -391,47 +402,56 @@ internal sealed class StorageDialogportenDataMerger
         // Step 4: derive a summary from the derived instance status alone
         List<LocalizationDto> summary = instanceDerivedStatus switch
         {
-            InstanceDerivedStatus.ArchivedUnconfirmed => [
+            InstanceDerivedStatus.ArchivedUnconfirmed =>
+            [
                 new() { LanguageCode = "nb", Value = "Innsendingen er maskinelt kontrollert og formidlet, venter på endelig bekreftelse. Du kan åpne dialogen for å se en foreløpig kvittering." },
                 new() { LanguageCode = "nn", Value = "Innsendinga er maskinelt kontrollert og formidla, ventar på endeleg stadfesting. Du kan opne dialogen for å sjå ei førebels kvittering." },
                 new() { LanguageCode = "en", Value = "The submission has been automatically checked and forwarded, awaiting final confirmation. You can open the dialog to see a preliminary receipt." }
             ],
-            InstanceDerivedStatus.ArchivedConfirmed => [
+            InstanceDerivedStatus.ArchivedConfirmed =>
+            [
                 new() { LanguageCode = "nb", Value = "Innsendingen er bekreftet mottatt. Du kan åpne dialogen for å se din kvittering." },
                 new() { LanguageCode = "nn", Value = "Innsendinga er stadfesta motteken. Du kan opne dialogen for å sjå di kvittering." },
                 new() { LanguageCode = "en", Value = "The submission has been confirmed as received. You can open the dialog to see your receipt." }
             ],
-            InstanceDerivedStatus.Rejected => [
+            InstanceDerivedStatus.Rejected =>
+            [
                 new() { LanguageCode = "nb", Value = "Innsendingen ble avvist. Åpne dialogen for mer informasjon." },
                 new() { LanguageCode = "nn", Value = "Innsendinga vart avvist. Opne dialogen for meir informasjon." },
                 new() { LanguageCode = "en", Value = "The submission was rejected. Open the dialog for more information." }
             ],
-            InstanceDerivedStatus.AwaitingServiceOwnerFeedback => [
+            InstanceDerivedStatus.AwaitingServiceOwnerFeedback =>
+            [
                 new() { LanguageCode = "nb", Value = "Innsendingen er maskinelt kontrollert og formidlet, venter på tilbakemelding." },
                 new() { LanguageCode = "nn", Value = "Innsendinga er maskinelt kontrollert og formidla, ventar på tilbakemelding." },
                 new() { LanguageCode = "en", Value = "The submission has been automatically checked and forwarded, awaiting feedback." }
             ],
-            InstanceDerivedStatus.AwaitingConfirmation => [
+            InstanceDerivedStatus.AwaitingConfirmation =>
+            [
                 new() { LanguageCode = "nb", Value = "Innsendingen må bekreftes for å gå til neste steg." },
                 new() { LanguageCode = "nn", Value = "Innsendinga må stadfestast for å gå til neste steg." },
                 new() { LanguageCode = "en", Value = "The submission must be confirmed to proceed to the next step." }
             ],
-            InstanceDerivedStatus.AwaitingSignature => [
+            InstanceDerivedStatus.AwaitingSignature =>
+            [
                 new() { LanguageCode = "nb", Value = "Innsendingen må signeres for å gå til neste steg." },
                 new() { LanguageCode = "nn", Value = "Innsendinga må signerast for å gå til neste steg." },
                 new() { LanguageCode = "en", Value = "The submission must be signed to proceed to the next step." }
             ],
-            InstanceDerivedStatus.AwaitingAdditionalUserInput => [
+            InstanceDerivedStatus.AwaitingAdditionalUserInput =>
+            [
                 new() { LanguageCode = "nb", Value = "Innsendingen er under arbeid og trenger flere opplysninger for å gå til neste steg." },
                 new() { LanguageCode = "nn", Value = "Innsendinga er under arbeid og treng fleire opplysningar for å gå til neste steg." },
                 new() { LanguageCode = "en", Value = "The submission is in progress and requires more information to proceed to the next step." }
             ],
-            InstanceDerivedStatus.AwaitingInitialUserInput => [
+            InstanceDerivedStatus.AwaitingInitialUserInput =>
+            [
                 new() { LanguageCode = "nb", Value = "Innsendingen er klar for å fylles ut." },
                 new() { LanguageCode = "nn", Value = "Innsendinga er klar til å fyllast ut." },
                 new() { LanguageCode = "en", Value = "The submission is ready to be filled out." }
             ],
-            _ => [ // Default case
+            _ =>
+            [ // Default case
                 new() { LanguageCode = "nb", Value = "Innsendingen er klar for å fylles ut." },
                 new() { LanguageCode = "nn", Value = "Innsendinga er klar til å fyllast ut." },
                 new() { LanguageCode = "en", Value = "The submission is ready to be filled out." }
@@ -455,7 +475,8 @@ internal sealed class StorageDialogportenDataMerger
                 Id = goToActionId,
                 Action = "read",
                 Priority = DialogGuiActionPriority.Primary,
-                Title = [
+                Title =
+                [
                     new() { LanguageCode = "nb", Value = "Se innsendt skjema" },
                     new() { LanguageCode = "nn", Value = "Sjå innsendt skjema" },
                     new() { LanguageCode = "en", Value = "See submitted form" }
@@ -480,7 +501,8 @@ internal sealed class StorageDialogportenDataMerger
             Action = "write",
             AuthorizationAttribute = authorizationAttribute,
             Priority = DialogGuiActionPriority.Primary,
-            Title = [
+            Title =
+            [
                 new() { LanguageCode = "nb", Value = "Gå til skjemautfylling" },
                 new() { LanguageCode = "nn", Value = "Gå til skjemautfylling" },
                 new() { LanguageCode = "en", Value = "Go to form completion" }
@@ -500,7 +522,8 @@ internal sealed class StorageDialogportenDataMerger
             Action = "delete",
             Priority = DialogGuiActionPriority.Secondary,
             IsDeleteDialogAction = true,
-            Title = [
+            Title =
+            [
                 new() { LanguageCode = "nb", Value = "Slett" },
                 new() { LanguageCode = "nn", Value = "Slett" },
                 new() { LanguageCode = "en", Value = "Delete" }
@@ -527,7 +550,8 @@ internal sealed class StorageDialogportenDataMerger
             Id = dialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.Copy),
             Action = "instantiate",
             Priority = DialogGuiActionPriority.Tertiary,
-            Title = [
+            Title =
+            [
                 new() { LanguageCode = "nb", Value = "Lag ny kopi" },
                 new() { LanguageCode = "nn", Value = "Lag ny kopi" },
                 new() { LanguageCode = "en", Value = "Create new copy" }
@@ -575,7 +599,7 @@ internal sealed class StorageDialogportenDataMerger
         while (enumerator.MoveNext())
         {
             if (!separator.AsSpan().TryCopyTo(titleSpan, ref offset)
-                || !enumerator.Current.AsSpan().TryCopyTo(titleSpan, ref offset))
+             || !enumerator.Current.AsSpan().TryCopyTo(titleSpan, ref offset))
             {
                 break;
             }
@@ -611,10 +635,10 @@ internal sealed class StorageDialogportenDataMerger
         var priorityCapacity = Constants.PriorityLimits
             .GroupJoin(result, x => x.Priority, x => x.Priority,
                 (priorityLimit, existingActions) =>
-                (
-                    Priority: priorityLimit.Priority,
-                    Capacity: priorityLimit.Limit - existingActions.Count()
-                ))
+                    (
+                        Priority: priorityLimit.Priority,
+                        Capacity: priorityLimit.Limit - existingActions.Count()
+                    ))
             .Where(x => x.Capacity > 0)
             .OrderBy(x => x.Priority);
 
