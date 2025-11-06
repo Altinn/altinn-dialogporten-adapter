@@ -51,6 +51,9 @@ static Task BuildAndRun(string[] args)
 
     builder.Services.AddWolverine(opts =>
     {
+        // Some partitions may take a long time to process, so increase from default 1 minute
+        opts.DefaultExecutionTimeout = TimeSpan.FromMinutes(10);
+
         opts.ConfigureAdapterDefaults(builder.Environment,
             settings.WolverineSettings.ServiceBusConnectionString);
         opts.Policies.AllListeners(x => x
