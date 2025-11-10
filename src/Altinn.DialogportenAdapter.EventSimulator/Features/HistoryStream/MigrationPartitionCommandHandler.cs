@@ -3,6 +3,7 @@ using Altinn.DialogportenAdapter.Contracts;
 using Altinn.DialogportenAdapter.EventSimulator.Common.Extensions;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Persistance;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
+using Wolverine.Attributes;
 
 namespace Altinn.DialogportenAdapter.EventSimulator.Features.HistoryStream;
 
@@ -69,6 +70,7 @@ public static class MigrationPartitionCommandHandler
         new(item.Partition, item.Organization);
 }
 
+[MessageTimeout(60*10)] // 10 minutes
 public sealed record MigratePartitionCommand(DateOnly Partition, string Organization, string? Party)
 {
     public bool IsTest => Party is not null;

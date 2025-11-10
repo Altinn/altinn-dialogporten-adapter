@@ -100,6 +100,7 @@ internal sealed class InstanceStreamer : IInstanceStreamer
         var client = _clientFactory.CreateClient(Constants.MaskinportenClientDefinitionKey);
         var queryString = QueryString
             .Create("order", $"{order}:lastChanged")
+            .Add("MainVersionExclude", "0") // Force inclusion of all Altinn versions (1, 2, 3)
             .Add("size", pageSize.ToString(CultureInfo.InvariantCulture))
             .AddIf(from.HasValue, "lastChanged", $"gt:{from?.ToUniversalTime():O}")
             .AddIf(to.HasValue, "lastChanged", $"lte:{to?.ToUniversalTime():O}")
