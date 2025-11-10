@@ -25,11 +25,19 @@ internal sealed partial class MockDialogportenApi : IDialogportenApi
         return Task.FromResult<IApiResponse<DialogDto>>(apiResponse);
     }
 
-    public Task<Guid> Create(DialogDto dto, bool isSilentUpdate = false,
+    public Task<IApiResponse> Create(DialogDto dto, bool isSilentUpdate = false,
         CancellationToken cancellationToken = default)
     {
         Log.LogCreateCalled(_logger, dto);
-        return Task.FromResult(Guid.Empty);
+        var apiResponse = new ApiResponse<object>(
+            settings: _refitSettings,
+            response: new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Headers = { ETag = new System.Net.Http.Headers.EntityTagHeaderValue($"\"{Guid.NewGuid()}\"") }
+            },
+            content: Guid.NewGuid(),
+            error: null);
+        return Task.FromResult<IApiResponse>(apiResponse);
     }
 
     public Task<IApiResponse> Update(DialogDto dto, Guid revision, bool isSilentUpdate = false,

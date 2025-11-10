@@ -193,15 +193,21 @@ internal sealed class StorageDialogportenDataMerger
     {
         var appSettings = dto.Application.GetSyncAdapterSettings();
         var data = dto.Instance.Data;
+        var attachmentVisibility = ReceiptAttachmentVisibilityDecider.Create(dto.Application);
         if (appSettings.DisableAddTransmissions ||
             !_settings.DialogportenAdapter.Adapter.FeatureFlag.EnableSubmissionTransmissions)
         {
-            return (data.Select(CreateAttachmentDto).ToList(), []);
+            return (data.Select(d => CreateAttachmentDto(d, attachmentVisibility)).ToList(), []);
         }
 
         var dataElementQueue = new Queue<DataElement>(data
             .Where(x => !IsPerformedBySo(x))
             .OrderBy(x => x.Created.Value));
+
+
+        // A2 Instances cant have more than 1 submission
+        // so we take all attachments into a single transmission.
+        var isA2 = IsA2Instance(dto.Instance);
 
         var transmissions = activities
             .Where(x => x.Type is DialogActivityType.FormSubmitted)
@@ -225,8 +231,8 @@ internal sealed class StorageDialogportenDataMerger
                     }
                 },
                 Attachments = dataElementQueue
-                    .DequeueWhile(e => e.LastChanged <= a.CreatedAt)
-                    .Select(CreateTransmissionAttachmentDto)
+                    .DequeueWhile(e => e.LastChanged <= a.CreatedAt || isA2)
+                    .Select(e => CreateTransmissionAttachmentDto(e, attachmentVisibility))
                     .ToList()
             })
             .ToList();
@@ -234,14 +240,22 @@ internal sealed class StorageDialogportenDataMerger
         var attachments = data
             .Where(IsPerformedBySo)
             .Concat(dataElementQueue) // any remaining attachments not already included in transmissions
-            .Select(CreateAttachmentDto)
+            .Select(d => CreateAttachmentDto(d, attachmentVisibility))
             .ToList();
 
         return (attachments, transmissions);
     }
 
-    private AttachmentDto CreateAttachmentDto(DataElement data) =>
-        new()
+    private AttachmentDto CreateAttachmentDto(DataElement data, ReceiptAttachmentVisibilityDecider attachmentVisibility)
+    {
+        var consumerType = attachmentVisibility.GetConsumerType(data);
+        var platformUrl = data.SelfLinks.Platform;
+
+        var url = consumerType is AttachmentUrlConsumerType.Gui && !string.IsNullOrEmpty(platformUrl)
+            ? ToPortalUri(platformUrl)
+            : platformUrl;
+
+        return new()
         {
             Id = Guid.Parse(data.Id).ToVersion7(data.Created.Value),
             DisplayName = [new() { LanguageCode = "nb", Value = data.Filename ?? data.DataType }],
@@ -250,19 +264,26 @@ internal sealed class StorageDialogportenDataMerger
                 new()
                 {
                     Id = Guid.Parse(data.Id).ToVersion7(data.Created.Value),
-                    ConsumerType = data.Filename is not null
-                        ? AttachmentUrlConsumerType.Gui
-                        : AttachmentUrlConsumerType.Api,
+                    ConsumerType = consumerType,
                     MediaType = data.ContentType,
-                    Url = data.Filename is not null
-                        ? ToPortalUri(data.SelfLinks.Platform)
-                        : data.SelfLinks.Platform
+                    Url = url
                 }
             ]
         };
+    }
 
-    private TransmissionAttachmentDto CreateTransmissionAttachmentDto(DataElement data) =>
-        new()
+    private TransmissionAttachmentDto CreateTransmissionAttachmentDto(
+        DataElement data,
+        ReceiptAttachmentVisibilityDecider attachmentVisibility)
+    {
+        var consumerType = attachmentVisibility.GetConsumerType(data);
+        var platformUrl = data.SelfLinks.Platform;
+
+        var url = consumerType is AttachmentUrlConsumerType.Gui && !string.IsNullOrEmpty(platformUrl)
+            ? ToPortalUri(platformUrl)
+            : platformUrl;
+
+        return new()
         {
             // Ensure unique IDs when the same DataElement appears as both TransmissionAttachment and Attachment
             // This prevents ID collisions that would cause conflicts in Dialogporten
@@ -272,16 +293,13 @@ internal sealed class StorageDialogportenDataMerger
             [
                 new()
                 {
-                    ConsumerType = data.Filename is not null
-                        ? AttachmentUrlConsumerType.Gui
-                        : AttachmentUrlConsumerType.Api,
+                    ConsumerType = consumerType,
                     MediaType = data.ContentType,
-                    Url = data.Filename is not null
-                        ? ToPortalUri(data.SelfLinks.Platform)
-                        : data.SelfLinks.Platform
+                    Url = url
                 }
             ]
         };
+    }
 
     private static bool IsPerformedBySo(DataElement data)
     {
@@ -440,12 +458,17 @@ internal sealed class StorageDialogportenDataMerger
 
     private static bool IsConsideredConfirmed(Instance instance)
     {
-        if (instance.DataValues is not null && instance.DataValues.ContainsKey("A2ArchRef")) // Archived in Altinn 2, always considered confirmed
+        if (IsA2Instance(instance)) // Archived in Altinn 2, always considered confirmed
         {
             return true;
         }
 
         return (instance.CompleteConfirmations?.Count ?? 0) != 0;
+    }
+
+    private static bool IsA2Instance(Instance instance)
+    {
+        return instance.DataValues is not null && instance.DataValues.ContainsKey("A2ArchRef");
     }
 
     /// <summary>
@@ -540,7 +563,8 @@ internal sealed class StorageDialogportenDataMerger
                 Id = goToActionId,
                 Action = "read",
                 Priority = DialogGuiActionPriority.Primary,
-                Title = GetPrimaryAction(instance, applicationTexts, instanceDerivedStatus),
+                Title =
+                GetPrimaryAction(instance, applicationTexts, instanceDerivedStatus),
                 Url = ToPortalUri($"{platformBaseUri}/receipt/{instance.Id}")
             };
         }
@@ -561,7 +585,8 @@ internal sealed class StorageDialogportenDataMerger
             Action = "write",
             AuthorizationAttribute = authorizationAttribute,
             Priority = DialogGuiActionPriority.Primary,
-            Title = GetPrimaryAction(instance, applicationTexts, instanceDerivedStatus),
+            Title =
+            GetPrimaryAction(instance, applicationTexts, instanceDerivedStatus),
             Url = ToPortalUri($"{appBaseUri}/#/instance/{instance.Id}")
         };
     }
@@ -577,8 +602,8 @@ internal sealed class StorageDialogportenDataMerger
             Action = "delete",
             Priority = DialogGuiActionPriority.Secondary,
             IsDeleteDialogAction = true,
-            Title = GetSecondaryAction(instance, applicationTexts, instanceDerivedStatus),
-
+            Title =
+            GetSecondaryAction(instance, applicationTexts, instanceDerivedStatus),
             Url = $"{adapterBaseUri}/api/v1/instance/{instance.Id}",
             HttpMethod = HttpVerb.DELETE
         };
@@ -601,7 +626,8 @@ internal sealed class StorageDialogportenDataMerger
             Id = dialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.Copy),
             Action = "instantiate",
             Priority = DialogGuiActionPriority.Tertiary,
-            Title = GetTertiaryAction(instance, applicationTexts, instanceDerivedStatus),
+            Title =
+            GetTertiaryAction(instance, applicationTexts, instanceDerivedStatus),
             Url = ToPortalUri($"{appBaseUri}/legacy/instances/{instance.Id}/copy"),
             HttpMethod = HttpVerb.GET
         };

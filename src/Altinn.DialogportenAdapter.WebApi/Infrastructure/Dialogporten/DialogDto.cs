@@ -493,6 +493,16 @@ public enum DialogActivityType
     /// Indicates that a form associated with the dialog has been saved.
     /// </summary>
     FormSaved = 15,
+
+    /// <summary>
+    /// Indicates that a correspondence has been opened.
+    /// </summary>
+    CorrespondenceOpened = 16,
+
+    /// <summary>
+    /// Indicates that a correspondence has been confirmed.
+    /// </summary>
+    CorrespondenceConfirmed = 17
 }
 
 public sealed class ApiActionDto

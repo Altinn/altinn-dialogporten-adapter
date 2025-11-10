@@ -1,1 +1,3 @@
-[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Altinn.DialogportenAdapter.Unit.Tests")]
+using System.Runtime.CompilerServices;
+
+[assembly: InternalsVisibleTo("Altinn.DialogportenAdapter.Unit.Tests")]
