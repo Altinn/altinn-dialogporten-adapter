@@ -68,9 +68,10 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         if (InstanceOwnerIsSelfIdentified(instance))
         {
             // We skip these for now as we do not have a good way to identify the user in dialogporten
-            _logger.LogWarning("Skipping sync for self-identified instance owner id={Id} username={Username}",
+            _logger.LogWarning("Skipping sync for self-identified instance owner on id={Id} username={Username} appid={AppId}.",
                 instance?.Id,
-                instance?.InstanceOwner.Username);
+                instance?.InstanceOwner.Username,
+                instance?.AppId);
             return;
         }
 
