@@ -68,8 +68,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         if (InstanceOwnerIsSelfIdentified(instance))
         {
             // We skip these for now as we do not have a good way to identify the user in dialogporten
-            _logger.LogWarning("Skipping sync for self-identified instance owner on id ={PartyId}/{Id} username={Username} appid={AppId}.",
-                instance?.InstanceOwner.PartyId,
+            _logger.LogWarning("Skipping sync for self-identified instance owner on id={Id} username={Username} appid={AppId}.",
                 instance?.Id,
                 instance?.InstanceOwner.Username,
                 instance?.AppId);
@@ -86,8 +85,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         if (InstanceSoftDeletedAndDialogNotExisting(instance, existingDialog))
         {
             _logger.LogInformation(
-                "Instance id={PartyId}/{Id} is soft-deleted in storage and does not exist in Dialogporten. Creating and deleting immediately afterwards.",
-                instance?.InstanceOwner.PartyId,
+                "Instance id={Id} is soft-deleted in storage and does not exist in Dialogporten. Creating and deleting immediately afterwards.",
                 instance?.Id);
             forceSilentUpsert = true;
             shouldDeleteAfterCreate = true;
