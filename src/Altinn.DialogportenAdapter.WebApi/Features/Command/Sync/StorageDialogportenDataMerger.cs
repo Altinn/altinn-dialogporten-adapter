@@ -185,7 +185,7 @@ internal sealed class StorageDialogportenDataMerger
             },
             GuiActions =
             [
-                CreateGoToAction(dto.DialogId, dto.Instance),
+                CreateGoToAction(dto.DialogId, dto.Instance, instanceDerivedStatus),
                 CreateDeleteAction(dto.DialogId, dto.Instance),
                 ..CreateCopyAction(dto.DialogId, dto.Instance, dto.Application)
             ],
@@ -461,7 +461,7 @@ internal sealed class StorageDialogportenDataMerger
         return await Task.FromResult(summary);
     }
 
-    private GuiActionDto CreateGoToAction(Guid dialogId, Instance instance)
+    private GuiActionDto CreateGoToAction(Guid dialogId, Instance instance, InstanceDerivedStatus instanceDerivedStatus)
     {
         var goToActionId = dialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.GoTo);
         if (instance.Status.IsArchived)
@@ -495,17 +495,30 @@ internal sealed class StorageDialogportenDataMerger
             ? "urn:altinn:task:" + instance.Process.CurrentTask.ElementId
             : null;
 
+        string xacmlAction;
+        string[] gotoText;
+        if (instanceDerivedStatus is InstanceDerivedStatus.AwaitingSignature)
+        {
+            xacmlAction = "sign";
+            gotoText = ["Gå til signering", "Gå til signering", "Go to signing"];
+        }
+        else
+        {
+            xacmlAction = "write";
+            gotoText = ["Gå til skjemautfylling", "Gå til skjemautfylling", "Go to form completion"];
+        }
+
         return new GuiActionDto
         {
             Id = goToActionId,
-            Action = "write",
+            Action = xacmlAction,
             AuthorizationAttribute = authorizationAttribute,
             Priority = DialogGuiActionPriority.Primary,
             Title =
             [
-                new() { LanguageCode = "nb", Value = "Gå til skjemautfylling" },
-                new() { LanguageCode = "nn", Value = "Gå til skjemautfylling" },
-                new() { LanguageCode = "en", Value = "Go to form completion" }
+                new() { LanguageCode = "nb", Value = gotoText[0] },
+                new() { LanguageCode = "nn", Value = gotoText[1] },
+                new() { LanguageCode = "en", Value = gotoText[2] }
             ],
             Url = ToPortalUri($"{appBaseUri}/#/instance/{instance.Id}")
         };
