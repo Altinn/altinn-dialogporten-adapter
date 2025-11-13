@@ -58,6 +58,10 @@ internal sealed class StorageDialogportenDataMerger
                 ? null!
                 : storageDialog.Content.Summary;
 
+            storageDialog.Content.AdditionalInfo = syncAdapterSettings.DisableSyncContentSummary // FIXME! Change with correct setting when available
+                ? null!
+                : storageDialog.Content.AdditionalInfo;
+
             storageDialog.Activities = syncAdapterSettings.DisableAddActivities
                 ? []
                 : storageDialog.Activities;
@@ -102,6 +106,10 @@ internal sealed class StorageDialogportenDataMerger
         existing.Content.Summary = syncAdapterSettings.DisableSyncContentSummary
             ? existing.Content.Summary
             : storageDialog.Content.Summary;
+
+        existing.Content.AdditionalInfo = syncAdapterSettings.DisableSyncContentSummary // FIXME! Change with correct setting when available
+            ? existing.Content.AdditionalInfo
+            : storageDialog.Content.AdditionalInfo;
 
         existing.Attachments = syncAdapterSettings.DisableSyncAttachments
             ? existing.Attachments
@@ -193,9 +201,9 @@ internal sealed class StorageDialogportenDataMerger
             Activities = activities
         };
 
-        // Only add (replace) additional info if this is defined in application texts
         var additionalInfo = GetAdditionalInfo(dto.Instance, dto.ApplicationTexts, instanceDerivedStatus);
-        if (additionalInfo != null) {
+        if (additionalInfo.Count > 0)
+        {
             dialog.Content.AdditionalInfo = new ContentValueDto
             {
                 MediaType = MediaTypes.PlainText,
@@ -385,12 +393,12 @@ internal sealed class StorageDialogportenDataMerger
             : GetSummaryFallback(instanceDerivedStatus);
     }
 
-    private static List<LocalizationDto>? GetAdditionalInfo(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
+    private static List<LocalizationDto> GetAdditionalInfo(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
     {
         var additionalInfo = ApplicationTextParser.GetLocalizationsFromApplicationTexts(nameof(DialogDto.Content.AdditionalInfo), instance, applicationTexts, instanceDerivedStatus, 1023);
         return additionalInfo.Count > 0
             ? additionalInfo
-            : null; // No default fallback for additional info
+            : []; // No default fallback for additional info
     }
 
     private static List<LocalizationDto> GetPrimaryActionLabel(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)

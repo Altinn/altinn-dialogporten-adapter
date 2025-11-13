@@ -67,6 +67,10 @@ public static class ApplicationTextParser
         keysToCheck.Add($"{prefix}._any_.{instanceDerivedStatusString}");
         keysToCheck.Add(prefix);
 
+#if DEBUG
+        Console.WriteLine("Keys to check for content type '{0}': {1}", contentType, string.Join(", ", keysToCheck));
+#endif
+
         var localizations = new List<LocalizationDto>();
         foreach (var translation in applicationTexts.Translations)
         {
