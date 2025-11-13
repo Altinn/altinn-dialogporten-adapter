@@ -79,7 +79,7 @@ public static class ApplicationTextParser
 
                 if (textResource.Length > maxLength)
                 {
-                    textResource = TruncateText(textResource);
+                    textResource = TruncateText(textResource, maxLength);
                 }
 
                 localizations.Add(new LocalizationDto
