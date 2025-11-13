@@ -45,9 +45,26 @@ internal sealed class ApplicationRepository(IApplicationsApi applicationsApi, IF
             Translations = textResources.Select(textResource => new ApplicationTextsTranslation
             {
                 Language = textResource.Language,
-                Texts = textResource.Resources.ToDictionary(x => x.Id, x => x.Value)
+                Texts = CreateTextsDictionary(textResource.Resources)
             }).ToList()
         };
+    }
+
+    internal static Dictionary<string, string> CreateTextsDictionary(IEnumerable<TextResourceElement> resources)
+    {
+        var texts = new Dictionary<string, string>();
+
+        foreach (var resource in resources)
+        {
+            if (resource.Id is null)
+            {
+                continue;
+            }
+
+            texts.TryAdd(resource.Id, resource.Value);
+        }
+
+        return texts;
     }
 
     private async Task<Application?> FetchApplication(string appId, CancellationToken cancellationToken) =>
