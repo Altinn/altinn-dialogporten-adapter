@@ -19,7 +19,7 @@ public static class ApplicationTextParser
     /// EBNF:
     /// identifier       ::= "dp." content_type ( "." task_part )?
     /// task_part        ::= task ( "." state )?
-    /// content_type     ::= "title" | "summary" | "primaryactionlabel" | "secondaryactionlabel" | "tertiaryactionlabel"
+    /// content_type     ::= "title" | "summary" | "additionalinfo" | "primaryactionlabel" | "deleteactionlabel" | "copyactionlabel"
     /// task             ::= specific_task | "_any_"
     /// specific_task    ::= alphanumeric_with_internal_dash_or_underscore
     /// state            ::= "archivedunconfirmed" | "archivedconfirmed" | "rejected"
@@ -32,7 +32,7 @@ public static class ApplicationTextParser
     /// alphanumeric     ::= letter | digit
     /// letter           ::= "a".."z" | "A".."Z"
     /// digit            ::= "0".."9"
-    /// 
+    ///
     /// </summary>
     /// <example>
     /// dp.title
@@ -41,7 +41,7 @@ public static class ApplicationTextParser
     /// dp.summary.Task_1.archivedunconfirmed
     /// dp.summary._any_.rejected
     /// </example>
-    /// <param name="contentType">The requested content type. Should be title, summary, primaryactionlabel, secondaryactionlabel, or tertiaryactionlabel (case-insensitive)</param>
+    /// <param name="contentType">The requested content type. Should be title, summary, additionalinfo, primaryactionlabel, deleteactionlabel, or copyactionlabel (case-insensitive)</param>
     /// <param name="instance">The app instance</param>
     /// <param name="applicationTexts">The application texts for all languages</param>
     /// <param name="instanceDerivedStatus">The instance derived status</param>
