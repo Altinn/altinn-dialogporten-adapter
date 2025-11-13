@@ -6,8 +6,9 @@ namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 
 public static class ApplicationTextParser
 {
-    private const int MaxLength = 255;
+    private const int DefaultMaxLength = 255;
     private const string TruncateSuffix = "...";
+
     /// <summary>
     /// This will attempt to find a particular key from the application texts for this app. The order of keys are as follows:
     /// 1. Active task for derived status
@@ -19,7 +20,7 @@ public static class ApplicationTextParser
     /// EBNF:
     /// identifier       ::= "dp." content_type ( "." task_part )?
     /// task_part        ::= task ( "." state )?
-    /// content_type     ::= "title" | "summary" | "primaryactionlabel" | "secondaryactionlabel" | "tertiaryactionlabel"
+    /// content_type     ::= "title" | "summary" | "additionalinfo" | "primaryactionlabel" | "deleteactionlabel" | "copyactionlabel"
     /// task             ::= specific_task | "_any_"
     /// specific_task    ::= alphanumeric_with_internal_dash_or_underscore
     /// state            ::= "archivedunconfirmed" | "archivedconfirmed" | "rejected"
@@ -32,7 +33,7 @@ public static class ApplicationTextParser
     /// alphanumeric     ::= letter | digit
     /// letter           ::= "a".."z" | "A".."Z"
     /// digit            ::= "0".."9"
-    /// 
+    ///
     /// </summary>
     /// <example>
     /// dp.title
@@ -41,16 +42,18 @@ public static class ApplicationTextParser
     /// dp.summary.Task_1.archivedunconfirmed
     /// dp.summary._any_.rejected
     /// </example>
-    /// <param name="contentType">The requested content type. Should be title, summary, primaryactionlabel, secondaryactionlabel, or tertiaryactionlabel (case-insensitive)</param>
+    /// <param name="contentType">The requested content type. Should be title, summary, additionalinfo, primaryactionlabel, deleteactionlabel, or copyactionlabel (case-insensitive)</param>
     /// <param name="instance">The app instance</param>
     /// <param name="applicationTexts">The application texts for all languages</param>
     /// <param name="instanceDerivedStatus">The instance derived status</param>
+    /// <param name="maxLength">The max length of the field (default: 255)</param>
     /// <returns>A list of localizations (empty if not defined)</returns>
     internal static List<LocalizationDto> GetLocalizationsFromApplicationTexts(
         string contentType,
         Instance instance,
         ApplicationTexts applicationTexts,
-        InstanceDerivedStatus instanceDerivedStatus)
+        InstanceDerivedStatus instanceDerivedStatus,
+        int maxLength = DefaultMaxLength)
     {
         var keysToCheck = new List<string>(4);
         var prefix = $"dp.{contentType.ToLower()}";
@@ -74,7 +77,7 @@ public static class ApplicationTextParser
                     continue;
                 }
 
-                if (textResource.Length > MaxLength)
+                if (textResource.Length > maxLength)
                 {
                     textResource = TruncateText(textResource);
                 }
@@ -90,12 +93,12 @@ public static class ApplicationTextParser
 
         return localizations;
     }
-    private static string TruncateText(ReadOnlySpan<char> textResource)
+    private static string TruncateText(ReadOnlySpan<char> textResource, int maxLength = DefaultMaxLength)
     {
         // Creates the truncated string without any intermediate string allocations
-        return string.Create(MaxLength, textResource, static (span, text) =>
+        return string.Create(maxLength, textResource, (span, text) =>
         {
-            text[..(MaxLength - TruncateSuffix.Length)].CopyTo(span);
+            text[..(maxLength - TruncateSuffix.Length)].CopyTo(span);
             TruncateSuffix.AsSpan().CopyTo(span[^TruncateSuffix.Length..]);
         });
 

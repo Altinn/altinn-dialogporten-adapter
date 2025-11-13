@@ -19,6 +19,14 @@ internal sealed record MergeDto(
 
 internal sealed class StorageDialogportenDataMerger
 {
+    private const string PrimaryActionLabel = "primaryactionlabel";
+    private const string DeleteActionLabel = "deleteactionlabel";
+    private const string CopyActionLabel = "copyactionlabel";
+    private const string ReadAction = "read";
+    private const string DeleteAction = "delete";
+    private const string SignAction = "sign";
+    private const string WriteAction = "write";
+    private const string InstantiateAction = "instantiate";
     private readonly Settings _settings;
     private readonly ActivityDtoTransformer _activityDtoTransformer;
     private readonly IRegisterRepository _registerRepository;
@@ -137,7 +145,7 @@ internal sealed class StorageDialogportenDataMerger
 
         var (attachments, transmissions) = GetAttachmentAndTransmissions(dto, activities);
 
-        return new DialogDto
+        var dialog = new DialogDto
         {
             Id = dto.DialogId,
             IsApiOnly = dto.Application.ShouldBeHidden(dto.Instance),
@@ -185,6 +193,17 @@ internal sealed class StorageDialogportenDataMerger
             Activities = activities
         };
 
+        // Only add (replace) additional info if this is defined in application texts
+        var additionalInfo = GetAdditionalInfo(dto.Instance, dto.ApplicationTexts, instanceDerivedStatus);
+        if (additionalInfo != null) {
+            dialog.Content.AdditionalInfo = new ContentValueDto
+            {
+                MediaType = MediaTypes.PlainText,
+                Value = additionalInfo
+            };
+        }
+
+        return dialog;
     }
 
     private (List<AttachmentDto> attachments, List<TransmissionDto> transmissions) GetAttachmentAndTransmissions(
@@ -366,31 +385,39 @@ internal sealed class StorageDialogportenDataMerger
             : GetSummaryFallback(instanceDerivedStatus);
     }
 
-    private static List<LocalizationDto> GetPrimaryAction(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
+    private static List<LocalizationDto>? GetAdditionalInfo(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
     {
-        var primaryAction = ApplicationTextParser.GetLocalizationsFromApplicationTexts("primaryactionlabel", instance, applicationTexts, instanceDerivedStatus);
+        var additionalInfo = ApplicationTextParser.GetLocalizationsFromApplicationTexts(nameof(DialogDto.Content.AdditionalInfo), instance, applicationTexts, instanceDerivedStatus, 1023);
+        return additionalInfo.Count > 0
+            ? additionalInfo
+            : null; // No default fallback for additional info
+    }
+
+    private static List<LocalizationDto> GetPrimaryActionLabel(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
+    {
+        var primaryAction = ApplicationTextParser.GetLocalizationsFromApplicationTexts(PrimaryActionLabel, instance, applicationTexts, instanceDerivedStatus);
         return primaryAction.Count > 0
             ? primaryAction
-            : GetPrimaryFallback(instance);
+            : GetPrimaryFallback(instanceDerivedStatus);
     }
 
-    private static List<LocalizationDto> GetSecondaryAction(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
+    private static List<LocalizationDto> GetDeleteActionLabel(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
     {
 
-        var secondaryAction = ApplicationTextParser.GetLocalizationsFromApplicationTexts("secondaryactionlabel", instance, applicationTexts, instanceDerivedStatus);
+        var secondaryAction = ApplicationTextParser.GetLocalizationsFromApplicationTexts(DeleteActionLabel, instance, applicationTexts, instanceDerivedStatus);
         return secondaryAction.Count > 0
             ? secondaryAction
-            : GetSecondaryFallback();
+            : GetDeleteActionFallback();
     }
 
-    private static List<LocalizationDto> GetTertiaryAction(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
+    private static List<LocalizationDto> GetCopyActionLabel(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
     {
-        var ternaryAction = ApplicationTextParser.GetLocalizationsFromApplicationTexts("tertiaryactionlabel", instance, applicationTexts, instanceDerivedStatus);
+        var ternaryAction = ApplicationTextParser.GetLocalizationsFromApplicationTexts(CopyActionLabel, instance, applicationTexts, instanceDerivedStatus);
         return ternaryAction.Count > 0
             ? ternaryAction
-            : GetTertiaryFallback();
+            : GetCopyActionFallback();
     }
-    private static List<LocalizationDto> GetTertiaryFallback()
+    private static List<LocalizationDto> GetCopyActionFallback()
     {
         return
         [
@@ -400,27 +427,32 @@ internal sealed class StorageDialogportenDataMerger
         ];
     }
 
-    private static List<LocalizationDto> GetPrimaryFallback(Instance instance)
+    private static List<LocalizationDto> GetPrimaryFallback(InstanceDerivedStatus instanceDerivedStatus)
     {
-        if (instance.Status.IsArchived)
+        return instanceDerivedStatus switch
         {
-            return
+            InstanceDerivedStatus.ArchivedConfirmed or InstanceDerivedStatus.ArchivedUnconfirmed =>
             [
                 new() { LanguageCode = "nb", Value = "Se innsendt skjema" },
                 new() { LanguageCode = "nn", Value = "Sjå innsendt skjema" },
                 new() { LanguageCode = "en", Value = "See submitted form" }
-            ];
-        }
-
-        return
-        [
-            new() { LanguageCode = "nb", Value = "Gå til skjemautfylling" },
-            new() { LanguageCode = "nn", Value = "Gå til skjemautfylling" },
-            new() { LanguageCode = "en", Value = "Go to form completion" }
-        ];
+            ],
+            InstanceDerivedStatus.AwaitingSignature =>
+            [
+                new() { LanguageCode = "nb", Value = "Gå til signering" },
+                new() { LanguageCode = "nn", Value = "Gå til signering" },
+                new() { LanguageCode = "en", Value = "Go to signing" }
+            ],
+            _ =>
+            [
+                new() { LanguageCode = "nb", Value = "Gå til skjemautfylling" },
+                new() { LanguageCode = "nn", Value = "Gå til skjemautfylling" },
+                new() { LanguageCode = "en", Value = "Go to form completion" }
+            ]
+        };
     }
 
-    private static List<LocalizationDto> GetSecondaryFallback()
+    private static List<LocalizationDto> GetDeleteActionFallback()
     {
         return
         [
@@ -485,9 +517,8 @@ internal sealed class StorageDialogportenDataMerger
     /// <exception cref="NotImplementedException"></exception>
     private static List<LocalizationDto> GetSummaryFallback(InstanceDerivedStatus instanceDerivedStatus)
     {
-
         // Step 4: derive a summary from the derived instance status alone
-        List<LocalizationDto> summary = instanceDerivedStatus switch
+        return instanceDerivedStatus switch
         {
             InstanceDerivedStatus.ArchivedUnconfirmed =>
             [
@@ -544,52 +575,56 @@ internal sealed class StorageDialogportenDataMerger
                 new() { LanguageCode = "en", Value = "The submission is ready to be filled out." }
             ]
         };
-        return summary;
-
     }
 
     private GuiActionDto CreateGoToAction(Guid dialogId, Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
     {
         var goToActionId = dialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.GoTo);
-        if (instance.Status.IsArchived)
+        var xacmlAction = GetXacmlActionForGoToAction(instanceDerivedStatus);
+        // CurrentTask may be null (ex. instance id 51499006/907c12e2-041a-4275-9d33-67620cdf15b6 tt02),
+        // in which case we have no other option than to not set an authorization attribute.
+        var authorizationAttribute = instance.Process?.CurrentTask?.ElementId is not null
+            ? "urn:altinn:task:" + instance.Process.CurrentTask.ElementId
+            : null;
+
+        string gotoUrl;
+        if (xacmlAction == ReadAction)
         {
             var platformBaseUri = _settings.DialogportenAdapter.Altinn
                 .GetPlatformUri()
                 .ToString()
                 .TrimEnd('/');
 
-            return new GuiActionDto
-            {
-                Id = goToActionId,
-                Action = "read",
-                Priority = DialogGuiActionPriority.Primary,
-                Title =
-                GetPrimaryAction(instance, applicationTexts, instanceDerivedStatus),
-                Url = ToPortalUri($"{platformBaseUri}/receipt/{instance.Id}")
-            };
+            gotoUrl = ToPortalUri($"{platformBaseUri}/receipt/{instance.Id}");
         }
+        else
+        {
+            var appBaseUri = _settings.DialogportenAdapter.Altinn
+                .GetAppUriForOrg(instance.Org, instance.AppId)
+                .ToString()
+                .TrimEnd('/');
 
-        var appBaseUri = _settings.DialogportenAdapter.Altinn
-            .GetAppUriForOrg(instance.Org, instance.AppId)
-            .ToString()
-            .TrimEnd('/');
-
-        // TODO: CurrentTask may be null. What should we do then? (eks instance id 51499006/907c12e2-041a-4275-9d33-67620cdf15b6 tt02)
-        var authorizationAttribute = instance.Process?.CurrentTask?.ElementId is not null
-            ? "urn:altinn:task:" + instance.Process.CurrentTask.ElementId
-            : null;
+            gotoUrl = ToPortalUri($"{appBaseUri}/#/instance/{instance.Id}");
+        }
 
         return new GuiActionDto
         {
             Id = goToActionId,
-            Action = "write",
+            Action = xacmlAction,
             AuthorizationAttribute = authorizationAttribute,
             Priority = DialogGuiActionPriority.Primary,
-            Title =
-            GetPrimaryAction(instance, applicationTexts, instanceDerivedStatus),
-            Url = ToPortalUri($"{appBaseUri}/#/instance/{instance.Id}")
+            Title = GetPrimaryActionLabel(instance, applicationTexts, instanceDerivedStatus),
+            Url = gotoUrl
         };
     }
+
+    private string GetXacmlActionForGoToAction(InstanceDerivedStatus instanceDerivedStatus) =>
+        instanceDerivedStatus switch
+        {
+            InstanceDerivedStatus.ArchivedConfirmed or InstanceDerivedStatus.ArchivedUnconfirmed => ReadAction,
+            InstanceDerivedStatus.AwaitingSignature => SignAction,
+            _ => WriteAction
+        };
 
     private GuiActionDto CreateDeleteAction(Guid dialogId, Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
     {
@@ -599,11 +634,11 @@ internal sealed class StorageDialogportenDataMerger
         return new GuiActionDto
         {
             Id = dialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.Delete),
-            Action = "delete",
+            Action = DeleteAction,
             Priority = DialogGuiActionPriority.Secondary,
             IsDeleteDialogAction = true,
             Title =
-            GetSecondaryAction(instance, applicationTexts, instanceDerivedStatus),
+            GetDeleteActionLabel(instance, applicationTexts, instanceDerivedStatus),
             Url = $"{adapterBaseUri}/api/v1/instance/{instance.Id}",
             HttpMethod = HttpVerb.DELETE
         };
@@ -624,10 +659,10 @@ internal sealed class StorageDialogportenDataMerger
         yield return new GuiActionDto
         {
             Id = dialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.Copy),
-            Action = "instantiate",
+            Action = InstantiateAction,
             Priority = DialogGuiActionPriority.Tertiary,
             Title =
-            GetTertiaryAction(instance, applicationTexts, instanceDerivedStatus),
+            GetCopyActionLabel(instance, applicationTexts, instanceDerivedStatus),
             Url = ToPortalUri($"{appBaseUri}/legacy/instances/{instance.Id}/copy"),
             HttpMethod = HttpVerb.GET
         };
