@@ -2,6 +2,7 @@ using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
+using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Altinn.Platform.Storage.Interface.Models;
 using Microsoft.Extensions.Options;
 
@@ -11,12 +12,21 @@ internal sealed record MergeDto(
     Guid DialogId,
     DialogDto? ExistingDialog,
     Application Application,
+    ApplicationTexts ApplicationTexts,
     Instance Instance,
     InstanceEventList Events,
     bool IsMigration);
 
 internal sealed class StorageDialogportenDataMerger
 {
+    private const string PrimaryActionLabel = "primaryactionlabel";
+    private const string DeleteActionLabel = "deleteactionlabel";
+    private const string CopyActionLabel = "copyactionlabel";
+    private const string ReadAction = "read";
+    private const string DeleteAction = "delete";
+    private const string SignAction = "sign";
+    private const string WriteAction = "write";
+    private const string InstantiateAction = "instantiate";
     private readonly Settings _settings;
     private readonly ActivityDtoTransformer _activityDtoTransformer;
     private readonly IRegisterRepository _registerRepository;
@@ -47,6 +57,10 @@ internal sealed class StorageDialogportenDataMerger
             storageDialog.Content.Summary = syncAdapterSettings.DisableSyncContentSummary
                 ? null!
                 : storageDialog.Content.Summary;
+
+            storageDialog.Content.AdditionalInfo = syncAdapterSettings.DisableSyncContentSummary // FIXME! Change with correct setting when available
+                ? null!
+                : storageDialog.Content.AdditionalInfo;
 
             storageDialog.Activities = syncAdapterSettings.DisableAddActivities
                 ? []
@@ -93,6 +107,10 @@ internal sealed class StorageDialogportenDataMerger
             ? existing.Content.Summary
             : storageDialog.Content.Summary;
 
+        existing.Content.AdditionalInfo = syncAdapterSettings.DisableSyncContentSummary // FIXME! Change with correct setting when available
+            ? existing.Content.AdditionalInfo
+            : storageDialog.Content.AdditionalInfo;
+
         existing.Attachments = syncAdapterSettings.DisableSyncAttachments
             ? existing.Attachments
             : storageDialog.Attachments;
@@ -135,7 +153,7 @@ internal sealed class StorageDialogportenDataMerger
 
         var (attachments, transmissions) = GetAttachmentAndTransmissions(dto, activities);
 
-        return new DialogDto
+        var dialog = new DialogDto
         {
             Id = dto.DialogId,
             IsApiOnly = dto.Application.ShouldBeHidden(dto.Instance),
@@ -164,36 +182,36 @@ internal sealed class StorageDialogportenDataMerger
                 Title = new ContentValueDto
                 {
                     MediaType = MediaTypes.PlainText,
-                    Value = dto.Application.Title
-                        .Where(x => !string.IsNullOrWhiteSpace(x.Value))
-
-                        // Skip language codes that Dialogporten won't accept (ie non-ISO 639-codes),
-                        // crossing our fingers for it remains any valid ones
-                        .Where(x => LanguageCodes.IsValidTwoLetterLanguageCode(x.Key))
-                        .Select(x => new LocalizationDto
-                        {
-                            LanguageCode = x.Key,
-                            Value = ToTitle(x.Value, dto.Instance.PresentationTexts?.Values)
-                        })
-                        .ToList()
+                    Value = GetTitle(dto.Instance, dto.Application, dto.ApplicationTexts, instanceDerivedStatus)
                 },
                 Summary = new ContentValueDto
                 {
                     MediaType = MediaTypes.PlainText,
-                    Value = await GetSummary(dto.Instance, dto.Application, instanceDerivedStatus)
+                    Value = GetSummary(dto.Instance, dto.ApplicationTexts, instanceDerivedStatus)
                 }
             },
             GuiActions =
             [
-                CreateGoToAction(dto.DialogId, dto.Instance),
-                CreateDeleteAction(dto.DialogId, dto.Instance),
-                ..CreateCopyAction(dto.DialogId, dto.Instance, dto.Application)
+                CreateGoToAction(dto.DialogId, dto.Instance, dto.ApplicationTexts, instanceDerivedStatus),
+                CreateDeleteAction(dto.DialogId, dto.Instance, dto.ApplicationTexts, instanceDerivedStatus),
+                ..CreateCopyAction(dto.DialogId, dto.Instance, dto.Application, dto.ApplicationTexts, instanceDerivedStatus)
             ],
             Transmissions = transmissions,
             Attachments = attachments,
             Activities = activities
         };
 
+        var additionalInfo = GetAdditionalInfo(dto.Instance, dto.ApplicationTexts, instanceDerivedStatus);
+        if (additionalInfo.Count > 0)
+        {
+            dialog.Content.AdditionalInfo = new ContentValueDto
+            {
+                MediaType = MediaTypes.PlainText,
+                Value = additionalInfo
+            };
+        }
+
+        return dialog;
     }
 
     private (List<AttachmentDto> attachments, List<TransmissionDto> transmissions) GetAttachmentAndTransmissions(
@@ -367,6 +385,116 @@ internal sealed class StorageDialogportenDataMerger
 
         return (instanceDerivedStatus, dialogStatus);
     }
+    private List<LocalizationDto> GetSummary(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
+    {
+        var summary = ApplicationTextParser.GetLocalizationsFromApplicationTexts(nameof(DialogDto.Content.Summary), instance, applicationTexts, instanceDerivedStatus);
+        return summary.Count > 0
+            ? summary
+            : GetSummaryFallback(instanceDerivedStatus);
+    }
+
+    private static List<LocalizationDto> GetAdditionalInfo(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
+    {
+        var additionalInfo = ApplicationTextParser.GetLocalizationsFromApplicationTexts(nameof(DialogDto.Content.AdditionalInfo), instance, applicationTexts, instanceDerivedStatus, 1023);
+        return additionalInfo.Count > 0
+            ? additionalInfo
+            : []; // No default fallback for additional info
+    }
+
+    private static List<LocalizationDto> GetPrimaryActionLabel(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
+    {
+        var primaryAction = ApplicationTextParser.GetLocalizationsFromApplicationTexts(PrimaryActionLabel, instance, applicationTexts, instanceDerivedStatus);
+        return primaryAction.Count > 0
+            ? primaryAction
+            : GetPrimaryFallback(instanceDerivedStatus);
+    }
+
+    private static List<LocalizationDto> GetDeleteActionLabel(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
+    {
+
+        var secondaryAction = ApplicationTextParser.GetLocalizationsFromApplicationTexts(DeleteActionLabel, instance, applicationTexts, instanceDerivedStatus);
+        return secondaryAction.Count > 0
+            ? secondaryAction
+            : GetDeleteActionFallback();
+    }
+
+    private static List<LocalizationDto> GetCopyActionLabel(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
+    {
+        var ternaryAction = ApplicationTextParser.GetLocalizationsFromApplicationTexts(CopyActionLabel, instance, applicationTexts, instanceDerivedStatus);
+        return ternaryAction.Count > 0
+            ? ternaryAction
+            : GetCopyActionFallback();
+    }
+    private static List<LocalizationDto> GetCopyActionFallback()
+    {
+        return
+        [
+            new() { LanguageCode = "nb", Value = "Lag ny kopi" },
+            new() { LanguageCode = "nn", Value = "Lag ny kopi" },
+            new() { LanguageCode = "en", Value = "Create new copy" }
+        ];
+    }
+
+    private static List<LocalizationDto> GetPrimaryFallback(InstanceDerivedStatus instanceDerivedStatus)
+    {
+        return instanceDerivedStatus switch
+        {
+            InstanceDerivedStatus.ArchivedConfirmed or InstanceDerivedStatus.ArchivedUnconfirmed =>
+            [
+                new() { LanguageCode = "nb", Value = "Se innsendt skjema" },
+                new() { LanguageCode = "nn", Value = "Sjå innsendt skjema" },
+                new() { LanguageCode = "en", Value = "See submitted form" }
+            ],
+            InstanceDerivedStatus.AwaitingSignature =>
+            [
+                new() { LanguageCode = "nb", Value = "Gå til signering" },
+                new() { LanguageCode = "nn", Value = "Gå til signering" },
+                new() { LanguageCode = "en", Value = "Go to signing" }
+            ],
+            _ =>
+            [
+                new() { LanguageCode = "nb", Value = "Gå til skjemautfylling" },
+                new() { LanguageCode = "nn", Value = "Gå til skjemautfylling" },
+                new() { LanguageCode = "en", Value = "Go to form completion" }
+            ]
+        };
+    }
+
+    private static List<LocalizationDto> GetDeleteActionFallback()
+    {
+        return
+        [
+            new() { LanguageCode = "nb", Value = "Slett" },
+            new() { LanguageCode = "nn", Value = "Slett" },
+            new() { LanguageCode = "en", Value = "Delete" }
+        ];
+    }
+
+    private static List<LocalizationDto> GetTitle(Instance instance, Application app, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
+    {
+        var title = ApplicationTextParser.GetLocalizationsFromApplicationTexts(nameof(DialogDto.Content.Title), instance, applicationTexts, instanceDerivedStatus);
+
+        if (title.Count == 0) return GetTitleFallback(instance, app);
+
+        foreach (var localizationDto in title)
+        {
+            localizationDto.Value = ToTitle(localizationDto.Value, instance.PresentationTexts?.Values);
+        }
+
+        return title;
+    }
+
+    private static List<LocalizationDto> GetTitleFallback(Instance instance, Application application)
+    {
+        return application.Title
+            .Where(x => !string.IsNullOrWhiteSpace(x.Value))
+            .Select(x => new LocalizationDto
+            {
+                LanguageCode = x.Key,
+                Value = ToTitle(x.Value, instance.PresentationTexts?.Values)
+            })
+            .ToList();
+    }
 
     private static bool IsConsideredConfirmed(Instance instance)
     {
@@ -395,12 +523,10 @@ internal sealed class StorageDialogportenDataMerger
     /// <param name="instanceDerivedStatus"></param>
     /// <returns></returns>
     /// <exception cref="NotImplementedException"></exception>
-    private async Task<List<LocalizationDto>> GetSummary(Instance instance, Application application, InstanceDerivedStatus instanceDerivedStatus)
+    private static List<LocalizationDto> GetSummaryFallback(InstanceDerivedStatus instanceDerivedStatus)
     {
-        // TODO! Check application texts! See https://github.com/Altinn/dialogporten/issues/2081
-
         // Step 4: derive a summary from the derived instance status alone
-        List<LocalizationDto> summary = instanceDerivedStatus switch
+        return instanceDerivedStatus switch
         {
             InstanceDerivedStatus.ArchivedUnconfirmed =>
             [
@@ -457,61 +583,58 @@ internal sealed class StorageDialogportenDataMerger
                 new() { LanguageCode = "en", Value = "The submission is ready to be filled out." }
             ]
         };
-
-        return await Task.FromResult(summary);
     }
 
-    private GuiActionDto CreateGoToAction(Guid dialogId, Instance instance)
+    private GuiActionDto CreateGoToAction(Guid dialogId, Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
     {
         var goToActionId = dialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.GoTo);
-        if (instance.Status.IsArchived)
+        var xacmlAction = GetXacmlActionForGoToAction(instanceDerivedStatus);
+        // CurrentTask may be null (ex. instance id 51499006/907c12e2-041a-4275-9d33-67620cdf15b6 tt02),
+        // in which case we have no other option than to not set an authorization attribute.
+        var authorizationAttribute = instance.Process?.CurrentTask?.ElementId is not null
+            ? "urn:altinn:task:" + instance.Process.CurrentTask.ElementId
+            : null;
+
+        string gotoUrl;
+        if (xacmlAction == ReadAction)
         {
             var platformBaseUri = _settings.DialogportenAdapter.Altinn
                 .GetPlatformUri()
                 .ToString()
                 .TrimEnd('/');
-            return new GuiActionDto
-            {
-                Id = goToActionId,
-                Action = "read",
-                Priority = DialogGuiActionPriority.Primary,
-                Title =
-                [
-                    new() { LanguageCode = "nb", Value = "Se innsendt skjema" },
-                    new() { LanguageCode = "nn", Value = "Sjå innsendt skjema" },
-                    new() { LanguageCode = "en", Value = "See submitted form" }
-                ],
-                Url = ToPortalUri($"{platformBaseUri}/receipt/{instance.Id}")
-            };
+
+            gotoUrl = ToPortalUri($"{platformBaseUri}/receipt/{instance.Id}");
         }
+        else
+        {
+            var appBaseUri = _settings.DialogportenAdapter.Altinn
+                .GetAppUriForOrg(instance.Org, instance.AppId)
+                .ToString()
+                .TrimEnd('/');
 
-        var appBaseUri = _settings.DialogportenAdapter.Altinn
-            .GetAppUriForOrg(instance.Org, instance.AppId)
-            .ToString()
-            .TrimEnd('/');
-
-        // TODO: CurrentTask may be null. What should we do then? (eks instance id 51499006/907c12e2-041a-4275-9d33-67620cdf15b6 tt02)
-        var authorizationAttribute = instance.Process?.CurrentTask?.ElementId is not null
-            ? "urn:altinn:task:" + instance.Process.CurrentTask.ElementId
-            : null;
+            gotoUrl = ToPortalUri($"{appBaseUri}/#/instance/{instance.Id}");
+        }
 
         return new GuiActionDto
         {
             Id = goToActionId,
-            Action = "write",
+            Action = xacmlAction,
             AuthorizationAttribute = authorizationAttribute,
             Priority = DialogGuiActionPriority.Primary,
-            Title =
-            [
-                new() { LanguageCode = "nb", Value = "Gå til skjemautfylling" },
-                new() { LanguageCode = "nn", Value = "Gå til skjemautfylling" },
-                new() { LanguageCode = "en", Value = "Go to form completion" }
-            ],
-            Url = ToPortalUri($"{appBaseUri}/#/instance/{instance.Id}")
+            Title = GetPrimaryActionLabel(instance, applicationTexts, instanceDerivedStatus),
+            Url = gotoUrl
         };
     }
 
-    private GuiActionDto CreateDeleteAction(Guid dialogId, Instance instance)
+    private string GetXacmlActionForGoToAction(InstanceDerivedStatus instanceDerivedStatus) =>
+        instanceDerivedStatus switch
+        {
+            InstanceDerivedStatus.ArchivedConfirmed or InstanceDerivedStatus.ArchivedUnconfirmed => ReadAction,
+            InstanceDerivedStatus.AwaitingSignature => SignAction,
+            _ => WriteAction
+        };
+
+    private GuiActionDto CreateDeleteAction(Guid dialogId, Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
     {
         var adapterBaseUri = _settings.DialogportenAdapter.Adapter.BaseUri
             .ToString()
@@ -519,21 +642,17 @@ internal sealed class StorageDialogportenDataMerger
         return new GuiActionDto
         {
             Id = dialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.Delete),
-            Action = "delete",
+            Action = DeleteAction,
             Priority = DialogGuiActionPriority.Secondary,
             IsDeleteDialogAction = true,
             Title =
-            [
-                new() { LanguageCode = "nb", Value = "Slett" },
-                new() { LanguageCode = "nn", Value = "Slett" },
-                new() { LanguageCode = "en", Value = "Delete" }
-            ],
+            GetDeleteActionLabel(instance, applicationTexts, instanceDerivedStatus),
             Url = $"{adapterBaseUri}/api/v1/instance/{instance.Id}",
             HttpMethod = HttpVerb.DELETE
         };
     }
 
-    private IEnumerable<GuiActionDto> CreateCopyAction(Guid dialogId, Instance instance, Application application)
+    private IEnumerable<GuiActionDto> CreateCopyAction(Guid dialogId, Instance instance, Application application, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
     {
         var copyEnabled = application.CopyInstanceSettings?.Enabled ?? false;
         if (!instance.Status.IsArchived || !copyEnabled)
@@ -548,14 +667,10 @@ internal sealed class StorageDialogportenDataMerger
         yield return new GuiActionDto
         {
             Id = dialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.Copy),
-            Action = "instantiate",
+            Action = InstantiateAction,
             Priority = DialogGuiActionPriority.Tertiary,
             Title =
-            [
-                new() { LanguageCode = "nb", Value = "Lag ny kopi" },
-                new() { LanguageCode = "nn", Value = "Lag ny kopi" },
-                new() { LanguageCode = "en", Value = "Create new copy" }
-            ],
+            GetCopyActionLabel(instance, applicationTexts, instanceDerivedStatus),
             Url = ToPortalUri($"{appBaseUri}/legacy/instances/{instance.Id}/copy"),
             HttpMethod = HttpVerb.GET
         };

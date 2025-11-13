@@ -211,6 +211,7 @@ static void BuildAndRun(string[] args)
             x.ThrowOnPublicKeyFetchInit = false;
         })
         .AddTransient<IRegisterRepository, RegisterRepository>()
+        .AddTransient<IApplicationRepository, ApplicationRepository>()
         .AddTransient<ISyncInstanceToDialogService, SyncInstanceToDialogService>()
         .AddTransient<StorageDialogportenDataMerger>()
         .AddTransient<ActivityDtoTransformer>()
@@ -219,6 +220,15 @@ static void BuildAndRun(string[] args)
 
         // Http clients
         .AddRefitClient<IStorageApi>()
+            .ConfigureHttpClient(x =>
+            {
+                x.BaseAddress = settings.DialogportenAdapter.Altinn.InternalStorageEndpoint;
+                x.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", settings.DialogportenAdapter.Altinn.SubscriptionKey);
+            })
+            .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
+            .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>()
+            .Services
+        .AddRefitClient<IApplicationsApi>()
             .ConfigureHttpClient(x =>
             {
                 x.BaseAddress = settings.DialogportenAdapter.Altinn.InternalStorageEndpoint;
