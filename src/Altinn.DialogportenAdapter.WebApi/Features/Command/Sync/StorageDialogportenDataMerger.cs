@@ -387,9 +387,9 @@ internal sealed class StorageDialogportenDataMerger
 
     private static List<LocalizationDto>? GetAdditionalInfo(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
     {
-        var summary = ApplicationTextParser.GetLocalizationsFromApplicationTexts(nameof(DialogDto.Content.AdditionalInfo), instance, applicationTexts, instanceDerivedStatus);
-        return summary.Count > 0
-            ? summary
+        var additionalInfo = ApplicationTextParser.GetLocalizationsFromApplicationTexts(nameof(DialogDto.Content.AdditionalInfo), instance, applicationTexts, instanceDerivedStatus, 1023);
+        return additionalInfo.Count > 0
+            ? additionalInfo
             : null; // No default fallback for additional info
     }
 
