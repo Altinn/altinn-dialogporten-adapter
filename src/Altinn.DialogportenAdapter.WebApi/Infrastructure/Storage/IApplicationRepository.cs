@@ -7,6 +7,7 @@ namespace Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 internal interface IApplicationRepository
 {
     Task<Application?> GetApplication(string appId, CancellationToken cancellationToken);
+    Task<(bool, Application?)> TryGetApplicationIfCached(string appId, CancellationToken cancellationToken);
     Task<ApplicationTexts> GetApplicationTexts(string appId, CancellationToken cancellationToken);
 }
 
@@ -17,6 +18,12 @@ internal sealed class ApplicationRepository(IApplicationsApi applicationsApi, IF
             key: $"{nameof(Application)}:{appId}",
             factory: (ct) => FetchApplication(appId, ct),
             token: cancellationToken).AsTask();
+
+    public async Task<(bool, Application?)> TryGetApplicationIfCached(string appId, CancellationToken cancellationToken)
+    {
+        var maybeApplication = await cache.TryGetAsync<Application?>(key: $"{nameof(Application)}:{appId}", token: cancellationToken);
+        return maybeApplication.HasValue ? (true, maybeApplication.Value) : (false, null);
+    }
 
     public Task<ApplicationTexts> GetApplicationTexts(string appId, CancellationToken cancellationToken) =>
         cache.GetOrSetAsync(
