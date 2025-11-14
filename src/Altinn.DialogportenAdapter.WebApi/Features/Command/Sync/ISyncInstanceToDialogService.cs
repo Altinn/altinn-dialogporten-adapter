@@ -38,6 +38,16 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
 
     public async Task Sync(SyncInstanceCommand dto, CancellationToken cancellationToken = default)
     {
+        // To avoid performing requests needlessly, we attempt to load the app from cache first to see if
+        // sync is disabled in which case we can skip the rest of the processing.
+        var (isCached, cachedApp) =
+            await _applicationRepository.TryGetApplicationIfCached(dto.AppId, cancellationToken);
+
+        if (isCached && cachedApp is not null && cachedApp.GetSyncAdapterSettings().DisableSync)
+        {
+            return;
+        }
+
         // Create a uuid7 from the instance id and created timestamp to use as dialog id
         var dialogId = dto.InstanceId.ToVersion7(dto.InstanceCreatedAt);
 
@@ -148,6 +158,10 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
                 cancellationToken: cancellationToken);
         }
     }
+
+    private static bool ShouldSkipInstancesFromApp(Application? application)
+        => application is not null &&
+           (application.AutoDeleteOnProcessEnd || application.GetSyncAdapterSettings().DisableSync);
 
     private static bool InstanceOwnerIsSelfIdentified(Instance? instance)
     {
