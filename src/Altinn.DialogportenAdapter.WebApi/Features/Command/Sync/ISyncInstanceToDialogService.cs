@@ -159,10 +159,6 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         }
     }
 
-    private static bool ShouldSkipInstancesFromApp(Application? application)
-        => application is not null &&
-           (application.AutoDeleteOnProcessEnd || application.GetSyncAdapterSettings().DisableSync);
-
     private static bool InstanceOwnerIsSelfIdentified(Instance? instance)
     {
         return instance is not null
