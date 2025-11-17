@@ -1,3 +1,4 @@
+using System;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Altinn.Platform.Storage.Interface.Models;
@@ -79,18 +80,18 @@ public class StorageDialogportenDataMergerTest
         Assert.Single(localizations);
         var title = localizations.First().Value;
         Assert.Equal(255, title.Length);
-        Assert.EndsWith("a...", title);
+        Assert.EndsWith("a...", title, StringComparison.Ordinal);
         
         
         Assert.Single(summaryLocalizations);
         var summary = summaryLocalizations.First().Value;
         Assert.Equal(255, summary.Length);
-        Assert.EndsWith("b...", summary);
+        Assert.EndsWith("b...", summary, StringComparison.Ordinal);
         
         
         Assert.Single(summaryLocalizationsShort);
         var summaryShort = summaryLocalizationsShort.First().Value;
         Assert.Equal(120, summaryShort.Length);
-        Assert.EndsWith("bbb", summaryShort);
+        Assert.EndsWith("bbb", summaryShort, StringComparison.Ordinal);
     }
 }

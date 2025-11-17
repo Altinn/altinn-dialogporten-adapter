@@ -488,6 +488,7 @@ internal sealed class StorageDialogportenDataMerger
     {
         return application.Title
             .Where(x => !string.IsNullOrWhiteSpace(x.Value))
+            .Where(x => LanguageCodes.IsValidTwoLetterLanguageCode(x.Key))
             .Select(x => new LocalizationDto
             {
                 LanguageCode = x.Key,
