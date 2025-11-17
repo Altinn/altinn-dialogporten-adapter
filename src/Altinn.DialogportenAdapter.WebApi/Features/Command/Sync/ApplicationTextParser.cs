@@ -1,3 +1,4 @@
+using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Altinn.Platform.Storage.Interface.Models;
@@ -74,6 +75,11 @@ public static class ApplicationTextParser
         var localizations = new List<LocalizationDto>();
         foreach (var translation in applicationTexts.Translations)
         {
+            if (!LanguageCodes.IsValidTwoLetterLanguageCode(translation.Language))
+            {
+                continue;
+            }
+
             foreach (var key in keysToCheck)
             {
                 if (!translation.Texts.TryGetValue(key, out var textResource))

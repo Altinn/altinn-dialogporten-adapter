@@ -155,6 +155,33 @@ public class ApplicationTextParserTests
             });
     }
 
+    [Fact]
+    public void FiltersOutInvalidLanguageCodes()
+    {
+        var instance = CreateInstance(null);
+        var texts = CreateTexts(
+            ("nb", new Dictionary<string, string>
+            {
+                { "dp.summary", "valid" }
+            }),
+            ("xx", new Dictionary<string, string>
+            {
+                { "dp.summary", "invalid" }
+            }));
+
+        var localizations = ApplicationTextParser.GetLocalizationsFromApplicationTexts(
+            "summary",
+            instance,
+            texts,
+            InstanceDerivedStatus.AwaitingSignature);
+
+        Assert.Collection(localizations, loc =>
+        {
+            Assert.Equal("nb", loc.LanguageCode);
+            Assert.Equal("valid", loc.Value);
+        });
+    }
+
     private static Instance CreateInstance(string? taskId)
     {
         var instance = new Instance();
