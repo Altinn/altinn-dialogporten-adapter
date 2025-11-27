@@ -28,9 +28,9 @@ internal sealed class MigrationPartitionService
             throw new ArgumentException("Party cannot be empty when provided.", nameof(command));
         }
 
-        if (OrganizationStartupLoader.LocalLoadDate < command.To)
+        if (OrganizationStartupLoader.LocalLoadDate < command.To && !command.Force)
         {
-            throw new InvalidOperationException($"Cannot migrate instances after {OrganizationStartupLoader.LocalLoadDate}.");
+            throw new InvalidOperationException($"Cannot migrate instances after {OrganizationStartupLoader.LocalLoadDate} (use force:true to override)");
         }
 
         var organizations = await GetOrganizations(command, cancellationToken);

@@ -121,6 +121,7 @@ static void BuildAndRun(string[] args)
         // eventually failing to error queue for manual inspection if the party is still not found.
         opts.Policies
             .OnException<PartyNotFoundException>()
+            .OrInner<PartyNotFoundException>()
             .ScheduleRetry(1.Minutes(), 10.Minutes(), 30.Minutes())
             .Then.MoveToErrorQueue();
 
