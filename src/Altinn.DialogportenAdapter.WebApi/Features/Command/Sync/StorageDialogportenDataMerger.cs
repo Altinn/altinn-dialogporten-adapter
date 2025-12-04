@@ -163,7 +163,7 @@ internal sealed class StorageDialogportenDataMerger
 
         if (primaryAction is not null)
         {
-            guiActions.Insert(0, primaryAction);
+            guiActions.Add(primaryAction);
         }
 
         var dialog = new DialogDto
