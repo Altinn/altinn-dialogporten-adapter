@@ -242,7 +242,7 @@ internal sealed class StorageDialogportenDataMerger
             .Select((a, i) => new TransmissionDto
             {
                 Id = a.Id!.Value.ToVersion7(a.CreatedAt!.Value),
-                CreatedAt = a.CreatedAt ?? DateTimeOffset.Now,
+                CreatedAt = a.CreatedAt.Value,
                 Type = DialogTransmissionType.Submission,
                 Sender = a.PerformedBy,
                 Content = new TransmissionContentDto
