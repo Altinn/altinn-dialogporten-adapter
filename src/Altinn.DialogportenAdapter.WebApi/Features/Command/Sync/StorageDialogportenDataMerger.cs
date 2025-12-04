@@ -227,32 +227,24 @@ internal sealed class StorageDialogportenDataMerger
         MergeDto dto,
         List<ActivityDto> activities)
     {
+        const string pdfType = "ref-data-as-pdf";
         var appSettings = dto.Application.GetSyncAdapterSettings();
         var data = dto.Instance.Data;
         var attachmentVisibility = ReceiptAttachmentVisibilityDecider.Create(dto.Application);
         if (appSettings.DisableAddTransmissions ||
             !_settings.DialogportenAdapter.Adapter.FeatureFlag.EnableSubmissionTransmissions)
         {
-            return (data.Select(d => CreateAttachmentDto(d, attachmentVisibility)).ToList(), []);
+            return (data.Where(x => x.DataType != pdfType).Select(d => CreateAttachmentDto(d, attachmentVisibility)).ToList(), []);
         }
 
         var dataElementQueue = new Queue<DataElement>(data
-            .Where(x => !IsPerformedBySo(x))
+            .Where(x => !IsPerformedBySo(x) && x.DataType != pdfType)
             .OrderBy(x => x.Created.Value));
-
-        // Amund Note:
-        // Oppsummerings PDF er 1-2 sec etter FormSubmitted eventet.
-        // I fleste tilfeller antar jeg at det er bare 1 attachment som mangler.
-        // kan ha en "dom" sjekk som ser om det er 1 attachment igjen som er under 3 sec fra FormSubmitted?
-        // Det er ikke en bra fix men den funker kanskje?
-        // er det noen annen måte å se om en attachment er en oppsummering? eller kommer fra FormSubmitted?
-        // Er kanskje sjekken egt. ikke bra nok? er det å støtte flere submission egt noe som ikke kan støttes?
-        // Koffer er det noe som hører til et event som kommer ETTER eventet?
-
 
         // A2 Instances cant have more than 1 submission
         // so we take all attachments into a single transmission.
         var isA2 = IsA2Instance(dto.Instance);
+
 
         var transmissions = activities
             .Where(x => x.Type is DialogActivityType.FormSubmitted)
@@ -281,6 +273,36 @@ internal sealed class StorageDialogportenDataMerger
                     .ToList()
             })
             .ToList();
+
+        var platformBaseUri = _settings.DialogportenAdapter.Altinn
+            .GetPlatformUri()
+            .ToString()
+            .TrimEnd('/');
+
+        var gotoUrl = ToPortalUri($"{platformBaseUri}/receipt/{dto.Instance.Id}");
+        // There is only 1 instance but in theory many submissions.
+        // When multiple submissions are supported, a way to add a different receipt for each transmission might be needed.
+        transmissions.ForEach(x => x.Attachments.Add(
+            new()
+            {
+                Id = x.Id, // Make sure each has a unique id
+                DisplayName =
+                [
+                    new LocalizationDto { Value = "Kvittering", LanguageCode = "nb" },
+                    new LocalizationDto { Value = "Kvittering", LanguageCode = "nn" },
+                    new LocalizationDto { Value = "Receipt", LanguageCode = "en" }
+                ],
+                Urls =
+                [
+                    new TransmissionAttachmentUrlDto
+                    {
+                        Url = gotoUrl,
+                        MediaType = "text/html",
+                        ConsumerType = AttachmentUrlConsumerType.Gui
+                    }
+                ]
+            })
+        );
 
         var attachments = data
             .Where(IsPerformedBySo)
