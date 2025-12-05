@@ -27,6 +27,7 @@ internal sealed class StorageDialogportenDataMerger
     private const string SignAction = "sign";
     private const string WriteAction = "write";
     private const string InstantiateAction = "instantiate";
+    private const string PdfType = "ref-data-as-pdf";
     private readonly Settings _settings;
     private readonly ActivityDtoTransformer _activityDtoTransformer;
     private readonly IRegisterRepository _registerRepository;
@@ -227,18 +228,17 @@ internal sealed class StorageDialogportenDataMerger
         MergeDto dto,
         List<ActivityDto> activities)
     {
-        const string pdfType = "ref-data-as-pdf";
         var appSettings = dto.Application.GetSyncAdapterSettings();
         var data = dto.Instance.Data;
         var attachmentVisibility = ReceiptAttachmentVisibilityDecider.Create(dto.Application);
         if (appSettings.DisableAddTransmissions ||
             !_settings.DialogportenAdapter.Adapter.FeatureFlag.EnableSubmissionTransmissions)
         {
-            return (data.Where(x => x.DataType != pdfType).Select(d => CreateAttachmentDto(d, attachmentVisibility)).ToList(), []);
+            return (data.Where(x => x.DataType != PdfType).Select(d => CreateAttachmentDto(d, attachmentVisibility)).ToList(), []);
         }
 
         var dataElementQueue = new Queue<DataElement>(data
-            .Where(x => !IsPerformedBySo(x) && x.DataType != pdfType)
+            .Where(x => !IsPerformedBySo(x) && x.DataType != PdfType)
             .OrderBy(x => x.Created.Value));
 
         // A2 Instances cant have more than 1 submission
