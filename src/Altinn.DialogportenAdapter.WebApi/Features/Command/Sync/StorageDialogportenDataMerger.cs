@@ -638,14 +638,6 @@ internal sealed class StorageDialogportenDataMerger
             ? "urn:altinn:task:" + instance.Process.CurrentTask.ElementId
             : null;
 
-        // var platformBaseUri = _settings.DialogportenAdapter.Altinn
-        //     .GetPlatformUri()
-        //     .ToString()
-        //     .TrimEnd('/');
-        //
-        // gotoUrl = ToPortalUri($"{platformBaseUri}/receipt/{instance.Id}");
-
-
         var appBaseUri = _settings.DialogportenAdapter.Altinn
             .GetAppUriForOrg(instance.Org, instance.AppId)
             .ToString()
