@@ -1,29 +1,29 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
-    <PropertyGroup>
-        <TargetFramework>net9.0</TargetFramework>
-        <Nullable>enable</Nullable>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <UserSecretsId>f15beaf9-69f4-454a-8605-6586ecad451d</UserSecretsId>
-    </PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>net9.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<UserSecretsId>f15beaf9-69f4-454a-8605-6586ecad451d</UserSecretsId>
+	</PropertyGroup>
 
-    <ItemGroup>
-        <PackageReference Include="Altinn.ApiClients.Dialogporten" Version="1.63.0" />
-        <PackageReference Include="Altinn.ApiClients.Maskinporten" Version="9.2.1" />
-        <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.4.0" />
-        <PackageReference Include="Altinn.Platform.Storage.Interface" Version="4.0.10" />
-        <PackageReference Include="Azure.Identity" Version="1.13.2" />
-        <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.2.0" />
-        <PackageReference Include="DeterministicGuids" Version="1.0.6" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.4" />
-        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.4" />
-        <PackageReference Include="Refit.HttpClientFactory" Version="8.0.0" />
-        <PackageReference Include="WolverineFx.AzureServiceBus" Version="4.5.0" />
+	<ItemGroup>
+		<PackageReference Include="Altinn.ApiClients.Dialogporten" Version="1.63.0" />
+		<PackageReference Include="Altinn.ApiClients.Maskinporten" Version="9.2.1" />
+		<PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.4.0" />
+		<PackageReference Include="Altinn.Platform.Storage.Interface" Version="4.0.10" />
+		<PackageReference Include="Azure.Identity" Version="1.13.2" />
+		<PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.2.0" />
+		<PackageReference Include="DeterministicGuids" Version="1.0.6" />
+		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.4" />
+		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.4" />
+		<PackageReference Include="Refit.HttpClientFactory" Version="8.0.0" />
+		<PackageReference Include="WolverineFx.AzureServiceBus" Version="4.5.0" />
 		<PackageReference Include="ZiggyCreatures.FusionCache.Locking.AsyncKeyed" Version="2.4.0" />
-    </ItemGroup>
+	</ItemGroup>
 
-    <ItemGroup>
-      <ProjectReference Include="..\Altinn.DialogportenAdapter.Contracts\Altinn.DialogportenAdapter.Contracts.csproj" />
-    </ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\Altinn.DialogportenAdapter.Contracts\Altinn.DialogportenAdapter.Contracts.csproj" />
+	</ItemGroup>
 
 </Project>
