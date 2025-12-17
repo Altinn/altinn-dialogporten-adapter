@@ -9,7 +9,6 @@
     <ItemGroup>
 		<PackageReference Include="AsyncKeyedLock" Version="7.1.8" />
         <PackageReference Include="WolverineFx.AzureServiceBus" Version="4.5.0" />
-		<PackageReference Include="ZiggyCreatures.FusionCache.Locking.AsyncKeyed" Version="2.4.0" />
 	</ItemGroup>
 
 </Project>
