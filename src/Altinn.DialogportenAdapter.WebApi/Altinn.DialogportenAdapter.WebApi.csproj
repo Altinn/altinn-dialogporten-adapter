@@ -19,6 +19,7 @@
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.4" />
         <PackageReference Include="Refit.HttpClientFactory" Version="8.0.0" />
         <PackageReference Include="WolverineFx.AzureServiceBus" Version="4.5.0" />
+		<PackageReference Include="ZiggyCreatures.FusionCache.Locking.AsyncKeyed" Version="2.4.0" />
     </ItemGroup>
 
     <ItemGroup>
