@@ -70,7 +70,7 @@ public static class MigrationPartitionCommandHandler
         new(item.Partition, item.Organization);
 }
 
-[MessageTimeout(60*10)] // 10 minutes
+[MessageTimeout(60*60)] // 60 minutes to handle very large partitions
 public sealed record MigratePartitionCommand(DateOnly Partition, string Organization, string? Party)
 {
     public bool IsTest => Party is not null;

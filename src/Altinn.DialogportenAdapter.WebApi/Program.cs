@@ -120,6 +120,7 @@ static void BuildAndRun(string[] args)
         // eventually failing to error queue for manual inspection if the party is still not found.
         opts.Policies
             .OnException<PartyNotFoundException>()
+            .OrInner<PartyNotFoundException>()
             .ScheduleRetry(1.Minutes(), 10.Minutes(), 30.Minutes())
             .Then.MoveToErrorQueue();
 
@@ -210,6 +211,7 @@ static void BuildAndRun(string[] args)
             x.ThrowOnPublicKeyFetchInit = false;
         })
         .AddTransient<IRegisterRepository, RegisterRepository>()
+        .AddTransient<IApplicationRepository, ApplicationRepository>()
         .AddTransient<ISyncInstanceToDialogService, SyncInstanceToDialogService>()
         .AddTransient<StorageDialogportenDataMerger>()
         .AddTransient<ActivityDtoTransformer>()
@@ -218,6 +220,15 @@ static void BuildAndRun(string[] args)
 
         // Http clients
         .AddRefitClient<IStorageApi>()
+            .ConfigureHttpClient(x =>
+            {
+                x.BaseAddress = settings.DialogportenAdapter.Altinn.InternalStorageEndpoint;
+                x.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", settings.DialogportenAdapter.Altinn.SubscriptionKey);
+            })
+            .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
+            .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>()
+            .Services
+        .AddRefitClient<IApplicationsApi>()
             .ConfigureHttpClient(x =>
             {
                 x.BaseAddress = settings.DialogportenAdapter.Altinn.InternalStorageEndpoint;

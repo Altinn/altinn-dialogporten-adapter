@@ -19,32 +19,46 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
     private readonly IStorageApi _storageApi;
     private readonly IDialogportenApi _dialogportenApi;
     private readonly StorageDialogportenDataMerger _dataMerger;
+    private readonly IApplicationRepository _applicationRepository;
     private readonly ILogger<SyncInstanceToDialogService> _logger;
 
     public SyncInstanceToDialogService(
         IStorageApi storageApi,
         IDialogportenApi dialogportenApi,
         StorageDialogportenDataMerger dataMerger,
+        IApplicationRepository applicationRepository,
         ILogger<SyncInstanceToDialogService> logger)
     {
         _storageApi = storageApi ?? throw new ArgumentNullException(nameof(storageApi));
         _dialogportenApi = dialogportenApi ?? throw new ArgumentNullException(nameof(dialogportenApi));
         _dataMerger = dataMerger ?? throw new ArgumentNullException(nameof(dataMerger));
+        _applicationRepository = applicationRepository ?? throw new ArgumentNullException(nameof(applicationRepository));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     public async Task Sync(SyncInstanceCommand dto, CancellationToken cancellationToken = default)
     {
+        // To avoid performing requests needlessly, we attempt to load the app from cache first to see if
+        // sync is disabled in which case we can skip the rest of the processing.
+        var (isCached, cachedApp) =
+            await _applicationRepository.TryGetApplicationIfCached(dto.AppId, cancellationToken);
+
+        if (isCached && cachedApp is not null && cachedApp.GetSyncAdapterSettings().DisableSync)
+        {
+            return;
+        }
+
         // Create a uuid7 from the instance id and created timestamp to use as dialog id
         var dialogId = dto.InstanceId.ToVersion7(dto.InstanceCreatedAt);
 
         // Fetch events, application, instance and existing dialog in parallel
-        var (existingDialog, application, instance, events) = await (
-            _dialogportenApi.Get(dialogId, cancellationToken).ContentOrDefault(),
-            _storageApi.GetApplication(dto.AppId, cancellationToken).ContentOrDefault(),
-            _storageApi.GetInstance(dto.PartyId, dto.InstanceId, cancellationToken).ContentOrDefault(),
-            _storageApi.GetInstanceEvents(dto.PartyId, dto.InstanceId, Constants.SupportedEventTypes, cancellationToken).ContentOrDefault()
-        );
+        var (existingDialog, application, applicationTexts, instance, events) = await (
+                _dialogportenApi.Get(dialogId, cancellationToken).ContentOrDefault(),
+                _applicationRepository.GetApplication(dto.AppId, cancellationToken),
+                _applicationRepository.GetApplicationTexts(dto.AppId, cancellationToken),
+                _storageApi.GetInstance(dto.PartyId, dto.InstanceId, cancellationToken).ContentOrDefault(),
+                _storageApi.GetInstanceEvents(dto.PartyId, dto.InstanceId, Constants.SupportedEventTypes, cancellationToken).ContentOrDefault()
+            );
 
         if (instance is null && existingDialog is null)
         {
@@ -68,9 +82,10 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         if (InstanceOwnerIsSelfIdentified(instance))
         {
             // We skip these for now as we do not have a good way to identify the user in dialogporten
-            _logger.LogWarning("Skipping sync for self-identified instance owner id={Id} username={Username}",
+            _logger.LogWarning("Skipping sync for self-identified instance owner on id={Id} username={Username} appid={AppId}.",
                 instance?.Id,
-                instance?.InstanceOwner.Username);
+                instance?.InstanceOwner.Username,
+                instance?.AppId);
             return;
         }
 
@@ -130,7 +145,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         EnsureNotNull(application, instance, events);
 
         // Create or update the dialog with the fetched data
-        var mergeDto = new MergeDto(dialogId, existingDialog, application, instance, events, dto.IsMigration || forceSilentUpsert);
+        var mergeDto = new MergeDto(dialogId, existingDialog, application, applicationTexts, instance, events, dto.IsMigration || forceSilentUpsert);
         var updatedDialog = await _dataMerger.Merge(mergeDto, cancellationToken);
         var revision = await UpsertDialog(updatedDialog, existingDialog, syncAdapterSettings, dto.IsMigration || forceSilentUpsert, cancellationToken);
 
@@ -147,10 +162,10 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
     private static bool InstanceOwnerIsSelfIdentified(Instance? instance)
     {
         return instance is not null
-               && instance.InstanceOwner.OrganisationNumber is null
-               && instance.InstanceOwner.PersonNumber is null
-               && instance.InstanceOwner.PartyId is not null
-               && instance.InstanceOwner.Username is not null;
+         && instance.InstanceOwner.OrganisationNumber is null
+         && instance.InstanceOwner.PersonNumber is null
+         && instance.InstanceOwner.PartyId is not null
+         && instance.InstanceOwner.Username is not null;
     }
 
     private static void EnsureNotNull(
@@ -176,9 +191,9 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
     private static bool IsDialogSyncDisabled(Instance? instance)
     {
         return instance?.DataValues is not null
-               && instance.DataValues.TryGetValue(Constants.InstanceDataValueDisableSyncKey, out var disableSyncString)
-               && bool.TryParse(disableSyncString, out var disableSync)
-               && disableSync;
+         && instance.DataValues.TryGetValue(Constants.InstanceDataValueDisableSyncKey, out var disableSyncString)
+         && bool.TryParse(disableSyncString, out var disableSync)
+         && disableSync;
     }
 
     private static bool BothIsDeleted(Instance? instance, DialogDto? existingDialog)
@@ -219,9 +234,9 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         }
 
         return instance.DataValues is null
-           || !instance.DataValues.TryGetValue(Constants.InstanceDataValueDialogIdKey, out var dialogIdString)
-           || !Guid.TryParse(dialogIdString, out var instanceDialogId)
-           || instanceDialogId != dialogId;
+         || !instance.DataValues.TryGetValue(Constants.InstanceDataValueDialogIdKey, out var dialogIdString)
+         || !Guid.TryParse(dialogIdString, out var instanceDialogId)
+         || instanceDialogId != dialogId;
     }
 
     private async Task<Guid?> UpsertDialog(DialogDto updated,
