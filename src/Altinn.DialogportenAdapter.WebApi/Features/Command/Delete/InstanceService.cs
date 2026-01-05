@@ -77,9 +77,9 @@ internal sealed class InstanceService
 
     private static bool IsDeletable(Instance instance, Application app)
     {
-        if (instance.Status.Archived.HasValue)
+        if (!instance.Status.Archived.HasValue)
         {
-            return false;
+            return true;
         }
 
         if (app.PreventInstanceDeletionForDays == null)
