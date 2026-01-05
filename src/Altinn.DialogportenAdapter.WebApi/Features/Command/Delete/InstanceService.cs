@@ -21,12 +21,14 @@ public abstract record DeleteResponse
 internal sealed class InstanceService
 {
     private readonly IStorageApi _storageApi;
+    private readonly IApplicationsApi _applicationsApi;
     private readonly IDialogTokenValidator _dialogTokenValidator;
 
-    public InstanceService(IStorageApi storageApi, IDialogTokenValidator dialogTokenValidator)
+    public InstanceService(IStorageApi storageApi, IDialogTokenValidator dialogTokenValidator, IApplicationsApi applicationsApi)
     {
         _storageApi = storageApi ?? throw new ArgumentNullException(nameof(storageApi));
         _dialogTokenValidator = dialogTokenValidator ?? throw new ArgumentNullException(nameof(dialogTokenValidator));
+        _applicationsApi = applicationsApi ?? throw new ArgumentNullException(nameof(applicationsApi));
     }
 
     public async Task<DeleteResponse> Delete(DeleteInstanceDto request, CancellationToken cancellationToken)
@@ -48,7 +50,7 @@ internal sealed class InstanceService
 
         if (instance.Status.Archived.HasValue)
         {
-            var app = await _storageApi.GetApplication(instance.AppId, cancellationToken).ContentOrDefault();
+            var app = await _applicationsApi.GetApplication(instance.AppId, cancellationToken).ContentOrDefault();
             if (app != null && !IsDeletable(instance, app))
             {
                 return new DeleteResponse.NotDeletableYet(
