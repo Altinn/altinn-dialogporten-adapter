@@ -27,6 +27,7 @@ internal sealed class StorageDialogportenDataMerger
     private const string SignAction = "sign";
     private const string WriteAction = "write";
     private const string InstantiateAction = "instantiate";
+    private const string PdfType = "ref-data-as-pdf";
     private readonly Settings _settings;
     private readonly ActivityDtoTransformer _activityDtoTransformer;
     private readonly IRegisterRepository _registerRepository;
@@ -152,6 +153,19 @@ internal sealed class StorageDialogportenDataMerger
             );
 
         var (attachments, transmissions) = GetAttachmentAndTransmissions(dto, activities);
+        var primaryAction = CreateGoToAction(dto.DialogId, dto.Instance, dto.ApplicationTexts, instanceDerivedStatus);
+
+
+        List<GuiActionDto> guiActions =
+        [
+            CreateDeleteAction(dto.DialogId, dto.Instance, dto.ApplicationTexts, instanceDerivedStatus),
+            ..CreateCopyAction(dto.DialogId, dto.Instance, dto.Application, dto.ApplicationTexts, instanceDerivedStatus)
+        ];
+
+        if (primaryAction is not null)
+        {
+            guiActions.Add(primaryAction);
+        }
 
         var dialog = new DialogDto
         {
@@ -190,16 +204,12 @@ internal sealed class StorageDialogportenDataMerger
                     Value = GetSummary(dto.Instance, dto.ApplicationTexts, instanceDerivedStatus)
                 }
             },
-            GuiActions =
-            [
-                CreateGoToAction(dto.DialogId, dto.Instance, dto.ApplicationTexts, instanceDerivedStatus),
-                CreateDeleteAction(dto.DialogId, dto.Instance, dto.ApplicationTexts, instanceDerivedStatus),
-                ..CreateCopyAction(dto.DialogId, dto.Instance, dto.Application, dto.ApplicationTexts, instanceDerivedStatus)
-            ],
+            GuiActions = guiActions,
             Transmissions = transmissions,
             Attachments = attachments,
             Activities = activities
         };
+
 
         var additionalInfo = GetAdditionalInfo(dto.Instance, dto.ApplicationTexts, instanceDerivedStatus);
         if (additionalInfo.Count > 0)
@@ -224,17 +234,17 @@ internal sealed class StorageDialogportenDataMerger
         if (appSettings.DisableAddTransmissions ||
             !_settings.DialogportenAdapter.Adapter.FeatureFlag.EnableSubmissionTransmissions)
         {
-            return (data.Select(d => CreateAttachmentDto(d, attachmentVisibility)).ToList(), []);
+            return (data.Where(x => x.DataType != PdfType).Select(d => CreateAttachmentDto(d, attachmentVisibility)).ToList(), []);
         }
 
         var dataElementQueue = new Queue<DataElement>(data
-            .Where(x => !IsPerformedBySo(x))
+            .Where(x => !IsPerformedBySo(x) && x.DataType != PdfType)
             .OrderBy(x => x.Created.Value));
-
 
         // A2 Instances cant have more than 1 submission
         // so we take all attachments into a single transmission.
         var isA2 = IsA2Instance(dto.Instance);
+
 
         var transmissions = activities
             .Where(x => x.Type is DialogActivityType.FormSubmitted)
@@ -264,6 +274,36 @@ internal sealed class StorageDialogportenDataMerger
                     .ToList()
             })
             .ToList();
+
+        var platformBaseUri = _settings.DialogportenAdapter.Altinn
+            .GetPlatformUri()
+            .ToString()
+            .TrimEnd('/');
+
+        var gotoUrl = ToPortalUri($"{platformBaseUri}/receipt/{dto.Instance.Id}");
+        // There is only 1 instance but in theory many submissions.
+        // When multiple submissions are supported, a way to add a different receipt for each transmission might be needed.
+        transmissions.ForEach(x => x.Attachments.Add(
+            new()
+            {
+                Id = x.Id, // Make sure each has a unique id
+                DisplayName =
+                [
+                    new LocalizationDto { Value = "Kvittering", LanguageCode = "nb" },
+                    new LocalizationDto { Value = "Kvittering", LanguageCode = "nn" },
+                    new LocalizationDto { Value = "Receipt", LanguageCode = "en" }
+                ],
+                Urls =
+                [
+                    new TransmissionAttachmentUrlDto
+                    {
+                        Url = gotoUrl,
+                        MediaType = "text/html",
+                        ConsumerType = AttachmentUrlConsumerType.Gui
+                    }
+                ]
+            })
+        );
 
         var attachments = data
             .Where(IsPerformedBySo)
@@ -532,15 +572,15 @@ internal sealed class StorageDialogportenDataMerger
         {
             InstanceDerivedStatus.ArchivedUnconfirmed =>
             [
-                new() { LanguageCode = "nb", Value = "Innsendingen er maskinelt kontrollert og formidlet, venter på endelig bekreftelse. Du kan åpne dialogen for å se en foreløpig kvittering." },
-                new() { LanguageCode = "nn", Value = "Innsendinga er maskinelt kontrollert og formidla, ventar på endeleg stadfesting. Du kan opne dialogen for å sjå ei førebels kvittering." },
-                new() { LanguageCode = "en", Value = "The submission has been automatically checked and forwarded, awaiting final confirmation. You can open the dialog to see a preliminary receipt." }
+                new() { LanguageCode = "nb", Value = "Innsendingen er maskinelt kontrollert og formidlet, venter på endelig bekreftelse." },
+                new() { LanguageCode = "nn", Value = "Innsendinga er maskinelt kontrollert og formidla, ventar på endeleg stadfesting." },
+                new() { LanguageCode = "en", Value = "The submission has been automatically checked and forwarded, awaiting final confirmation." }
             ],
             InstanceDerivedStatus.ArchivedConfirmed =>
             [
-                new() { LanguageCode = "nb", Value = "Innsendingen er bekreftet mottatt. Du kan åpne dialogen for å se din kvittering." },
-                new() { LanguageCode = "nn", Value = "Innsendinga er stadfesta motteken. Du kan opne dialogen for å sjå di kvittering." },
-                new() { LanguageCode = "en", Value = "The submission has been confirmed as received. You can open the dialog to see your receipt." }
+                new() { LanguageCode = "nb", Value = "Innsendingen er bekreftet mottatt." },
+                new() { LanguageCode = "nn", Value = "Innsendinga er stadfesta motteken." },
+                new() { LanguageCode = "en", Value = "The submission has been confirmed as received." }
             ],
             InstanceDerivedStatus.Rejected =>
             [
@@ -587,40 +627,29 @@ internal sealed class StorageDialogportenDataMerger
         };
     }
 
-    private GuiActionDto CreateGoToAction(Guid dialogId, Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
+    private GuiActionDto? CreateGoToAction(Guid dialogId, Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
     {
         var goToActionId = dialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.GoTo);
-        var xacmlAction = GetXacmlActionForGoToAction(instanceDerivedStatus);
+
+        if (GetXacmlActionForGoToAction(instanceDerivedStatus) == ReadAction) return null;
+
         // CurrentTask may be null (ex. instance id 51499006/907c12e2-041a-4275-9d33-67620cdf15b6 tt02),
         // in which case we have no other option than to not set an authorization attribute.
         var authorizationAttribute = instance.Process?.CurrentTask?.ElementId is not null
             ? "urn:altinn:task:" + instance.Process.CurrentTask.ElementId
             : null;
 
-        string gotoUrl;
-        if (xacmlAction == ReadAction)
-        {
-            var platformBaseUri = _settings.DialogportenAdapter.Altinn
-                .GetPlatformUri()
-                .ToString()
-                .TrimEnd('/');
+        var appBaseUri = _settings.DialogportenAdapter.Altinn
+            .GetAppUriForOrg(instance.Org, instance.AppId)
+            .ToString()
+            .TrimEnd('/');
 
-            gotoUrl = ToPortalUri($"{platformBaseUri}/receipt/{instance.Id}");
-        }
-        else
-        {
-            var appBaseUri = _settings.DialogportenAdapter.Altinn
-                .GetAppUriForOrg(instance.Org, instance.AppId)
-                .ToString()
-                .TrimEnd('/');
-
-            gotoUrl = ToPortalUri($"{appBaseUri}/#/instance/{instance.Id}");
-        }
+        var gotoUrl = ToPortalUri($"{appBaseUri}/#/instance/{instance.Id}");
 
         return new GuiActionDto
         {
             Id = goToActionId,
-            Action = xacmlAction,
+            Action = GetXacmlActionForGoToAction(instanceDerivedStatus),
             AuthorizationAttribute = authorizationAttribute,
             Priority = DialogGuiActionPriority.Primary,
             Title = GetPrimaryActionLabel(instance, applicationTexts, instanceDerivedStatus),
@@ -648,7 +677,7 @@ internal sealed class StorageDialogportenDataMerger
             Priority = DialogGuiActionPriority.Secondary,
             IsDeleteDialogAction = true,
             Title =
-            GetDeleteActionLabel(instance, applicationTexts, instanceDerivedStatus),
+                GetDeleteActionLabel(instance, applicationTexts, instanceDerivedStatus),
             Url = $"{adapterBaseUri}/api/v1/instance/{instance.Id}",
             HttpMethod = HttpVerb.DELETE
         };
@@ -672,7 +701,7 @@ internal sealed class StorageDialogportenDataMerger
             Action = InstantiateAction,
             Priority = DialogGuiActionPriority.Tertiary,
             Title =
-            GetCopyActionLabel(instance, applicationTexts, instanceDerivedStatus),
+                GetCopyActionLabel(instance, applicationTexts, instanceDerivedStatus),
             Url = ToPortalUri($"{appBaseUri}/legacy/instances/{instance.Id}/copy"),
             HttpMethod = HttpVerb.GET
         };
