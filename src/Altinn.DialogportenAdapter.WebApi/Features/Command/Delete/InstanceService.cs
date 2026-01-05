@@ -10,7 +10,7 @@ internal sealed record DeleteInstanceDto(string PartyId, Guid InstanceGuid, stri
 public abstract record DeleteResponse
 {
     public sealed record Success : DeleteResponse;
-    
+
     public sealed record NotFound : DeleteResponse;
 
     public sealed record UnAuthorized : DeleteResponse;
@@ -54,7 +54,7 @@ internal sealed class InstanceService
                 return new DeleteResponse.NotDeletableYet(
                     instance.Status.Archived.Value,
                     app.PreventInstanceDeletionForDays!.Value,
-                    instance.Status.Archived.Value.ToUniversalTime().Date.AddDays(app.PreventInstanceDeletionForDays.Value));
+                    new DateTimeOffset(instance.Status.Archived.Value.ToUniversalTime().Date.AddDays(app.PreventInstanceDeletionForDays.Value), TimeSpan.Zero));
             }
         }
 
@@ -75,12 +75,17 @@ internal sealed class InstanceService
 
     private static bool IsDeletable(Instance instance, Application app)
     {
+        if (!instance.Status.Archived.HasValue)
+        {
+            return false;
+        }
+
         if (app.PreventInstanceDeletionForDays == null)
         {
             return true;
         }
 
-        var instanceDate = instance.Status.Archived!.Value.ToUniversalTime().Date;
+        var instanceDate = instance.Status.Archived.Value.ToUniversalTime().Date;
         var deletableAt = instanceDate.AddDays(app.PreventInstanceDeletionForDays.Value);
         return deletableAt <= DateTime.UtcNow.Date;
     }

@@ -317,9 +317,9 @@ static void BuildAndRun(string[] args)
                     instance: $"{settings.DialogportenAdapter.Altinn.GetPlatformUri()}instance/{instanceOwner}/{instanceGuid}",
                     extensions: new Dictionary<string, object?>
                     {
-                        ["archivedAt"] = notYet.ArchivedAt.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                        ["archivedAt"] = notYet.ArchivedAt.ToString("O"),
                         ["gracePeriodDays"] = notYet.GracePeriod,
-                        ["deletionAllowedAt"] = notYet.DeletionAllowedAt.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                        ["deletionAllowedAt"] = notYet.DeletionAllowedAt.ToString("O")
                     }
                 ),
                 _ => Results.InternalServerError()
