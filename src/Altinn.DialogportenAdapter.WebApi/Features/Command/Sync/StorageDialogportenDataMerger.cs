@@ -178,8 +178,8 @@ internal sealed class StorageDialogportenDataMerger
             UpdatedAt = dto.Instance.LastChanged > dto.Instance.Created
                 ? dto.Instance.LastChanged
                 : dto.Instance.Created,
-            VisibleFrom = dto.Instance.VisibleAfter > DateTimeOffset.UtcNow ? dto.Instance.VisibleAfter : null,
-            DueAt = dto.Instance.DueBefore > DateTimeOffset.UtcNow ? dto.Instance.DueBefore : null,
+            VisibleFrom = dto.Instance.VisibleAfter > DateTimeOffset.UtcNow || dto.IsMigration ? dto.Instance.VisibleAfter : null,
+            DueAt = dto.Instance.DueBefore > DateTimeOffset.UtcNow || dto.IsMigration ? dto.Instance.DueBefore : null,
             ServiceOwnerContext = new ServiceOwnerContext
             {
                 ServiceOwnerLabels =
