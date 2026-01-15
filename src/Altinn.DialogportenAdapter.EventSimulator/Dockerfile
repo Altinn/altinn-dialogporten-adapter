@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:9.0.102-alpine3.20 AS build
+FROM mcr.microsoft.com/dotnet/sdk:9.0.102-alpine3.20@sha256:a9d99ca1f16b123abd916a9e95b4304c3d3e03e86781e24ca565119badd5cad6 AS build
 WORKDIR /app
 
 # Copy csproj and restore as distinct layers
@@ -10,7 +10,7 @@ COPY src ./src
 RUN dotnet build -c Release -o out ./src/Altinn.DialogportenAdapter.EventSimulator/Altinn.DialogportenAdapter.EventSimulator.csproj
 
 # Build runtime image
-FROM mcr.microsoft.com/dotnet/aspnet:9.0.1-alpine3.20 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:9.0.1-alpine3.20@sha256:5b2b4d6ef37864167055e4e215eb10bd77217148068f7c055c900ca22d14c945 AS final
 WORKDIR /app
 EXPOSE 5012
 
