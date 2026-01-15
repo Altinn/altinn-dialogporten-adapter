@@ -1,4 +1,4 @@
-using UUIDNext;
+using DeterministicGuids;
 
 namespace Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 
@@ -16,7 +16,7 @@ internal static class GuidExtensions
     /// <param name="name"></param>
     /// <returns></returns>
     public static Guid CreateDeterministicSubUuidV7(this Guid parentV7Id, string name)
-        => Uuid.NewNameBased(parentV7Id, name).CopyUuidV7PartsFrom(parentV7Id);
+        => DeterministicGuid.Create(parentV7Id, name).CopyUuidV7PartsFrom(parentV7Id);
 
     public static Guid ToVersion7(this Guid guid, DateTimeOffset timestamp)
     {
