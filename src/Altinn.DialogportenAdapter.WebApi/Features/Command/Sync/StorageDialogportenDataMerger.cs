@@ -378,13 +378,8 @@ internal sealed class StorageDialogportenDataMerger
     {
         var response = await _registerRepository.GetActorUrnByPartyId([partyId], cancellationToken);
 
-        if (!response.TryGetValue(partyId, out var actorUrn))
-        {
-            throw new PartyNotFoundException(partyId);
-        }
-
-        return actorUrn.StartsWith(Constants.DisplayNameUrnPrefix)
-            ? actorUrn[Constants.DisplayNameUrnPrefix.Length..]
+        return !response.TryGetValue(partyId, out var actorUrn)
+            ? throw new PartyNotFoundException(partyId)
             : actorUrn;
     }
 

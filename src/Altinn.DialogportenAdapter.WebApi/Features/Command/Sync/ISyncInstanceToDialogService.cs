@@ -79,16 +79,6 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
             await UpdateInstanceWithDialogId(dto, dialogId, cancellationToken);
         }
 
-        if (InstanceOwnerIsSelfIdentified(instance))
-        {
-            // We skip these for now as we do not have a good way to identify the user in dialogporten
-            _logger.LogWarning("Skipping sync for self-identified instance owner on id={Id} username={Username} appid={AppId}.",
-                instance?.Id,
-                instance?.InstanceOwner.Username,
-                instance?.AppId);
-            return;
-        }
-
         if (BothIsDeleted(instance, existingDialog))
         {
             return;
@@ -157,15 +147,6 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
                 isSilentUpdate: true,
                 cancellationToken: cancellationToken);
         }
-    }
-
-    private static bool InstanceOwnerIsSelfIdentified(Instance? instance)
-    {
-        return instance is not null
-         && instance.InstanceOwner.OrganisationNumber is null
-         && instance.InstanceOwner.PersonNumber is null
-         && instance.InstanceOwner.PartyId is not null
-         && instance.InstanceOwner.Username is not null;
     }
 
     private static void EnsureNotNull(
