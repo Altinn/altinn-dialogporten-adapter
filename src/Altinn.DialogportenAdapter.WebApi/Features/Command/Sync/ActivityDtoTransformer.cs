@@ -116,9 +116,7 @@ internal sealed class ActivityDtoTransformer
     {
         if (user.UserId.HasValue && actorUrnByUserId.TryGetValue(user.UserId.Value, out var actorUrn))
         {
-            return actorUrn.StartsWith(Constants.SiUserUrnPrefix)
-                ? new ActorDto { ActorType = ActorType.PartyRepresentative, ActorName = actorUrn[Constants.SiUserUrnPrefix.Length..] }
-                : new ActorDto { ActorType = ActorType.PartyRepresentative, ActorId = actorUrn };
+            return new ActorDto { ActorType = ActorType.PartyRepresentative, ActorId = actorUrn };
         }
 
         // Altinn 2 end user system id
