@@ -42,19 +42,38 @@ internal sealed class ApplicationRepository(IApplicationsApi applicationsApi, IF
         var tasks = predefinedLanguages.Select(lang => applicationsApi.GetApplicationTexts(orgApp[0], orgApp[1], lang, cancellationToken));
         var responses = await Task.WhenAll(tasks);
 
-        var textResources = responses
-            .Where(response => response.IsSuccessful)
-            .Select(response => response.Content!)
-            .ToList();
-
         return new ApplicationTexts
         {
-            Translations = textResources.Select(textResource => new ApplicationTextsTranslation
+            Translations = responses
+                .Where(response => response.IsSuccessful)
+                .Select(response => response.Content!)
+                .ToDictionary(textResource => textResource.Language, textResource => new ApplicationTextsTranslation
+                {
+                    Language = textResource.Language,
+                    Texts = CreateTextsDictionary(textResource.Resources)
+                })
+        };
+    }
+
+    private async Task<Dictionary<string, ApplicationTextsTranslation>> FetchApplicationText(string appId, CancellationToken cancellationToken)
+    {
+        string[] predefinedLanguages = ["nb", "nn", "en"];
+        var orgApp = appId.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (orgApp.Length != 2)
+        {
+            throw new ArgumentException($"Expected appId in 'org/app' format, got '{appId}'.", nameof(appId));
+        }
+        var tasks = predefinedLanguages.Select(lang => applicationsApi.GetApplicationTexts(orgApp[0], orgApp[1], lang, cancellationToken));
+        var responses = await Task.WhenAll(tasks);
+
+        return responses
+            .Where(response => response.IsSuccessful)
+            .Select(response => response.Content!)
+            .ToDictionary(textResource => textResource.Language, textResource => new ApplicationTextsTranslation
             {
                 Language = textResource.Language,
                 Texts = CreateTextsDictionary(textResource.Resources)
-            }).ToList()
-        };
+            });
     }
 
     internal static Dictionary<string, string> CreateTextsDictionary(IEnumerable<TextResourceElement> resources)

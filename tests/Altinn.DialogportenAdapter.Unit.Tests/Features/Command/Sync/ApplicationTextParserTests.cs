@@ -7,6 +7,98 @@ namespace Altinn.DialogportenAdapter.Unit.Tests.Features.Command.Sync;
 
 public class ApplicationTextParserTests
 {
+    
+    [Fact]
+    public void SimpleTest()
+    {
+        var instance = new Instance
+        {
+            Process = new ProcessState()
+            {
+                CurrentTask = new ProcessElementInfo
+                {
+                    ElementId = "Task1"
+                }
+            }
+        };
+        var texts = new ApplicationTexts
+        {
+            Translations = new Dictionary<string, ApplicationTextsTranslation>
+            {
+                {
+                    "nb", new ApplicationTextsTranslation
+                    {
+                        Language = "nb",
+                        Texts = new Dictionary<string, string>
+                        {
+                            { "dp.title.Task1.awaitingsignature", "wait!" },
+                            { "dp.title.Task2.rejected", "begone task 2" },
+                            { "dp.title._any_.rejected", "begone task any" }
+                        }
+                    }
+                }
+            }
+        };
+        var localizations = ApplicationTextParser.GetLocalizationsFromApplicationTexts("title", instance, texts, InstanceDerivedStatus.Rejected);
+
+        Assert.Single(localizations);
+        Assert.Equal("begone task any", localizations.First().Value);
+    }
+
+    [Fact]
+    public void TrimStringExceedingMaxLength()
+    {
+        var instance = new Instance
+        {
+            Process = new ProcessState()
+            {
+                CurrentTask = new ProcessElementInfo
+                {
+                    ElementId = "Task1"
+                }
+            }
+        };
+        var texts = new ApplicationTexts
+        {
+            Translations =
+            {
+                {
+                    "nb", new ApplicationTextsTranslation
+                    {
+                        Language = "nb",
+                        Texts = new Dictionary<string, string>
+                        {
+                            { "dp.title.Task1.awaitingsignature", new string('a', 1000) },
+                            { "dp.summary.Task1.awaitingsignature", new string('b', 1000) },
+                            { "dp.summary.Task1.rejected", new string('b', 120) },
+                        }
+                    }
+                }
+            }
+        };
+
+        var localizations = ApplicationTextParser.GetLocalizationsFromApplicationTexts("title", instance, texts, InstanceDerivedStatus.AwaitingSignature);
+        var summaryLocalizations = ApplicationTextParser.GetLocalizationsFromApplicationTexts("summary", instance, texts, InstanceDerivedStatus.AwaitingSignature);
+        var summaryLocalizationsShort = ApplicationTextParser.GetLocalizationsFromApplicationTexts("summary", instance, texts, InstanceDerivedStatus.Rejected);
+        
+        Assert.Single(localizations);
+        var title = localizations.First().Value;
+        Assert.Equal(255, title.Length);
+        Assert.EndsWith("a...", title, StringComparison.Ordinal);
+        
+        
+        Assert.Single(summaryLocalizations);
+        var summary = summaryLocalizations.First().Value;
+        Assert.Equal(255, summary.Length);
+        Assert.EndsWith("b...", summary, StringComparison.Ordinal);
+        
+        
+        Assert.Single(summaryLocalizationsShort);
+        var summaryShort = summaryLocalizationsShort.First().Value;
+        Assert.Equal(120, summaryShort.Length);
+        Assert.EndsWith("bbb", summaryShort, StringComparison.Ordinal);
+    }
+    
     [Fact]
     public void ReturnsMostSpecificKeyForTaskAndDerivedStatus()
     {
@@ -203,10 +295,10 @@ public class ApplicationTextParserTests
 
     private static ApplicationTexts CreateTexts(params (string language, Dictionary<string, string> texts)[] translations)
     {
-        var storageTranslations = new List<ApplicationTextsTranslation>(translations.Length);
+        var storageTranslations = new Dictionary<string, ApplicationTextsTranslation>(translations.Length);
         foreach (var (language, textsDictionary) in translations)
         {
-            storageTranslations.Add(new ApplicationTextsTranslation
+            storageTranslations.Add(language, new ApplicationTextsTranslation
             {
                 Language = language,
                 Texts = textsDictionary

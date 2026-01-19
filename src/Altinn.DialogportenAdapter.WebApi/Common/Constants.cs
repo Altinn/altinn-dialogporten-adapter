@@ -53,4 +53,12 @@ internal static class Constants
 
         public static readonly List<string> Keys = [ GoTo, Delete, Copy ];
     }
+    internal static class GuidScope
+    {
+        internal static class Transmission
+        {
+            public const string Attachment = "TransmissionAttachment";
+            public const string Receipt = "TransmissionReceipt";
+        }
+    }
 }

@@ -63,6 +63,10 @@ internal sealed class StorageDialogportenDataMerger
                 ? null!
                 : storageDialog.Content.AdditionalInfo;
 
+            storageDialog.Content.ExtendedStatus = syncAdapterSettings.DisableSyncContentSummary // FIXME too!
+                ? null!
+                : storageDialog.Content.ExtendedStatus;
+
             storageDialog.Activities = syncAdapterSettings.DisableAddActivities
                 ? []
                 : storageDialog.Activities;
@@ -112,6 +116,10 @@ internal sealed class StorageDialogportenDataMerger
             ? existing.Content.AdditionalInfo
             : storageDialog.Content.AdditionalInfo;
 
+        existing.Content.ExtendedStatus = syncAdapterSettings.DisableSyncContentSummary
+            ? existing.Content.ExtendedStatus
+            : storageDialog.Content.ExtendedStatus;
+            
         existing.Attachments = syncAdapterSettings.DisableSyncAttachments
             ? existing.Attachments
             : storageDialog.Attachments;
@@ -154,7 +162,6 @@ internal sealed class StorageDialogportenDataMerger
 
         var (attachments, transmissions) = GetAttachmentAndTransmissions(dto, activities);
         var primaryAction = CreateGoToAction(dto.DialogId, dto.Instance, dto.ApplicationTexts, instanceDerivedStatus);
-
 
         List<GuiActionDto> guiActions =
         [
@@ -202,14 +209,14 @@ internal sealed class StorageDialogportenDataMerger
                 {
                     MediaType = MediaTypes.PlainText,
                     Value = GetSummary(dto.Instance, dto.ApplicationTexts, instanceDerivedStatus)
-                }
+                },
+                ExtendedStatus = GetExtendedStatus(dto)
             },
             GuiActions = guiActions,
             Transmissions = transmissions,
             Attachments = attachments,
             Activities = activities
         };
-
 
         var additionalInfo = GetAdditionalInfo(dto.Instance, dto.ApplicationTexts, instanceDerivedStatus);
         if (additionalInfo.Count > 0)
@@ -286,7 +293,7 @@ internal sealed class StorageDialogportenDataMerger
         transmissions.ForEach(x => x.Attachments.Add(
             new()
             {
-                Id = x.Id, // Make sure each has a unique id
+                Id = x.Id!.Value.CreateDeterministicSubUuidV7(Constants.GuidScope.Transmission.Receipt),
                 DisplayName =
                 [
                     new LocalizationDto { Value = "Kvittering", LanguageCode = "nb" },
@@ -355,7 +362,9 @@ internal sealed class StorageDialogportenDataMerger
         {
             // Ensure unique IDs when the same DataElement appears as both TransmissionAttachment and Attachment
             // This prevents ID collisions that would cause conflicts in Dialogporten
-            Id = Guid.CreateVersion7(data.Created!.Value),
+            Id = Guid.Parse(data.Id)
+                .ToVersion7(data.Created!.Value)
+                .CreateDeterministicSubUuidV7(Constants.GuidScope.Transmission.Attachment),
             DisplayName = [new() { LanguageCode = "nb", Value = data.Filename ?? data.DataType }],
             Urls =
             [
@@ -367,6 +376,22 @@ internal sealed class StorageDialogportenDataMerger
                 }
             ]
         };
+    }
+    
+    private static ContentValueDto? GetExtendedStatus(MergeDto dto)
+    {
+        var label = dto.Instance.Status.Substatus?.Label;
+
+        if (label == null) return null;
+        
+        var labelLocalized = dto.ApplicationTexts
+            .Translations
+            .Where(e => e.Value.Texts.ContainsKey(label))
+            .Select(e => new LocalizationDto { LanguageCode = e.Key, Value = e.Value.Texts[label] })
+            .DefaultIfEmpty(new LocalizationDto { LanguageCode = "nb", Value = label })
+            .ToList();
+        
+        return new ContentValueDto { Value = labelLocalized };
     }
 
     private static bool IsPerformedBySo(DataElement data)
