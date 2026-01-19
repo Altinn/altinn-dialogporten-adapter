@@ -42,7 +42,6 @@ internal sealed class ReceiptAttachmentVisibilityDecider
         var excludedDataTypes = dataTypes
             .Where(ShouldExcludeFromGui)
             .Select(dt => dt.Id)
-            .Where(id => !string.IsNullOrWhiteSpace(id))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         return new ReceiptAttachmentVisibilityDecider(dataTypesById, excludedDataTypes);
@@ -93,7 +92,7 @@ internal sealed class ReceiptAttachmentVisibilityDecider
     {
         if (string.IsNullOrWhiteSpace(dataType.Id))
         {
-            return false;
+            return true;
         }
 
         if (string.Equals(dataType.Id, RefDataAsPdfDataTypeId, StringComparison.OrdinalIgnoreCase))

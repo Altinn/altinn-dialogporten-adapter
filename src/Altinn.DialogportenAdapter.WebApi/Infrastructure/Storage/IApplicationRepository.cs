@@ -42,18 +42,16 @@ internal sealed class ApplicationRepository(IApplicationsApi applicationsApi, IF
         var tasks = predefinedLanguages.Select(lang => applicationsApi.GetApplicationTexts(orgApp[0], orgApp[1], lang, cancellationToken));
         var responses = await Task.WhenAll(tasks);
 
-        var textResources = responses
-            .Where(response => response.IsSuccessful)
-            .Select(response => response.Content!)
-            .ToList();
-
         return new ApplicationTexts
         {
-            Translations = textResources.Select(textResource => new ApplicationTextsTranslation
-            {
-                Language = textResource.Language,
-                Texts = CreateTextsDictionary(textResource.Resources)
-            }).ToList()
+            Translations = responses
+                .Where(response => response.IsSuccessful)
+                .Select(response => response.Content!)
+                .ToDictionary(textResource => textResource.Language, textResource => new ApplicationTextsTranslation
+                {
+                    Language = textResource.Language,
+                    Texts = CreateTextsDictionary(textResource.Resources)
+                })
         };
     }
 
