@@ -64,7 +64,7 @@ internal sealed class RegisterRepository : IRegisterRepository
             null => (registerUrn, null),
             { OrganizationIdentifier: { } organizationId } => (registerUrn, Constants.OrganizationUrnPrefix + organizationId),
             { PersonIdentifier: { } personId } => (registerUrn, Constants.PersonUrnPrefix + personId),
-            { DisplayName: { } displayName } => (registerUrn, Constants.DisplayNameUrnPrefix + displayName),
+            { DisplayName: { } displayName, PartyType: "self-identified-user" } => (registerUrn, Constants.SiUserUrnPrefix + displayName),
             _ => throw new UnreachableException("Invalid response from register.")
         };
     }
