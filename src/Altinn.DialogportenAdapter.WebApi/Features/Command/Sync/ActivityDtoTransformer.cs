@@ -96,9 +96,15 @@ internal sealed class ActivityDtoTransformer
     private static bool IsPerformedBy(
         [NotNullWhen(true)] ActivityDto? activity,
         [NotNullWhen(true)] ActorDto? actor) =>
-        activity?.PerformedBy.ActorId is not null
+        activity?.PerformedBy is not null
         && actor is not null
-        && activity.PerformedBy.ActorId == actor.ActorId;
+        && (
+            // Fall back to comparing on actorName in case actorId is null (legacy users)
+            activity.PerformedBy.ActorId is not null || actor.ActorId is not null
+                ? activity.PerformedBy.ActorId == actor.ActorId
+                : !string.IsNullOrWhiteSpace(activity.PerformedBy.ActorName)
+                      && activity.PerformedBy.ActorName == actor.ActorName
+        );
 
     private async Task<Dictionary<int, string>> LookupUsers(List<InstanceEvent> events, CancellationToken cancellationToken)
     {
