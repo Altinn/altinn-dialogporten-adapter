@@ -293,7 +293,9 @@ internal sealed class StorageDialogportenDataMerger
         transmissions.ForEach(x => x.Attachments.Add(
             new()
             {
-                Id = x.Id!.Value.CreateDeterministicSubUuidV7(Constants.GuidScope.Transmission.Receipt),
+                Id = x.Id!.Value
+                    .ToVersion7(x.CreatedAt)
+                    .CreateDeterministicSubUuidV7(Constants.GuidScope.Transmission.Receipt),
                 DisplayName =
                 [
                     new LocalizationDto { Value = "Kvittering", LanguageCode = "nb" },

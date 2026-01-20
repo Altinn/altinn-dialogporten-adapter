@@ -20,8 +20,8 @@ public class StorageDialogportenDataMergerTest
 {
     private readonly IRegisterRepository _registerRepositoryMock = Substitute.For<IRegisterRepository>();
     private readonly StorageDialogportenDataMerger _storageDialogportenDataMerger;
-    private const int UserIdWithDisplayName = 1;
-    private const int UserIdWithUnknownUrn = 2;
+    private const int UserId1 = 1;
+    private const int UserId2 = 2;
     private const int UserUnknown = 999;
     private AdapterFeatureFlagSettings _featureFlags = new() { EnableSubmissionTransmissions = true };
 
@@ -57,8 +57,8 @@ public class StorageDialogportenDataMergerTest
         _registerRepositoryMock.GetActorUrnByUserId(Arg.Any<IEnumerable<string>>(), Arg.Any<CancellationToken>())
             .Returns(new Dictionary<string, string>
             {
-                { UserIdWithDisplayName.ToString(), "urn:altinn:displayName:Leif" },
-                { UserIdWithUnknownUrn.ToString(), "urn:altinn:name:Leif" },
+                { UserId1.ToString(), "urn:altinn:displayName:Leif" },
+                { UserId2.ToString(), "urn:altinn:person:legacy-selfidentified:Per" },
             });
 
 
@@ -908,7 +908,7 @@ public class StorageDialogportenDataMergerTest
                         EventType = nameof(InstanceEventType.Created),
                         User = new PlatformUser
                         {
-                            UserId = UserIdWithDisplayName,
+                            UserId = UserId1,
                         },
                     },
                     new InstanceEvent
@@ -918,7 +918,7 @@ public class StorageDialogportenDataMergerTest
                         EventType = nameof(InstanceEventType.Deleted),
                         User = new PlatformUser
                         {
-                            UserId = UserIdWithUnknownUrn,
+                            UserId = UserId2,
                         }
                     },
                     new InstanceEvent
@@ -1128,8 +1128,8 @@ public class StorageDialogportenDataMergerTest
                         PerformedBy = new ActorDto
                         {
                             ActorType = ActorType.PartyRepresentative,
-                            ActorName = "Leif",
-                            ActorId = null
+                            ActorName = null,
+                            ActorId = "urn:altinn:displayName:Leif"
                         },
                         Description = []
                     },
@@ -1144,7 +1144,7 @@ public class StorageDialogportenDataMergerTest
                         {
                             ActorType = ActorType.PartyRepresentative,
                             ActorName = null,
-                            ActorId = "urn:altinn:name:Leif"
+                            ActorId = "urn:altinn:person:legacy-selfidentified:Per"
                         },
                         Description = []
                     },
@@ -1203,8 +1203,8 @@ public class StorageDialogportenDataMergerTest
                         PerformedBy = new ActorDto
                         {
                             ActorType = ActorType.PartyRepresentative,
-                            ActorName = "Leif",
-                            ActorId = null
+                            ActorName = null,
+                            ActorId = "urn:altinn:displayName:Leif"
                         },
                         Description = []
                     },
@@ -1218,8 +1218,8 @@ public class StorageDialogportenDataMergerTest
                         PerformedBy = new ActorDto
                         {
                             ActorType = ActorType.PartyRepresentative,
-                            ActorName = "Leif",
-                            ActorId = null
+                            ActorName = null,
+                            ActorId = "urn:altinn:displayName:Leif"
                         },
                         Description = []
                     },
@@ -1233,8 +1233,8 @@ public class StorageDialogportenDataMergerTest
                         PerformedBy = new ActorDto
                         {
                             ActorType = ActorType.PartyRepresentative,
-                            ActorName = "Leif",
-                            ActorId = null
+                            ActorName = null,
+                            ActorId = "urn:altinn:displayName:Leif"
                         },
                         Description = []
                     },
@@ -1248,8 +1248,8 @@ public class StorageDialogportenDataMergerTest
                         PerformedBy = new ActorDto
                         {
                             ActorType = ActorType.PartyRepresentative,
-                            ActorName = "Leif",
-                            ActorId = null
+                            ActorName = null,
+                            ActorId = "urn:altinn:displayName:Leif"
                         },
                         Description = []
                     },
@@ -1392,7 +1392,7 @@ public class StorageDialogportenDataMergerTest
                         EventType = nameof(InstanceEventType.Created),
                         User = new PlatformUser
                         {
-                            UserId = UserIdWithDisplayName,
+                            UserId = UserId1,
                         },
                     },
                 ]
@@ -1832,8 +1832,8 @@ public class StorageDialogportenDataMergerTest
                         PerformedBy = new ActorDto
                         {
                             ActorType = ActorType.PartyRepresentative,
-                            ActorName = "Leif",
-                            ActorId = null
+                            ActorName = null,
+                            ActorId = "urn:altinn:displayName:Leif"
                         },
                         Description = []
                     },
@@ -1979,7 +1979,7 @@ public class StorageDialogportenDataMergerTest
                         EventType = nameof(InstanceEventType.Created),
                         User = new PlatformUser
                         {
-                            UserId = UserIdWithDisplayName,
+                            UserId = UserId1,
                         },
                     },
                 ]
@@ -2395,8 +2395,8 @@ public class StorageDialogportenDataMergerTest
                         PerformedBy = new ActorDto
                         {
                             ActorType = ActorType.PartyRepresentative,
-                            ActorName = "Leif",
-                            ActorId = null
+                            ActorName = null,
+                            ActorId = "urn:altinn:displayName:Leif"
                         },
                         Description = []
                     },
@@ -2490,7 +2490,7 @@ public class StorageDialogportenDataMergerTest
                         EventType = nameof(InstanceEventType.Created),
                         User = new PlatformUser
                         {
-                            UserId = UserIdWithDisplayName,
+                            UserId = UserId1,
                         },
                     },
                     new InstanceEvent
@@ -2500,7 +2500,7 @@ public class StorageDialogportenDataMergerTest
                         EventType = nameof(InstanceEventType.Submited),
                         User = new PlatformUser
                         {
-                            UserId = UserIdWithDisplayName,
+                            UserId = UserId1,
                         },
                     },
                     new InstanceEvent
@@ -2510,7 +2510,7 @@ public class StorageDialogportenDataMergerTest
                         EventType = nameof(InstanceEventType.Submited),
                         User = new PlatformUser
                         {
-                            UserId = UserIdWithDisplayName,
+                            UserId = UserId1,
                         },
                     },
                 ]
@@ -2747,8 +2747,8 @@ public class StorageDialogportenDataMergerTest
                         Sender = new ActorDto
                         {
                             ActorType = ActorType.PartyRepresentative,
-                            ActorName = "Leif",
-                            ActorId = null
+                            ActorName = null,
+                            ActorId = "urn:altinn:displayName:Leif"
                         },
                         Content = new TransmissionContentDto
                         {
@@ -2834,8 +2834,8 @@ public class StorageDialogportenDataMergerTest
                         Sender = new ActorDto
                         {
                             ActorType = ActorType.PartyRepresentative,
-                            ActorName = "Leif",
-                            ActorId = null
+                            ActorName = null,
+                            ActorId = "urn:altinn:displayName:Leif"
                         },
                         Content = new TransmissionContentDto
                         {
@@ -2962,8 +2962,8 @@ public class StorageDialogportenDataMergerTest
                         PerformedBy = new ActorDto
                         {
                             ActorType = ActorType.PartyRepresentative,
-                            ActorName = "Leif",
-                            ActorId = null
+                            ActorName = null,
+                            ActorId = "urn:altinn:displayName:Leif"
                         },
                         Description = []
                     },
@@ -2977,8 +2977,8 @@ public class StorageDialogportenDataMergerTest
                         PerformedBy = new ActorDto
                         {
                             ActorType = ActorType.PartyRepresentative,
-                            ActorName = "Leif",
-                            ActorId = null
+                            ActorName = null,
+                            ActorId = "urn:altinn:displayName:Leif"
                         },
                         Description = []
                     },
@@ -2992,8 +2992,8 @@ public class StorageDialogportenDataMergerTest
                         PerformedBy = new ActorDto
                         {
                             ActorType = ActorType.PartyRepresentative,
-                            ActorName = "Leif",
-                            ActorId = null
+                            ActorName = null,
+                            ActorId = "urn:altinn:displayName:Leif"
                         },
                         Description = []
                     },
