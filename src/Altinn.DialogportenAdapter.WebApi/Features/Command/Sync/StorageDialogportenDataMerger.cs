@@ -385,8 +385,8 @@ internal sealed class StorageDialogportenDataMerger
     {
         var label = dto.Instance.Status.Substatus?.Label;
 
-        if (label == null || label.IsEmpty()) return null;
-        
+        if (string.IsNullOrEmpty(label) || string.IsNullOrWhiteSpace(label)) return null;
+
         var labelLocalized = dto.ApplicationTexts
             .Translations
             .Where(e => e.Value.Texts.ContainsKey(label))
