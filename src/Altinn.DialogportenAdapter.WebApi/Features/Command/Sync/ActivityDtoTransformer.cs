@@ -116,7 +116,10 @@ internal sealed class ActivityDtoTransformer
     {
         if (user.UserId.HasValue && actorUrnByUserId.TryGetValue(user.UserId.Value, out var actorUrn))
         {
-            return new ActorDto { ActorType = ActorType.PartyRepresentative, ActorId = actorUrn };
+            // Legacy system ids and enterprise users does not have a standard urn format in register, so just return the name
+            return actorUrn.StartsWith(Constants.DisplayNameUrnPrefix)
+                ? new ActorDto { ActorType = ActorType.PartyRepresentative, ActorName = actorUrn[Constants.DisplayNameUrnPrefix.Length..] }
+                : new ActorDto { ActorType = ActorType.PartyRepresentative, ActorId = actorUrn };
         }
 
         // Altinn 2 end user system id
