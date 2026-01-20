@@ -96,9 +96,15 @@ internal sealed class ActivityDtoTransformer
     private static bool IsPerformedBy(
         [NotNullWhen(true)] ActivityDto? activity,
         [NotNullWhen(true)] ActorDto? actor) =>
-        activity?.PerformedBy.ActorId is not null
+        activity?.PerformedBy is not null
         && actor is not null
-        && activity.PerformedBy.ActorId == actor.ActorId;
+        && (
+            // Fall back to comparing on actorName in case actorId is null (legacy users)
+            activity.PerformedBy.ActorId is not null || actor.ActorId is not null
+                ? activity.PerformedBy.ActorId == actor.ActorId
+                : !string.IsNullOrWhiteSpace(activity.PerformedBy.ActorName)
+                      && activity.PerformedBy.ActorName == actor.ActorName
+        );
 
     private async Task<Dictionary<int, string>> LookupUsers(List<InstanceEvent> events, CancellationToken cancellationToken)
     {
@@ -116,7 +122,10 @@ internal sealed class ActivityDtoTransformer
     {
         if (user.UserId.HasValue && actorUrnByUserId.TryGetValue(user.UserId.Value, out var actorUrn))
         {
-            return new ActorDto { ActorType = ActorType.PartyRepresentative, ActorId = actorUrn };
+            // Legacy system ids and enterprise users does not have a standard urn format in register, so just return the name
+            return actorUrn.StartsWith(Constants.DisplayNameUrnPrefix)
+                ? new ActorDto { ActorType = ActorType.PartyRepresentative, ActorName = actorUrn[Constants.DisplayNameUrnPrefix.Length..] }
+                : new ActorDto { ActorType = ActorType.PartyRepresentative, ActorId = actorUrn };
         }
 
         // Altinn 2 end user system id
