@@ -4,6 +4,7 @@ using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Altinn.Platform.Storage.Interface.Models;
+using JasperFx.Core;
 using Microsoft.Extensions.Options;
 
 namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
@@ -384,7 +385,7 @@ internal sealed class StorageDialogportenDataMerger
     {
         var label = dto.Instance.Status.Substatus?.Label;
 
-        if (label == null) return null;
+        if (label == null || label.IsEmpty()) return null;
         
         var labelLocalized = dto.ApplicationTexts
             .Translations
