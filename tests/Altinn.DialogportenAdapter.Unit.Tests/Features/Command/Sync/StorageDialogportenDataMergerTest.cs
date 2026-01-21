@@ -98,9 +98,9 @@ public class StorageDialogportenDataMergerTest
             },
             Instance: new Instance
             {
-                Created = new DateTime(2000, 1, 1, 1, 1, 1),
+                Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                 CreatedBy = "Me",
-                LastChanged = new DateTime(2000, 1, 1, 1, 1, 2),
+                LastChanged = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
                 LastChangedBy = "AlsoMe",
                 Id = "id",
                 InstanceOwner = new InstanceOwner
@@ -140,8 +140,8 @@ public class StorageDialogportenDataMergerTest
             Process = null,
             PrecedingProcess = null,
             ExpiresAt = null,
-            CreatedAt = new DateTime(2000, 1, 1, 1, 1, 1),
-            UpdatedAt = new DateTime(2000, 1, 1, 1, 1, 2),
+            CreatedAt = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+            UpdatedAt = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
             Status = DialogStatus.InProgress,
             SystemLabel = SystemLabel.Default,
             ServiceOwnerContext = new ServiceOwnerContext
@@ -290,9 +290,9 @@ public class StorageDialogportenDataMergerTest
             },
             Instance: new Instance
             {
-                Created = new DateTime(2000, 1, 1, 1, 1, 1),
+                Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                 CreatedBy = "Me",
-                LastChanged = new DateTime(2000, 1, 1, 1, 1, 2),
+                LastChanged = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
                 LastChangedBy = "Me",
                 Id = "id",
                 InstanceOwner = new InstanceOwner
@@ -337,8 +337,8 @@ public class StorageDialogportenDataMergerTest
             Process = null,
             PrecedingProcess = null,
             ExpiresAt = null,
-            CreatedAt = new DateTime(2000, 1, 1, 1, 1, 1),
-            UpdatedAt = new DateTime(2000, 1, 1, 1, 1, 2),
+            CreatedAt = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+            UpdatedAt = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
             Status = DialogStatus.InProgress,
             SystemLabel = SystemLabel.Default,
             ServiceOwnerContext = new ServiceOwnerContext
@@ -452,9 +452,9 @@ public class StorageDialogportenDataMergerTest
             },
             Instance: new Instance
             {
-                Created = new DateTime(2000, 1, 1, 1, 1, 1),
+                Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                 CreatedBy = "Me",
-                LastChanged = new DateTime(2000, 1, 1, 1, 1, 2),
+                LastChanged = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
                 LastChangedBy = "Me",
                 Id = "id",
                 InstanceOwner = new InstanceOwner
@@ -500,8 +500,8 @@ public class StorageDialogportenDataMergerTest
             Process = null,
             PrecedingProcess = null,
             ExpiresAt = null,
-            CreatedAt = new DateTime(2000, 1, 1, 1, 1, 1),
-            UpdatedAt = new DateTime(2000, 1, 1, 1, 1, 2),
+            CreatedAt = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+            UpdatedAt = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
             Status = DialogStatus.InProgress,
             SystemLabel = SystemLabel.Default,
             ServiceOwnerContext = new ServiceOwnerContext
@@ -613,9 +613,9 @@ public class StorageDialogportenDataMergerTest
             },
             Instance: new Instance
             {
-                Created = new DateTime(2000, 1, 1, 1, 1, 1),
+                Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                 CreatedBy = "Me",
-                LastChanged = new DateTime(2000, 1, 1, 1, 1, 2),
+                LastChanged = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
                 LastChangedBy = "Me",
                 Id = "id",
                 InstanceOwner = new InstanceOwner
@@ -655,8 +655,8 @@ public class StorageDialogportenDataMergerTest
             Process = null,
             PrecedingProcess = null,
             ExpiresAt = null,
-            CreatedAt = new DateTime(2000, 1, 1, 1, 1, 1),
-            UpdatedAt = new DateTime(2000, 1, 1, 1, 1, 2),
+            CreatedAt = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+            UpdatedAt = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
             Status = DialogStatus.InProgress,
             SystemLabel = SystemLabel.Default,
             ServiceOwnerContext = new ServiceOwnerContext
@@ -761,9 +761,9 @@ public class StorageDialogportenDataMergerTest
             },
             Instance: new Instance
             {
-                Created = new DateTime(2000, 1, 1, 1, 1, 1),
+                Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                 CreatedBy = "Me",
-                LastChanged = new DateTime(2000, 1, 1, 1, 1, 2),
+                LastChanged = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
                 LastChangedBy = "Me",
                 Id = "id",
                 InstanceOwner = new InstanceOwner
@@ -803,8 +803,8 @@ public class StorageDialogportenDataMergerTest
             Process = null,
             PrecedingProcess = null,
             ExpiresAt = null,
-            CreatedAt = new DateTime(2000, 1, 1, 1, 1, 1),
-            UpdatedAt = new DateTime(2000, 1, 1, 1, 1, 2),
+            CreatedAt = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+            UpdatedAt = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
             Status = DialogStatus.InProgress,
             SystemLabel = SystemLabel.Default,
             ServiceOwnerContext = new ServiceOwnerContext
@@ -904,7 +904,7 @@ public class StorageDialogportenDataMergerTest
                     new InstanceEvent
                     {
                         Id = Guid.Parse("019bc71b-eaf7-7fdf-a7ec-f85248d2293c"),
-                        Created = new DateTime(2001, 1, 1, 1, 1, 1),
+                        Created = new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                         EventType = nameof(InstanceEventType.Created),
                         User = new PlatformUser
                         {
@@ -914,7 +914,7 @@ public class StorageDialogportenDataMergerTest
                     new InstanceEvent
                     {
                         Id = Guid.Parse("4ef9d179-2d4b-403f-9fcc-6f7cd619f12e"),
-                        Created = new DateTime(2001, 1, 1, 1, 1, 2),
+                        Created = new DateTime(2001, 1, 1, 1, 1, 2, DateTimeKind.Utc),
                         EventType = nameof(InstanceEventType.Deleted),
                         User = new PlatformUser
                         {
@@ -924,7 +924,7 @@ public class StorageDialogportenDataMergerTest
                     new InstanceEvent
                     {
                         Id = Guid.Parse("b26a5762-a719-48fc-aa11-6b89c409264b"),
-                        Created = new DateTime(2001, 1, 1, 1, 1, 3),
+                        Created = new DateTime(2001, 1, 1, 1, 1, 3, DateTimeKind.Utc),
                         EventType = nameof(InstanceEventType.Undeleted),
                         User = new PlatformUser
                         {
@@ -935,7 +935,7 @@ public class StorageDialogportenDataMergerTest
                     new InstanceEvent
                     {
                         Id = Guid.Parse("79a36e66-dc26-4f92-a462-0522af8f17d5"),
-                        Created = new DateTime(2001, 1, 1, 1, 1, 4),
+                        Created = new DateTime(2001, 1, 1, 1, 1, 4, DateTimeKind.Utc),
                         EventType = nameof(InstanceEventType.SentToSign),
                         User = new PlatformUser
                         {
@@ -946,7 +946,7 @@ public class StorageDialogportenDataMergerTest
                     new InstanceEvent
                     {
                         Id = Guid.Parse("f880f2d0-2b70-4875-8547-e747144f5952"),
-                        Created = new DateTime(2001, 1, 1, 1, 1, 5),
+                        Created = new DateTime(2001, 1, 1, 1, 1, 5, DateTimeKind.Utc),
                         EventType = nameof(InstanceEventType.Signed),
                         User = new PlatformUser
                         {
@@ -957,7 +957,7 @@ public class StorageDialogportenDataMergerTest
                     new InstanceEvent
                     {
                         Id = Guid.Parse("5a0fd83c-ac18-47fd-bc9b-c5efc2e93d61"),
-                        Created = new DateTime(2001, 1, 1, 1, 1, 6),
+                        Created = new DateTime(2001, 1, 1, 1, 1, 6, DateTimeKind.Utc),
                         EventType = nameof(InstanceEventType.SentToPayment),
                         User = new PlatformUser
                         {
@@ -967,7 +967,7 @@ public class StorageDialogportenDataMergerTest
                     new InstanceEvent
                     {
                         Id = Guid.Parse("5e9e8c0f-c417-4d0a-aa34-c19bb45c358b"),
-                        Created = new DateTime(2001, 1, 1, 1, 1, 7),
+                        Created = new DateTime(2001, 1, 1, 1, 1, 7, DateTimeKind.Utc),
                         EventType = nameof(InstanceEventType.SentToFormFill),
                         User = new PlatformUser
                         {
@@ -977,7 +977,7 @@ public class StorageDialogportenDataMergerTest
                     new InstanceEvent
                     {
                         Id = Guid.Parse("001a6e3c-5046-4e41-a83d-b5a3ed22afb1"),
-                        Created = new DateTime(2001, 1, 1, 1, 1, 8),
+                        Created = new DateTime(2001, 1, 1, 1, 1, 8, DateTimeKind.Utc),
                         EventType = nameof(InstanceEventType.SentToSendIn),
                         User = new PlatformUser
                         {
@@ -987,7 +987,7 @@ public class StorageDialogportenDataMergerTest
                     new InstanceEvent
                     {
                         Id = Guid.Parse("6c5532fd-42b8-4fe6-aebe-62ef9e035791"),
-                        Created = new DateTime(2001, 1, 1, 1, 1, 9),
+                        Created = new DateTime(2001, 1, 1, 1, 1, 9, DateTimeKind.Utc),
                         EventType = nameof(InstanceEventType.Submited),
                         User = new PlatformUser
                         {
@@ -998,9 +998,9 @@ public class StorageDialogportenDataMergerTest
             },
             Instance: new Instance
             {
-                Created = new DateTime(2000, 1, 1, 1, 1, 1),
+                Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                 CreatedBy = "Me",
-                LastChanged = new DateTime(2000, 1, 1, 1, 1, 2),
+                LastChanged = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
                 LastChangedBy = "Me",
                 Id = "id",
                 InstanceOwner = new InstanceOwner
@@ -1042,8 +1042,8 @@ public class StorageDialogportenDataMergerTest
                 Process = null,
                 PrecedingProcess = null,
                 ExpiresAt = null,
-                CreatedAt = new DateTime(2000, 1, 1, 1, 1, 1),
-                UpdatedAt = new DateTime(2000, 1, 1, 1, 1, 2),
+                CreatedAt = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+                UpdatedAt = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
                 Status = DialogStatus.Draft,
                 SystemLabel = SystemLabel.Default,
                 ServiceOwnerContext = new ServiceOwnerContext
@@ -1120,8 +1120,8 @@ public class StorageDialogportenDataMergerTest
                 [
                     new ActivityDto
                     {
-                        Id = Guid.Parse("00e3c7a8-2248-7fdf-a7ec-f85248d2293c"),
-                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 1),
+                        Id = Guid.Parse("00e3c7df-10c8-7fdf-a7ec-f85248d2293c"),
+                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                         ExtendedType = null,
                         Type = DialogActivityType.DialogCreated,
                         TransmissionId = null,
@@ -1135,8 +1135,8 @@ public class StorageDialogportenDataMergerTest
                     },
                     new ActivityDto
                     {
-                        Id = Guid.Parse("00e3c7a8-2630-703f-9fcc-6f7cd619f12e"),
-                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 2),
+                        Id = Guid.Parse("00e3c7df-14b0-703f-9fcc-6f7cd619f12e"),
+                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 2, DateTimeKind.Utc),
                         ExtendedType = null,
                         Type = DialogActivityType.DialogDeleted,
                         TransmissionId = null,
@@ -1150,8 +1150,8 @@ public class StorageDialogportenDataMergerTest
                     },
                     new ActivityDto
                     {
-                        Id = Guid.Parse("00e3c7a8-2a18-78fc-aa11-6b89c409264b"),
-                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 3),
+                        Id = Guid.Parse("00e3c7df-1898-78fc-aa11-6b89c409264b"),
+                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 3, DateTimeKind.Utc),
                         ExtendedType = null,
                         Type = DialogActivityType.DialogRestored,
                         TransmissionId = null,
@@ -1165,8 +1165,8 @@ public class StorageDialogportenDataMergerTest
                     },
                     new ActivityDto
                     {
-                        Id = Guid.Parse("00e3c7a8-2e00-7f92-a462-0522af8f17d5"),
-                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 4),
+                        Id = Guid.Parse("00e3c7df-1c80-7f92-a462-0522af8f17d5"),
+                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 4, DateTimeKind.Utc),
                         ExtendedType = null,
                         Type = DialogActivityType.SentToSigning,
                         TransmissionId = null,
@@ -1180,8 +1180,8 @@ public class StorageDialogportenDataMergerTest
                     },
                     new ActivityDto
                     {
-                        Id = Guid.Parse("00e3c7a8-31e8-7875-8547-e747144f5952"),
-                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 5),
+                        Id = Guid.Parse("00e3c7df-2068-7875-8547-e747144f5952"),
+                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 5, DateTimeKind.Utc),
                         ExtendedType = null,
                         Type = DialogActivityType.SignatureProvided,
                         TransmissionId = null,
@@ -1195,8 +1195,8 @@ public class StorageDialogportenDataMergerTest
                     },
                     new ActivityDto
                     {
-                        Id = Guid.Parse("00e3c7a8-35d0-77fd-bc9b-c5efc2e93d61"),
-                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 6),
+                        Id = Guid.Parse("00e3c7df-2450-77fd-bc9b-c5efc2e93d61"),
+                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 6, DateTimeKind.Utc),
                         ExtendedType = null,
                         Type = DialogActivityType.SentToPayment,
                         TransmissionId = null,
@@ -1210,8 +1210,8 @@ public class StorageDialogportenDataMergerTest
                     },
                     new ActivityDto
                     {
-                        Id = Guid.Parse("00e3c7a8-39b8-7d0a-aa34-c19bb45c358b"),
-                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 7),
+                        Id = Guid.Parse("00e3c7df-2838-7d0a-aa34-c19bb45c358b"),
+                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 7, DateTimeKind.Utc),
                         ExtendedType = null,
                         Type = DialogActivityType.SentToFormFill,
                         TransmissionId = null,
@@ -1225,8 +1225,8 @@ public class StorageDialogportenDataMergerTest
                     },
                     new ActivityDto
                     {
-                        Id = Guid.Parse("00e3c7a8-3da0-7e41-a83d-b5a3ed22afb1"),
-                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 8),
+                        Id = Guid.Parse("00e3c7df-2c20-7e41-a83d-b5a3ed22afb1"),
+                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 8, DateTimeKind.Utc),
                         ExtendedType = null,
                         Type = DialogActivityType.SentToSendIn,
                         TransmissionId = null,
@@ -1240,8 +1240,8 @@ public class StorageDialogportenDataMergerTest
                     },
                     new ActivityDto
                     {
-                        Id = Guid.Parse("00e3c7a8-4188-7fe6-aebe-62ef9e035791"),
-                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 9),
+                        Id = Guid.Parse("00e3c7df-3008-7fe6-aebe-62ef9e035791"),
+                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 9, DateTimeKind.Utc),
                         ExtendedType = null,
                         Type = DialogActivityType.FormSubmitted,
                         TransmissionId = null,
@@ -1388,7 +1388,7 @@ public class StorageDialogportenDataMergerTest
                     new InstanceEvent
                     {
                         Id = Guid.Parse("019bc71b-eaf7-7fdf-a7ec-f85248d2293c"),
-                        Created = new DateTime(2001, 1, 1, 1, 1, 1),
+                        Created = new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                         EventType = nameof(InstanceEventType.Created),
                         User = new PlatformUser
                         {
@@ -1399,9 +1399,9 @@ public class StorageDialogportenDataMergerTest
             },
             Instance: new Instance
             {
-                Created = new DateTime(2000, 1, 1, 1, 1, 1),
+                Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                 CreatedBy = "Me",
-                LastChanged = new DateTime(2000, 1, 1, 1, 1, 2),
+                LastChanged = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
                 LastChangedBy = "Me",
                 Id = "id",
                 InstanceOwner = new InstanceOwner
@@ -1420,9 +1420,9 @@ public class StorageDialogportenDataMergerTest
                 [
                     new DataElement
                     {
-                        Created = new DateTime(2000, 1, 1, 1, 1, 1),
+                        Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                         CreatedBy = "me",
-                        LastChanged = new DateTime(2000, 1, 1, 1, 1, 1),
+                        LastChanged = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                         LastChangedBy = "123456789",
                         Id = "019bd57e-ce5e-74ed-8130-3a1ac8af3d91",
                         InstanceGuid = "019bd57f-7146-73fa-9292-e6401d8ef5e8",
@@ -1457,9 +1457,9 @@ public class StorageDialogportenDataMergerTest
                     },
                     new DataElement
                     {
-                        Created = new DateTime(2000, 1, 1, 1, 1, 1),
+                        Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                         CreatedBy = "me",
-                        LastChanged = new DateTime(2000, 1, 1, 1, 1, 1),
+                        LastChanged = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                         LastChangedBy = "123456789",
                         Id = "019bd5eb-4239-7a40-a823-7735059ef136",
                         InstanceGuid = "019bd57f-7146-73fa-9292-e6401d8ef5e8",
@@ -1494,9 +1494,9 @@ public class StorageDialogportenDataMergerTest
                     },
                     new DataElement
                     {
-                        Created = new DateTime(2000, 1, 1, 1, 1, 1),
+                        Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                         CreatedBy = "me",
-                        LastChanged = new DateTime(2000, 1, 1, 1, 1, 1),
+                        LastChanged = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                         LastChangedBy = "123456789",
                         Id = "019bd5eb-62e2-711d-b79f-835d26cd1a58",
                         InstanceGuid = "019bd57f-7146-73fa-9292-e6401d8ef5e8",
@@ -1531,9 +1531,9 @@ public class StorageDialogportenDataMergerTest
                     },
                     new DataElement
                     {
-                        Created = new DateTime(2000, 1, 1, 1, 1, 1),
+                        Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                         CreatedBy = "me",
-                        LastChanged = new DateTime(2000, 1, 1, 1, 1, 1),
+                        LastChanged = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                         LastChangedBy = "123456789",
                         Id = "019bd5eb-97ba-79a8-9f37-3ef8f82b2d0b",
                         InstanceGuid = "019bd57f-7146-73fa-9292-e6401d8ef5e8",
@@ -1568,9 +1568,9 @@ public class StorageDialogportenDataMergerTest
                     },
                     new DataElement
                     {
-                        Created = new DateTime(2000, 1, 1, 1, 1, 1),
+                        Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                         CreatedBy = "me",
-                        LastChanged = new DateTime(2000, 1, 1, 1, 1, 1),
+                        LastChanged = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                         LastChangedBy = "123456789",
                         Id = "019bd5eb-bd4f-7176-948e-79921affe066",
                         InstanceGuid = "019bd57f-7146-73fa-9292-e6401d8ef5e8",
@@ -1630,8 +1630,8 @@ public class StorageDialogportenDataMergerTest
                 Process = null,
                 PrecedingProcess = null,
                 ExpiresAt = null,
-                CreatedAt = new DateTime(2000, 1, 1, 1, 1, 1),
-                UpdatedAt = new DateTime(2000, 1, 1, 1, 1, 2),
+                CreatedAt = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+                UpdatedAt = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
                 Status = DialogStatus.Draft,
                 SystemLabel = SystemLabel.Default,
                 ServiceOwnerContext = new ServiceOwnerContext
@@ -1668,7 +1668,7 @@ public class StorageDialogportenDataMergerTest
                 [
                     new AttachmentDto
                     {
-                        Id = Guid.Parse("00dc6ad0-9a48-74ed-8130-3a1ac8af3d91"),
+                        Id = Guid.Parse("00dc6b07-88c8-74ed-8130-3a1ac8af3d91"),
                         DisplayName =
                         [
                             new LocalizationDto
@@ -1681,7 +1681,7 @@ public class StorageDialogportenDataMergerTest
                         [
                             new AttachmentUrlDto
                             {
-                                Id = Guid.Parse("00dc6ad0-9a48-74ed-8130-3a1ac8af3d91"),
+                                Id = Guid.Parse("00dc6b07-88c8-74ed-8130-3a1ac8af3d91"),
                                 Url =
                                     "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Fplatform.localhost%3FdontChooseReportee%3Dtrue",
                                 MediaType = "application/pdf",
@@ -1691,7 +1691,7 @@ public class StorageDialogportenDataMergerTest
                     },
                     new AttachmentDto
                     {
-                        Id = Guid.Parse("00dc6ad0-9a48-7a40-a823-7735059ef136"),
+                        Id = Guid.Parse("00dc6b07-88c8-7a40-a823-7735059ef136"),
                         DisplayName =
                         [
                             new LocalizationDto
@@ -1704,7 +1704,7 @@ public class StorageDialogportenDataMergerTest
                         [
                             new AttachmentUrlDto
                             {
-                                Id = Guid.Parse("00dc6ad0-9a48-7a40-a823-7735059ef136"),
+                                Id = Guid.Parse("00dc6b07-88c8-7a40-a823-7735059ef136"),
                                 Url =
                                     "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Fplatform.localhost%3FdontChooseReportee%3Dtrue",
                                 MediaType = "application/pdf",
@@ -1714,7 +1714,7 @@ public class StorageDialogportenDataMergerTest
                     },
                     new AttachmentDto
                     {
-                        Id = Guid.Parse("00dc6ad0-9a48-711d-b79f-835d26cd1a58"),
+                        Id = Guid.Parse("00dc6b07-88c8-711d-b79f-835d26cd1a58"),
                         DisplayName =
                         [
                             new LocalizationDto
@@ -1727,7 +1727,7 @@ public class StorageDialogportenDataMergerTest
                         [
                             new AttachmentUrlDto
                             {
-                                Id = Guid.Parse("00dc6ad0-9a48-711d-b79f-835d26cd1a58"),
+                                Id = Guid.Parse("00dc6b07-88c8-711d-b79f-835d26cd1a58"),
                                 Url = "http://platform.localhost",
                                 MediaType = "application/pdf",
                                 ConsumerType = AttachmentUrlConsumerType.Api
@@ -1736,7 +1736,7 @@ public class StorageDialogportenDataMergerTest
                     },
                     new AttachmentDto
                     {
-                        Id = Guid.Parse("00dc6ad0-9a48-79a8-9f37-3ef8f82b2d0b"),
+                        Id = Guid.Parse("00dc6b07-88c8-79a8-9f37-3ef8f82b2d0b"),
                         DisplayName =
                         [
                             new LocalizationDto
@@ -1749,7 +1749,7 @@ public class StorageDialogportenDataMergerTest
                         [
                             new AttachmentUrlDto
                             {
-                                Id = Guid.Parse("00dc6ad0-9a48-79a8-9f37-3ef8f82b2d0b"),
+                                Id = Guid.Parse("00dc6b07-88c8-79a8-9f37-3ef8f82b2d0b"),
                                 Url = "http://platform.localhost",
                                 MediaType = "application/pdf",
                                 ConsumerType = AttachmentUrlConsumerType.Api
@@ -1758,7 +1758,7 @@ public class StorageDialogportenDataMergerTest
                     },
                     new AttachmentDto
                     {
-                        Id = Guid.Parse("00dc6ad0-9a48-7176-948e-79921affe066"),
+                        Id = Guid.Parse("00dc6b07-88c8-7176-948e-79921affe066"),
                         DisplayName =
                         [
                             new LocalizationDto
@@ -1771,7 +1771,7 @@ public class StorageDialogportenDataMergerTest
                         [
                             new AttachmentUrlDto
                             {
-                                Id = Guid.Parse("00dc6ad0-9a48-7176-948e-79921affe066"),
+                                Id = Guid.Parse("00dc6b07-88c8-7176-948e-79921affe066"),
                                 Url =
                                     "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Fplatform.localhost%3FdontChooseReportee%3Dtrue",
                                 MediaType = "application/pdf",
@@ -1824,8 +1824,8 @@ public class StorageDialogportenDataMergerTest
                 [
                     new ActivityDto
                     {
-                        Id = Guid.Parse("00e3c7a8-2248-7fdf-a7ec-f85248d2293c"),
-                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 1),
+                        Id = Guid.Parse("00e3c7df-10c8-7fdf-a7ec-f85248d2293c"),
+                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                         ExtendedType = null,
                         Type = DialogActivityType.DialogCreated,
                         TransmissionId = null,
@@ -1975,7 +1975,7 @@ public class StorageDialogportenDataMergerTest
                     new InstanceEvent
                     {
                         Id = Guid.Parse("019bc71b-eaf7-7fdf-a7ec-f85248d2293c"),
-                        Created = new DateTime(2001, 1, 1, 1, 1, 1),
+                        Created = new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                         EventType = nameof(InstanceEventType.Created),
                         User = new PlatformUser
                         {
@@ -1986,9 +1986,9 @@ public class StorageDialogportenDataMergerTest
             },
             Instance: new Instance
             {
-                Created = new DateTime(2000, 1, 1, 1, 1, 1),
+                Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                 CreatedBy = "Me",
-                LastChanged = new DateTime(2000, 1, 1, 1, 1, 2),
+                LastChanged = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
                 LastChangedBy = "Me",
                 Id = "id",
                 InstanceOwner = new InstanceOwner
@@ -2007,9 +2007,9 @@ public class StorageDialogportenDataMergerTest
                 [
                     new DataElement
                     {
-                        Created = new DateTime(2000, 1, 1, 1, 1, 1),
+                        Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                         CreatedBy = "me",
-                        LastChanged = new DateTime(2000, 1, 1, 1, 1, 1),
+                        LastChanged = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                         LastChangedBy = "123456789",
                         Id = "019bd57e-ce5e-74ed-8130-3a1ac8af3d91",
                         InstanceGuid = "019bd57f-7146-73fa-9292-e6401d8ef5e8",
@@ -2044,9 +2044,9 @@ public class StorageDialogportenDataMergerTest
                     },
                     new DataElement
                     {
-                        Created = new DateTime(2000, 1, 1, 1, 1, 1),
+                        Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                         CreatedBy = "me",
-                        LastChanged = new DateTime(2000, 1, 1, 1, 1, 1),
+                        LastChanged = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                         LastChangedBy = "123456789",
                         Id = "019bd5eb-4239-7a40-a823-7735059ef136",
                         InstanceGuid = "019bd57f-7146-73fa-9292-e6401d8ef5e8",
@@ -2081,9 +2081,9 @@ public class StorageDialogportenDataMergerTest
                     },
                     new DataElement
                     {
-                        Created = new DateTime(2000, 1, 1, 1, 1, 1),
+                        Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                         CreatedBy = "me",
-                        LastChanged = new DateTime(2000, 1, 1, 1, 1, 1),
+                        LastChanged = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                         LastChangedBy = "123456789",
                         Id = "019bd5eb-62e2-711d-b79f-835d26cd1a58",
                         InstanceGuid = "019bd57f-7146-73fa-9292-e6401d8ef5e8",
@@ -2118,9 +2118,9 @@ public class StorageDialogportenDataMergerTest
                     },
                     new DataElement
                     {
-                        Created = new DateTime(2000, 1, 1, 1, 1, 1),
+                        Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                         CreatedBy = "me",
-                        LastChanged = new DateTime(2000, 1, 1, 1, 1, 1),
+                        LastChanged = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                         LastChangedBy = "123456789",
                         Id = "019bd5eb-97ba-79a8-9f37-3ef8f82b2d0b",
                         InstanceGuid = "019bd57f-7146-73fa-9292-e6401d8ef5e8",
@@ -2155,9 +2155,9 @@ public class StorageDialogportenDataMergerTest
                     },
                     new DataElement
                     {
-                        Created = new DateTime(2000, 1, 1, 1, 1, 1),
+                        Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                         CreatedBy = "me",
-                        LastChanged = new DateTime(2000, 1, 1, 1, 1, 1),
+                        LastChanged = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                         LastChangedBy = "123456789",
                         Id = "019bd5eb-bd4f-7176-948e-79921affe066",
                         InstanceGuid = "019bd57f-7146-73fa-9292-e6401d8ef5e8",
@@ -2216,8 +2216,8 @@ public class StorageDialogportenDataMergerTest
                 Process = null,
                 PrecedingProcess = null,
                 ExpiresAt = null,
-                CreatedAt = new DateTime(2000, 1, 1, 1, 1, 1),
-                UpdatedAt = new DateTime(2000, 1, 1, 1, 1, 2),
+                CreatedAt = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+                UpdatedAt = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
                 Status = DialogStatus.Draft,
                 SystemLabel = SystemLabel.Default,
                 ServiceOwnerContext = new ServiceOwnerContext
@@ -2254,7 +2254,7 @@ public class StorageDialogportenDataMergerTest
                 [
                     new AttachmentDto
                     {
-                        Id = Guid.Parse("00dc6ad0-9a48-74ed-8130-3a1ac8af3d91"),
+                        Id = Guid.Parse("00dc6b07-88c8-74ed-8130-3a1ac8af3d91"),
                         DisplayName =
                         [
                             new LocalizationDto
@@ -2267,7 +2267,7 @@ public class StorageDialogportenDataMergerTest
                         [
                             new AttachmentUrlDto
                             {
-                                Id = Guid.Parse("00dc6ad0-9a48-74ed-8130-3a1ac8af3d91"),
+                                Id = Guid.Parse("00dc6b07-88c8-74ed-8130-3a1ac8af3d91"),
                                 Url =
                                     "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Fplatform.localhost%3FdontChooseReportee%3Dtrue",
                                 MediaType = "application/pdf",
@@ -2277,7 +2277,7 @@ public class StorageDialogportenDataMergerTest
                     },
                     new AttachmentDto
                     {
-                        Id = Guid.Parse("00dc6ad0-9a48-711d-b79f-835d26cd1a58"),
+                        Id = Guid.Parse("00dc6b07-88c8-711d-b79f-835d26cd1a58"),
                         DisplayName =
                         [
                             new LocalizationDto
@@ -2290,7 +2290,7 @@ public class StorageDialogportenDataMergerTest
                         [
                             new AttachmentUrlDto
                             {
-                                Id = Guid.Parse("00dc6ad0-9a48-711d-b79f-835d26cd1a58"),
+                                Id = Guid.Parse("00dc6b07-88c8-711d-b79f-835d26cd1a58"),
                                 Url = "http://platform.localhost",
                                 MediaType = "application/pdf",
                                 ConsumerType = AttachmentUrlConsumerType.Api
@@ -2299,7 +2299,7 @@ public class StorageDialogportenDataMergerTest
                     },
                     new AttachmentDto
                     {
-                        Id = Guid.Parse("00dc6ad0-9a48-79a8-9f37-3ef8f82b2d0b"),
+                        Id = Guid.Parse("00dc6b07-88c8-79a8-9f37-3ef8f82b2d0b"),
                         DisplayName =
                         [
                             new LocalizationDto
@@ -2312,7 +2312,7 @@ public class StorageDialogportenDataMergerTest
                         [
                             new AttachmentUrlDto
                             {
-                                Id = Guid.Parse("00dc6ad0-9a48-79a8-9f37-3ef8f82b2d0b"),
+                                Id = Guid.Parse("00dc6b07-88c8-79a8-9f37-3ef8f82b2d0b"),
                                 Url = "http://platform.localhost",
                                 MediaType = "application/pdf",
                                 ConsumerType = AttachmentUrlConsumerType.Api
@@ -2321,7 +2321,7 @@ public class StorageDialogportenDataMergerTest
                     },
                     new AttachmentDto
                     {
-                        Id = Guid.Parse("00dc6ad0-9a48-7176-948e-79921affe066"),
+                        Id = Guid.Parse("00dc6b07-88c8-7176-948e-79921affe066"),
                         DisplayName =
                         [
                             new LocalizationDto
@@ -2334,7 +2334,7 @@ public class StorageDialogportenDataMergerTest
                         [
                             new AttachmentUrlDto
                             {
-                                Id = Guid.Parse("00dc6ad0-9a48-7176-948e-79921affe066"),
+                                Id = Guid.Parse("00dc6b07-88c8-7176-948e-79921affe066"),
                                 Url =
                                     "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Fplatform.localhost%3FdontChooseReportee%3Dtrue",
                                 MediaType = "application/pdf",
@@ -2387,8 +2387,8 @@ public class StorageDialogportenDataMergerTest
                 [
                     new ActivityDto
                     {
-                        Id = Guid.Parse("00e3c7a8-2248-7fdf-a7ec-f85248d2293c"),
-                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 1),
+                        Id = Guid.Parse("00e3c7df-10c8-7fdf-a7ec-f85248d2293c"),
+                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                         ExtendedType = null,
                         Type = DialogActivityType.DialogCreated,
                         TransmissionId = null,
@@ -2486,7 +2486,7 @@ public class StorageDialogportenDataMergerTest
                     new InstanceEvent
                     {
                         Id = Guid.Parse("019bc71b-eaf7-7fdf-a7ec-f85248d2293c"),
-                        Created = new DateTime(2001, 1, 1, 1, 1, 1),
+                        Created = new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                         EventType = nameof(InstanceEventType.Created),
                         User = new PlatformUser
                         {
@@ -2496,7 +2496,7 @@ public class StorageDialogportenDataMergerTest
                     new InstanceEvent
                     {
                         Id = Guid.Parse("019bc71b-eaf7-7fdf-a7ec-f85248d2293c"),
-                        Created = new DateTime(2001, 2, 1, 1, 1, 1),
+                        Created = new DateTime(2001, 2, 1, 1, 1, 1, DateTimeKind.Utc),
                         EventType = nameof(InstanceEventType.Submited),
                         User = new PlatformUser
                         {
@@ -2506,7 +2506,7 @@ public class StorageDialogportenDataMergerTest
                     new InstanceEvent
                     {
                         Id = Guid.Parse("019bc71b-eaf7-7fdf-a7ec-f85248d2293c"),
-                        Created = new DateTime(2002, 2, 1, 1, 1, 1),
+                        Created = new DateTime(2002, 2, 1, 1, 1, 1, DateTimeKind.Utc),
                         EventType = nameof(InstanceEventType.Submited),
                         User = new PlatformUser
                         {
@@ -2517,9 +2517,9 @@ public class StorageDialogportenDataMergerTest
             },
             Instance: new Instance
             {
-                Created = new DateTime(2000, 1, 1, 1, 1, 1),
+                Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                 CreatedBy = "Me",
-                LastChanged = new DateTime(2000, 2, 1, 1, 1, 1),
+                LastChanged = new DateTime(2000, 2, 1, 1, 1, 1, DateTimeKind.Utc),
                 LastChangedBy = "Me",
                 Id = "id",
                 InstanceOwner = new InstanceOwner
@@ -2538,9 +2538,9 @@ public class StorageDialogportenDataMergerTest
                 [
                     new DataElement
                     {
-                        Created = new DateTime(2000, 1, 1, 1, 1, 1),
+                        Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                         CreatedBy = "me",
-                        LastChanged = new DateTime(2000, 2, 1, 1, 1, 1),
+                        LastChanged = new DateTime(2000, 2, 1, 1, 1, 1, DateTimeKind.Utc),
                         LastChangedBy = "123456789",
                         Id = "019bd57e-ce5e-74ed-8130-3a1ac8af3d91",
                         InstanceGuid = "019bd57f-7146-73fa-9292-e6401d8ef5e8",
@@ -2575,9 +2575,9 @@ public class StorageDialogportenDataMergerTest
                     },
                     new DataElement
                     {
-                        Created = new DateTime(2001, 1, 1, 1, 1, 1),
+                        Created = new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                         CreatedBy = "me",
-                        LastChanged = new DateTime(2001, 2, 1, 1, 1, 1),
+                        LastChanged = new DateTime(2001, 2, 1, 1, 1, 1, DateTimeKind.Utc),
                         LastChangedBy = "12345678911",
                         Id = "019bd5eb-4239-7a40-a823-7735059ef136",
                         InstanceGuid = "019bd57f-7146-73fa-9292-e6401d8ef5e8",
@@ -2612,9 +2612,9 @@ public class StorageDialogportenDataMergerTest
                     },
                     new DataElement
                     {
-                        Created = new DateTime(2002, 1, 1, 1, 1, 1),
+                        Created = new DateTime(2002, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                         CreatedBy = "me",
-                        LastChanged = new DateTime(2002, 2, 1, 1, 1, 1),
+                        LastChanged = new DateTime(2002, 2, 1, 1, 1, 1, DateTimeKind.Utc),
                         LastChangedBy = "12345678911",
                         Id = "019bd5eb-62e2-711d-b79f-835d26cd1a58",
                         InstanceGuid = "019bd57f-7146-73fa-9292-e6401d8ef5e8",
@@ -2674,8 +2674,8 @@ public class StorageDialogportenDataMergerTest
                 Process = null,
                 PrecedingProcess = null,
                 ExpiresAt = null,
-                CreatedAt = new DateTime(2000, 1, 1, 1, 1, 1),
-                UpdatedAt = new DateTime(2000, 2, 1, 1, 1, 1),
+                CreatedAt = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+                UpdatedAt = new DateTime(2000, 2, 1, 1, 1, 1, DateTimeKind.Utc),
                 Status = DialogStatus.Draft,
                 SystemLabel = SystemLabel.Default,
                 ServiceOwnerContext = new ServiceOwnerContext
@@ -2712,7 +2712,7 @@ public class StorageDialogportenDataMergerTest
                 [
                     new AttachmentDto
                     {
-                        Id = Guid.Parse("00dc6ad0-9a48-74ed-8130-3a1ac8af3d91"),
+                        Id = Guid.Parse("00dc6b07-88c8-74ed-8130-3a1ac8af3d91"),
                         DisplayName =
                         [
                             new LocalizationDto
@@ -2725,7 +2725,7 @@ public class StorageDialogportenDataMergerTest
                         [
                             new AttachmentUrlDto
                             {
-                                Id = Guid.Parse("00dc6ad0-9a48-74ed-8130-3a1ac8af3d91"),
+                                Id = Guid.Parse("00dc6b07-88c8-74ed-8130-3a1ac8af3d91"),
                                 Url =
                                     "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Fplatform.localhost%3FdontChooseReportee%3Dtrue",
                                 MediaType = "application/pdf",
@@ -2738,8 +2738,8 @@ public class StorageDialogportenDataMergerTest
                 [
                     new TransmissionDto
                     {
-                        Id = Guid.Parse("00e4674d-4648-7fdf-a7ec-f85248d2293c"),
-                        CreatedAt = new DateTime(2001, 2, 1, 1, 1, 1),
+                        Id = Guid.Parse("00e46784-34c8-7fdf-a7ec-f85248d2293c"),
+                        CreatedAt = new DateTime(2001, 2, 1, 1, 1, 1, DateTimeKind.Utc),
                         AuthorizationAttribute = null,
                         ExtendedType = null,
                         RelatedTransmissionId = null,
@@ -2769,7 +2769,7 @@ public class StorageDialogportenDataMergerTest
                         [
                             new TransmissionAttachmentDto
                             {
-                                Id = Guid.Parse("00e3c7a8-2248-7b14-9f84-39bcaa8088c1"),
+                                Id = Guid.Parse("00e3c7df-10c8-7ed4-8a0e-eec48f079b01"),
                                 DisplayName =
                                 [
                                     new LocalizationDto
@@ -2791,7 +2791,7 @@ public class StorageDialogportenDataMergerTest
                             },
                             new TransmissionAttachmentDto
                             {
-                                Id = Guid.Parse("00e4674d-4648-7b33-acbb-81d5b97663bd"),
+                                Id = Guid.Parse("00e46784-34c8-70a1-9c93-8d4b2160d3a0"),
                                 DisplayName =
                                 [
                                     new LocalizationDto
@@ -2825,8 +2825,8 @@ public class StorageDialogportenDataMergerTest
                     },
                     new TransmissionDto
                     {
-                        Id = Guid.Parse("00ebbefe-7248-7fdf-a7ec-f85248d2293c"),
-                        CreatedAt = new DateTime(2002, 2, 1, 1, 1, 1),
+                        Id = Guid.Parse("00ebbf35-60c8-7fdf-a7ec-f85248d2293c"),
+                        CreatedAt = new DateTime(2002, 2, 1, 1, 1, 1, DateTimeKind.Utc),
                         AuthorizationAttribute = null,
                         ExtendedType = null,
                         RelatedTransmissionId = null,
@@ -2856,7 +2856,7 @@ public class StorageDialogportenDataMergerTest
                         [
                             new TransmissionAttachmentDto
                             {
-                                Id = Guid.Parse("00eb1f59-4e48-70f0-94df-db2257f255ab"),
+                                Id = Guid.Parse("00eb1f90-3cc8-796f-bb0b-b7ad01e5e0d5"),
                                 DisplayName =
                                 [
                                     new LocalizationDto
@@ -2878,7 +2878,7 @@ public class StorageDialogportenDataMergerTest
                             },
                             new TransmissionAttachmentDto
                             {
-                                Id = Guid.Parse("00ebbefe-7248-71c3-a716-f4b04aeb701d"),
+                                Id = Guid.Parse("00ebbf35-60c8-7938-809d-550d82c654fc"),
                                 DisplayName =
                                 [
                                     new LocalizationDto
@@ -2954,8 +2954,8 @@ public class StorageDialogportenDataMergerTest
                 [
                     new ActivityDto
                     {
-                        Id = Guid.Parse("00e3c7a8-2248-7fdf-a7ec-f85248d2293c"),
-                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 1),
+                        Id = Guid.Parse("00e3c7df-10c8-7fdf-a7ec-f85248d2293c"),
+                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc),
                         ExtendedType = null,
                         Type = DialogActivityType.DialogCreated,
                         TransmissionId = null,
@@ -2969,8 +2969,8 @@ public class StorageDialogportenDataMergerTest
                     },
                     new ActivityDto
                     {
-                        Id = Guid.Parse("00e4674d-4648-7fdf-a7ec-f85248d2293c"),
-                        CreatedAt = new DateTime(2001, 2, 1, 1, 1, 1),
+                        Id = Guid.Parse("00e46784-34c8-7fdf-a7ec-f85248d2293c"),
+                        CreatedAt = new DateTime(2001, 2, 1, 1, 1, 1, DateTimeKind.Utc),
                         ExtendedType = null,
                         Type = DialogActivityType.FormSubmitted,
                         TransmissionId = null,
@@ -2984,8 +2984,8 @@ public class StorageDialogportenDataMergerTest
                     },
                     new ActivityDto
                     {
-                        Id = Guid.Parse("00ebbefe-7248-7fdf-a7ec-f85248d2293c"),
-                        CreatedAt = new DateTime(2002, 2, 1, 1, 1, 1),
+                        Id = Guid.Parse("00ebbf35-60c8-7fdf-a7ec-f85248d2293c"),
+                        CreatedAt = new DateTime(2002, 2, 1, 1, 1, 1, DateTimeKind.Utc),
                         ExtendedType = null,
                         Type = DialogActivityType.FormSubmitted,
                         TransmissionId = null,
