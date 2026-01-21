@@ -217,7 +217,7 @@ public class StorageDialogportenDataMergerTest
         });
     }
 
-    [Fact(DisplayName = "Given a localized Substatus, Substatus should be mapped to ExtendedStatus in all languages")]
+    [Fact(DisplayName = "Given a localized Substatus, Substatus should be truncated and mapped to ExtendedStatus in all languages")]
     public async Task Merge_LocalizedSubstatus_MapsAllLanguagesToExtendedStatus()
     {
         var mergeDto = new MergeDto(
@@ -235,7 +235,7 @@ public class StorageDialogportenDataMergerTest
                         {
                             Language = "nb", Texts = new Dictionary<string, string>
                             {
-                                { "substatus.label", "Registrering av tiltak" },
+                                { "substatus.label", "Registrering av tiltak, og litt for lang tekst" },
                                 {
                                     "substatus.description",
                                     "øke sikkerheten og beredskapen i den digitale grunnmuren i sårbare kommuner og regioner gjennom målrettede tilskudd"
@@ -249,7 +249,7 @@ public class StorageDialogportenDataMergerTest
                         {
                             Language = "nn", Texts = new Dictionary<string, string>
                             {
-                                { "substatus.label", "Registrering av tiltak (nn)" },
+                                { "substatus.label", "Registrering av tiltak nn" },
                                 {
                                     "substatus.description",
                                     "Auke tryggleiken og beredskapen i den digitale grunnmuren i sårbare kommunar og regionar gjennom målretta tilskot"
@@ -369,8 +369,8 @@ public class StorageDialogportenDataMergerTest
                 {
                     Value =
                     [
-                        new LocalizationDto { LanguageCode = "nb", Value = "Registrering av tiltak" },
-                        new LocalizationDto { LanguageCode = "nn", Value = "Registrering av tiltak (nn)" },
+                        new LocalizationDto { LanguageCode = "nb", Value = "Registrering av tiltak, o" },
+                        new LocalizationDto { LanguageCode = "nn", Value = "Registrering av tiltak nn" },
                         new LocalizationDto { LanguageCode = "en", Value = "Registration of measures" }
                     ],
                     MediaType = "text/plain"
@@ -423,7 +423,7 @@ public class StorageDialogportenDataMergerTest
         });
     }
 
-    [Fact(DisplayName = "Given a non-localized Substatus, Substatus should be mapped to Extendedstatus in NB")]
+    [Fact(DisplayName = "Given a non-localized Substatus, Substatus should be truncated and mapped to Extendedstatus in NB")]
     public async Task Merge_SubstatusWithText_AssumesNorwegian()
     {
         var mergeDto = new MergeDto(
@@ -471,7 +471,7 @@ public class StorageDialogportenDataMergerTest
                 {
                     Substatus = new Substatus
                     {
-                        Label = "En substatus som vi antar er på norsk",
+                        Label = "En substatus som vi antar er på norsk og litt for lang",
                     }
                 },
                 CompleteConfirmations = [],
@@ -532,7 +532,7 @@ public class StorageDialogportenDataMergerTest
                 {
                     Value =
                     [
-                        new LocalizationDto { LanguageCode = "nb", Value = "En substatus som vi antar er på norsk" },
+                        new LocalizationDto { LanguageCode = "nb", Value = "En substatus som vi antar" },
                     ],
                     MediaType = "text/plain"
                 },

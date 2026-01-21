@@ -380,7 +380,7 @@ internal sealed class StorageDialogportenDataMerger
             ]
         };
     }
-    
+
     private static ContentValueDto? GetExtendedStatus(MergeDto dto)
     {
         var label = dto.Instance.Status.Substatus?.Label;
@@ -389,11 +389,19 @@ internal sealed class StorageDialogportenDataMerger
 
         var labelLocalized = dto.ApplicationTexts
             .Translations
-            .Where(e => e.Value.Texts.ContainsKey(label))
-            .Select(e => new LocalizationDto { LanguageCode = e.Key, Value = e.Value.Texts[label] })
-            .DefaultIfEmpty(new LocalizationDto { LanguageCode = "nb", Value = label })
+            .Where(t => t.Value.Texts.ContainsKey(label))
+            .Select(t => new LocalizationDto
+            {
+                LanguageCode = t.Key,
+                Value = t.Value.Texts[label].Truncate(Constants.ExtendedStatusMaxStringLength)
+            })
+            .DefaultIfEmpty(new LocalizationDto
+            {
+                LanguageCode = "nb",
+                Value = label.Truncate(Constants.ExtendedStatusMaxStringLength)
+            })
             .ToList();
-        
+
         return new ContentValueDto { Value = labelLocalized };
     }
 

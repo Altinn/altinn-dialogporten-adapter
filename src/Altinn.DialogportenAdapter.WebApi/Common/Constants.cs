@@ -7,6 +7,7 @@ namespace Altinn.DialogportenAdapter.WebApi.Common;
 internal static class Constants
 {
     public const int DefaultMaxStringLength = 255;
+    public const int ExtendedStatusMaxStringLength = 25;
 
     public const string InstanceDataValueDialogIdKey = "dialog.id";
     public const string InstanceDataValueDisableSyncKey = "dialog.disableAutomaticSync";
