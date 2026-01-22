@@ -1,3 +1,4 @@
+using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.Platform.Storage.Interface.Models;
 using ZiggyCreatures.Caching.Fusion;
@@ -47,6 +48,7 @@ internal sealed class ApplicationRepository(IApplicationsApi applicationsApi, IF
             Translations = responses
                 .Where(response => response.IsSuccessful)
                 .Select(response => response.Content!)
+                .Where(textResource => LanguageCodes.IsValidTwoLetterLanguageCode(textResource.Language))
                 .ToDictionary(textResource => textResource.Language, textResource => new ApplicationTextsTranslation
                 {
                     Language = textResource.Language,
