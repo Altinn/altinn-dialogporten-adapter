@@ -402,7 +402,7 @@ internal sealed class StorageDialogportenDataMerger
             })
             .ToList();
 
-        return new ContentValueDto { Value = labelLocalized };
+        return new ContentValueDto { Value = labelLocalized, MediaType = MediaTypes.PlainText };
     }
 
     private static bool IsPerformedBySo(DataElement data)
