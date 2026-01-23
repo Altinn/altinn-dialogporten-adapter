@@ -16,7 +16,7 @@ EXPOSE 5012
 
 COPY --from=build /app/out .
 
-RUN addgroup -g 3000 dotnet && adduser -u 1000 -G dotnet -D -s /bin/false dotnet
+RUN addgroup --gid 3000 dotnet && adduser --uid 1000 --ingroup dotnet --disabled-login --shell /bin/false dotnet
 USER dotnet
 RUN mkdir /tmp/logtelemetry
 
