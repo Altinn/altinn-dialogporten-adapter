@@ -18,7 +18,7 @@ public sealed record DialogportenAdapterSettings(
     AdapterSettings Adapter,
     AuthenticationSettings Authentication);
 
-public sealed record AuthenticationSettings(string JwtBearerWellKnown);
+public sealed record AuthenticationSettings(string JwtBearerWellKnown, bool RequireHttpsMetadata = true);
 
 public sealed record AdapterSettings(Uri BaseUri, AdapterFeatureFlagSettings? FeatureFlag = null)
 {

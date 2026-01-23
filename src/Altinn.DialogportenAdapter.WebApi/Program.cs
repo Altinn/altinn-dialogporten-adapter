@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Net;
 using Altinn.ApiClients.Dialogporten;
 using Altinn.ApiClients.Maskinporten.Extensions;
@@ -58,6 +57,8 @@ static void BuildAndRun(string[] args)
         .AddLocalDevelopmentSettings(builder.Environment);
 
     var settings = builder.Configuration.Get<Settings>()!;
+    CheckSettings(settings);
+
     builder.Services.AddOptions<Settings>().Bind(builder.Configuration);
 
     if (builder.Configuration.TryGetApplicationInsightsConnectionString(out var appInsightsConnectionString))
@@ -180,6 +181,7 @@ static void BuildAndRun(string[] args)
             .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
             {
                 options.MetadataAddress = settings.DialogportenAdapter.Authentication.JwtBearerWellKnown;
+                options.RequireHttpsMetadata = settings.DialogportenAdapter.Authentication.RequireHttpsMetadata;
                 options.MapInboundClaims = false;
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
@@ -350,3 +352,12 @@ ILoggerFactory CreateBootstrapLoggerFactory() => LoggerFactory.Create(builder =>
         options.SingleLine = true;
         options.TimestampFormat = "yyyy-MM-dd HH:mm:ss ";
     }));
+
+
+static void CheckSettings(Settings settings)
+{
+    if (!settings.DialogportenAdapter.Authentication.RequireHttpsMetadata)
+    {
+        Console.WriteLine("Warning: RequireHttpsMetadata is false, not allowed in production!");
+    }
+}
