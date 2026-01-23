@@ -2,7 +2,10 @@
 Altinn App Storage adapter that handles synchronization of instances to dialogs
 
 # How to run the docker-image locally
+
 Prerequisites
+- Dialogporten API runs on **http** port 5123
+- You have the required usersecrets for the application
 
 ```bash
 # Build the image
