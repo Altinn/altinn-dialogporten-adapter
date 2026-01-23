@@ -217,7 +217,277 @@ public class StorageDialogportenDataMergerTest
         });
     }
 
-    [Fact(DisplayName = "Given a localized Substatus, Substatus should be truncated and mapped to ExtendedStatus in all languages")]
+    [Fact(DisplayName = "Given two saves of a full MergeDto, should return the same DialogDto")]
+    public async Task Merge_FullMergeDtoMergedTwice_ReturnsTheSameDialogDto()
+    {
+        var mergeDto = new MergeDto(
+            Application: new Application
+            {
+                Created = new DateTime(1000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+                CreatedBy = "you",
+                LastChanged = new DateTime(1001, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+                LastChangedBy = "another",
+                Id = "application-id",
+                VersionId = "version-id",
+                Org = "123456789",
+                Title = new Dictionary<string, string>
+                {
+                    {
+                        "nb", "title"
+                    }
+                },
+                ValidFrom = new DateTime(1003, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+                ValidTo = new DateTime(9999, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+                ProcessId = "process-id",
+                DataTypes =
+                [
+                    new DataType
+                    {
+                        Id = "png-1",
+                        Description = new LanguageString
+                        {
+                            {
+                                "nb", "I gui: ID er ref-data-as-pdf"
+                            }
+                        },
+                        AllowedContentTypes = null,
+                        AllowedContributors = null,
+                        AppLogic = null,
+                        TaskId = null,
+                        MaxSize = null,
+                        MaxCount = 0,
+                        MinCount = 0,
+                        Grouping = null,
+                        EnablePdfCreation = false,
+                        EnableFileScan = false,
+                        ValidationErrorOnPendingFileScan = false,
+                        EnabledFileAnalysers = null,
+                        EnabledFileValidators = null,
+                        AllowedKeysForUserDefinedMetadata = null
+                    },
+                ],
+                PartyTypesAllowed = new PartyTypesAllowed
+                {
+                    BankruptcyEstate = false,
+                    Organisation = true,
+                    Person = false,
+                    SubUnit = false
+                },
+                AutoDeleteOnProcessEnd = false,
+                PreventInstanceDeletionForDays = 1,
+                PresentationFields = [new DataField
+                    {
+                        Id = "presentation-field-id",
+                        Path = "/path",
+                        DataTypeId = "presentaiton-field-data-type-id"
+                    }
+                ],
+                DataFields = [new DataField
+                {
+                    Id = "data-field-id",
+                    Path = "/path",
+                    DataTypeId = "data-field-data-type-id"
+                }],
+                EFormidling = new EFormidlingContract
+                {
+                    ServiceId = "service-id",
+                    DPFShipmentType = "DPFShipmentType",
+                    Receiver = "Receiver",
+                    SendAfterTaskId = "1",
+                    Process = "Process",
+                    Standard = "Standard",
+                    TypeVersion = "TypeVersion",
+                    Type = "Type",
+                    SecurityLevel = 0,
+                    DataTypes = ["eformidling-data-type"]
+                },
+                OnEntry = new OnEntryConfig
+                {
+                    Show = "show"
+                },
+                MessageBoxConfig = new MessageBoxConfig
+                {
+                    HideSettings = new HideSettings
+                    {
+                        HideAlways = false,
+                        HideOnTask = ["task-hide"]
+                    },
+                    SyncAdapterSettings = new SyncAdapterSettings
+                    {
+                        DisableSync = false,
+                        DisableCreate = false,
+                        DisableDelete = false,
+                        DisableAddActivities = false,
+                        DisableAddTransmissions = false,
+                        DisableSyncDueAt = false,
+                        DisableSyncStatus = false,
+                        DisableSyncContentTitle = false,
+                        DisableSyncContentSummary = false,
+                        DisableSyncAttachments = false,
+                        DisableSyncApiActions = false,
+                        DisableSyncGuiActions = false
+                    }
+                },
+                CopyInstanceSettings = new CopyInstanceSettings
+                {
+                    Enabled = false,
+                    ExcludedDataTypes = ["exclude-type"],
+                    ExcludedDataFields = ["exclude-field"],
+                },
+                StorageAccountNumber = 1,
+                DisallowUserInstantiation = false,
+            },
+            ApplicationTexts: new ApplicationTexts
+            {
+                Translations = new Dictionary<string, ApplicationTextsTranslation>()
+            },
+            DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
+            Events: new InstanceEventList
+            {
+                InstanceEvents =
+                [
+                    new InstanceEvent
+                    {
+                        User = new PlatformUser
+                        {
+                            UserId = 1,
+                            OrgId = "org",
+                        }
+                    },
+                    new InstanceEvent
+                    {
+                        Id = Guid.Parse("4ef9d179-2d4b-403f-9fcc-6f7cd619f12e"),
+                        Created = new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+                        EventType = nameof(InstanceEventType.Submited),
+                        User = new PlatformUser
+                        {
+                            UserId = UserId2,
+                        }
+                    },
+                ]
+            },
+            Instance: new Instance
+            {
+                Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+                CreatedBy = "Me",
+                LastChanged = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
+                LastChangedBy = "AlsoMe",
+                Id = "id",
+                InstanceOwner = new InstanceOwner
+                {
+                    PartyId = "partyId",
+                },
+                AppId = "appid",
+                Org = "org",
+                SelfLinks = null,
+                DueBefore = null,
+                VisibleAfter = null,
+                Process = new ProcessState(),
+                Status = new InstanceStatus
+                {
+                    Substatus = new Substatus
+                    {
+                        Label = "En substatus som vi antar er på norsk og litt for lang",
+                    }
+                },
+                CompleteConfirmations = [],
+                Data =
+                [
+                    new DataElement
+                    {
+                        Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+                        CreatedBy = "me",
+                        LastChanged = new DateTime(2000, 2, 1, 1, 1, 1, DateTimeKind.Utc),
+                        LastChangedBy = "123456789",
+                        Id = "019bd57e-ce5e-74ed-8130-3a1ac8af3d91",
+                        InstanceGuid = "019bd57f-7146-73fa-9292-e6401d8ef5e8",
+                        DataType = null,
+                        Filename = "outside-transmission",
+                        ContentType = "application/pdf",
+                        BlobStoragePath = "/pdfs",
+                        SelfLinks = new ResourceLinks
+                        {
+                            Apps = null,
+                            Platform = "http://platform.localhost"
+                        },
+                        Size = 1024,
+                        ContentHash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                        Locked = false,
+                        Refs = [Guid.Parse("019bd582-ef52-7850-a483-94ba72e9bba5")],
+                        IsRead = false,
+                        Tags = ["viktig", "konfidensiell"],
+                        UserDefinedMetadata = [new KeyValueEntry { Key = "eier", Value = "Trond" }],
+                        Metadata = [new KeyValueEntry { Key = "versjon", Value = "2" }],
+                        DeleteStatus = null,
+                        FileScanResult = FileScanResult.NotApplicable,
+                        References =
+                        [
+                            new Reference
+                            {
+                                Value = "https://localhost",
+                                Relation = RelationType.GeneratedFrom,
+                                ValueType = ReferenceType.DataElement
+                            }
+                        ]
+                    },
+                    new DataElement
+                    {
+                        Created = new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+                        CreatedBy = "me",
+                        LastChanged = new DateTime(2001, 2, 1, 1, 1, 1, DateTimeKind.Utc),
+                        LastChangedBy = "12345678911",
+                        Id = "019bd5eb-4239-7a40-a823-7735059ef136",
+                        InstanceGuid = "019bd57f-7146-73fa-9292-e6401d8ef5e8",
+                        DataType = "png-1",
+                        Filename = "in-transmission-as-1",
+                        ContentType = "application/pdf",
+                        BlobStoragePath = "/pdfs",
+                        SelfLinks = new ResourceLinks
+                        {
+                            Apps = null,
+                            Platform = "http://platform.localhost"
+                        },
+                        Size = 1024,
+                        ContentHash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                        Locked = false,
+                        Refs = [Guid.Parse("019bd582-ef52-7850-a483-94ba72e9bba5")],
+                        IsRead = false,
+                        Tags = ["viktig", "konfidensiell"],
+                        UserDefinedMetadata = [new KeyValueEntry { Key = "eier", Value = "Trond" }],
+                        Metadata = [new KeyValueEntry { Key = "versjon", Value = "2" }],
+                        DeleteStatus = null,
+                        FileScanResult = FileScanResult.NotApplicable,
+                        References =
+                        [
+                            new Reference
+                            {
+                                Value = "https://localhost",
+                                Relation = RelationType.GeneratedFrom,
+                                ValueType = ReferenceType.DataElement
+                            }
+                        ]
+                    }
+                ],
+                PresentationTexts = new Dictionary<string, string>(),
+                DataValues = new Dictionary<string, string>()
+            },
+            ExistingDialog: null,
+            IsMigration: false
+        );
+
+        var actualDialogDto1 = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
+        var actualDialogDto2 = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
+
+        actualDialogDto1.Activities.Should().NotBeEmpty();
+        actualDialogDto1.Attachments.Should().NotBeEmpty();
+        actualDialogDto1.GuiActions.Should().NotBeEmpty();
+        actualDialogDto1.Transmissions.Should().NotBeEmpty();
+        actualDialogDto1.Content.Should().NotBeNull();
+        actualDialogDto1.Should().BeEquivalentTo(actualDialogDto2);
+    }
+
+    [Fact(DisplayName =
+        "Given a localized Substatus, Substatus should be truncated and mapped to ExtendedStatus in all languages")]
     public async Task Merge_LocalizedSubstatus_MapsAllLanguagesToExtendedStatus()
     {
         var mergeDto = new MergeDto(
@@ -423,7 +693,8 @@ public class StorageDialogportenDataMergerTest
         });
     }
 
-    [Fact(DisplayName = "Given a non-localized Substatus, Substatus should be truncated and mapped to Extendedstatus in NB")]
+    [Fact(DisplayName =
+        "Given a non-localized Substatus, Substatus should be truncated and mapped to Extendedstatus in NB")]
     public async Task Merge_SubstatusWithText_AssumesNorwegian()
     {
         var mergeDto = new MergeDto(
@@ -2406,7 +2677,8 @@ public class StorageDialogportenDataMergerTest
         }
     }
 
-    [Fact(DisplayName = "Given DataElements with enabled Transmissions, DataElements are split into attachments and transmissions")]
+    [Fact(DisplayName =
+        "Given DataElements with enabled Transmissions, DataElements are split into attachments and transmissions")]
     public async Task Merge_WithAttachmentsAndTransmissions_MergesIntoAttachmentsAndTransmissionsAsExpected()
     {
         var mergeDto = new MergeDto(
