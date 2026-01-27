@@ -64,8 +64,8 @@ public class StorageDialogportenDataMergerTest
         _registerRepositoryMock.GetActorUrnByUserId(Arg.Any<IEnumerable<string>>(), Arg.Any<CancellationToken>())
             .Returns(new Dictionary<string, string>
             {
-                { UserId1.ToString(), "urn:altinn:displayName:Leif" },
-                { UserId2.ToString(), "urn:altinn:person:legacy-selfidentified:Per" },
+                { $"{UserId1}", "urn:altinn:displayName:Leif" },
+                { $"{UserId2}", "urn:altinn:person:legacy-selfidentified:Per" },
             });
 
 
@@ -2129,7 +2129,7 @@ public class StorageDialogportenDataMergerTest
                             ],
                             MediaType = "text/plain"
                         },
-                        Summary = null,
+                        Summary = null!,
                         ContentReference = null
                     },
                     Attachments =
@@ -2185,7 +2185,7 @@ public class StorageDialogportenDataMergerTest
                             ],
                             MediaType = "text/plain"
                         },
-                        Summary = null,
+                        Summary = null!,
                         ContentReference = null
                     },
                     Attachments =

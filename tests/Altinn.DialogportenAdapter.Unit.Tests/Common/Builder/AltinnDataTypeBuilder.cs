@@ -18,7 +18,6 @@ public class AltinnDataTypeBuilder(DataType dataType)
                     }
                 },
                 AllowedContentTypes = [],
-                AllowedContributers = [],
                 AllowedContributors = [],
                 AppLogic = null,
                 TaskId = null,
@@ -50,12 +49,6 @@ public class AltinnDataTypeBuilder(DataType dataType)
     public AltinnDataTypeBuilder WithAllowedContentTypes(List<string> allowedContentTypes)
     {
         dataType.AllowedContentTypes = allowedContentTypes;
-        return this;
-    }
-
-    public AltinnDataTypeBuilder WithAllowedContributers(List<string> allowedContributers)
-    {
-        dataType.AllowedContributers = allowedContributers;
         return this;
     }
 
@@ -151,7 +144,6 @@ public class AltinnDataTypeBuilder(DataType dataType)
                 }
             ),
             AllowedContentTypes = dataType.AllowedContentTypes?.ToList(),
-            AllowedContributers = dataType.AllowedContributers?.ToList(),
             AllowedContributors = dataType.AllowedContributors?.ToList(),
             AppLogic = dataType.AppLogic != null
                 ? new ApplicationLogic
