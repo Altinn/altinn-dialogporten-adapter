@@ -239,7 +239,7 @@ internal sealed class StorageDialogportenDataMerger
 
         var dataElementQueue = new Queue<DataElement>(data
             .Where(x => !IsPerformedBySo(x) && x.DataType != PdfType)
-            .OrderBy(x => x.Created.Value));
+            .OrderBy(x => x.LastChanged.Value));
 
         // A2 Instances cant have more than 1 submission
         // so we take all attachments into a single transmission.
