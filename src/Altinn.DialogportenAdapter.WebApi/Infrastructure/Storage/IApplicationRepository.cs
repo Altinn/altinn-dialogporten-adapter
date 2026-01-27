@@ -1,4 +1,3 @@
-using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.Platform.Storage.Interface.Models;
 using ZiggyCreatures.Caching.Fusion;
@@ -42,6 +41,7 @@ internal sealed class ApplicationRepository(IApplicationsApi applicationsApi, IF
         }
         var tasks = predefinedLanguages.Select(lang => applicationsApi.GetApplicationTexts(orgApp[0], orgApp[1], lang, cancellationToken));
         var responses = await Task.WhenAll(tasks);
+
         var textResources = responses
             .Where(response => response.IsSuccessful)
             .Select(response => response.Content!)
