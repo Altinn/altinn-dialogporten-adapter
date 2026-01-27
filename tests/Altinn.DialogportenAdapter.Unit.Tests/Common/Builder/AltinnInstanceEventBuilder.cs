@@ -3,15 +3,8 @@ using Altinn.Platform.Storage.Interface.Models;
 
 namespace Altinn.DialogportenAdapter.Unit.Tests.Common.Builder;
 
-public class AltinnInstanceEventBuilder
+public class AltinnInstanceEventBuilder(InstanceEvent instanceEvent)
 {
-    private InstanceEvent _instanceEvent;
-
-    private AltinnInstanceEventBuilder(InstanceEvent instanceEvent)
-    {
-        _instanceEvent = instanceEvent;
-    }
-
     public static AltinnInstanceEventBuilder NewCreatedByPlatformUserInstanceEvent(int userId) =>
         new(
             new InstanceEvent
@@ -66,61 +59,61 @@ public class AltinnInstanceEventBuilder
 
     public AltinnInstanceEventBuilder WithId(Guid id)
     {
-        _instanceEvent.Id = id;
+        instanceEvent.Id = id;
         return this;
     }
 
     public AltinnInstanceEventBuilder WithInstanceId(string instanceId)
     {
-        _instanceEvent.InstanceId = instanceId;
+        instanceEvent.InstanceId = instanceId;
         return this;
     }
 
     public AltinnInstanceEventBuilder WithDataId(string dataId)
     {
-        _instanceEvent.DataId = dataId;
+        instanceEvent.DataId = dataId;
         return this;
     }
 
     public AltinnInstanceEventBuilder WithCreated(DateTime created)
     {
-        _instanceEvent.Created = created;
+        instanceEvent.Created = created;
         return this;
     }
 
     public AltinnInstanceEventBuilder WithEventType(string eventType)
     {
-        _instanceEvent.EventType = eventType;
+        instanceEvent.EventType = eventType;
         return this;
     }
 
     public AltinnInstanceEventBuilder WithInstanceOwnerPartyId(string partyId)
     {
-        _instanceEvent.InstanceOwnerPartyId = partyId;
+        instanceEvent.InstanceOwnerPartyId = partyId;
         return this;
     }
 
     public AltinnInstanceEventBuilder WithUser(PlatformUser user)
     {
-        _instanceEvent.User = user;
+        instanceEvent.User = user;
         return this;
     }
 
     public AltinnInstanceEventBuilder WithRelatedUser(PlatformUser relatedUser)
     {
-        _instanceEvent.RelatedUser = relatedUser;
+        instanceEvent.RelatedUser = relatedUser;
         return this;
     }
 
     public AltinnInstanceEventBuilder WithProcessInfo(ProcessState processInfo)
     {
-        _instanceEvent.ProcessInfo = processInfo;
+        instanceEvent.ProcessInfo = processInfo;
         return this;
     }
 
     public AltinnInstanceEventBuilder WithAdditionalInfo(string info)
     {
-        _instanceEvent.AdditionalInfo = info;
+        instanceEvent.AdditionalInfo = info;
         return this;
     }
 
@@ -128,49 +121,49 @@ public class AltinnInstanceEventBuilder
     {
         return new InstanceEvent
         {
-            Id = _instanceEvent.Id,
-            InstanceId = _instanceEvent.InstanceId,
-            DataId = _instanceEvent.DataId,
-            Created = _instanceEvent.Created,
-            EventType = _instanceEvent.EventType,
-            InstanceOwnerPartyId = _instanceEvent.InstanceOwnerPartyId,
-            User = _instanceEvent.User != null
+            Id = instanceEvent.Id,
+            InstanceId = instanceEvent.InstanceId,
+            DataId = instanceEvent.DataId,
+            Created = instanceEvent.Created,
+            EventType = instanceEvent.EventType,
+            InstanceOwnerPartyId = instanceEvent.InstanceOwnerPartyId,
+            User = instanceEvent.User != null
                 ? new PlatformUser
                 {
-                    UserId = _instanceEvent.User.UserId,
-                    OrgId = _instanceEvent.User.OrgId,
-                    AuthenticationLevel = _instanceEvent.User.AuthenticationLevel,
-                    EndUserSystemId = _instanceEvent.User.EndUserSystemId,
-                    NationalIdentityNumber = _instanceEvent.User.NationalIdentityNumber,
-                    SystemUserId = _instanceEvent.User.SystemUserId,
-                    SystemUserOwnerOrgNo = _instanceEvent.User.SystemUserOwnerOrgNo,
-                    SystemUserName = _instanceEvent.User.SystemUserName,
+                    UserId = instanceEvent.User.UserId,
+                    OrgId = instanceEvent.User.OrgId,
+                    AuthenticationLevel = instanceEvent.User.AuthenticationLevel,
+                    EndUserSystemId = instanceEvent.User.EndUserSystemId,
+                    NationalIdentityNumber = instanceEvent.User.NationalIdentityNumber,
+                    SystemUserId = instanceEvent.User.SystemUserId,
+                    SystemUserOwnerOrgNo = instanceEvent.User.SystemUserOwnerOrgNo,
+                    SystemUserName = instanceEvent.User.SystemUserName,
                 }
                 : null,
-            RelatedUser = _instanceEvent.RelatedUser != null
+            RelatedUser = instanceEvent.RelatedUser != null
                 ? new PlatformUser
                 {
-                    UserId = _instanceEvent.RelatedUser.UserId,
-                    OrgId = _instanceEvent.RelatedUser.OrgId,
-                    AuthenticationLevel = _instanceEvent.RelatedUser.AuthenticationLevel,
-                    EndUserSystemId = _instanceEvent.RelatedUser.EndUserSystemId,
-                    NationalIdentityNumber = _instanceEvent.RelatedUser.NationalIdentityNumber,
-                    SystemUserId = _instanceEvent.RelatedUser.SystemUserId,
-                    SystemUserOwnerOrgNo = _instanceEvent.RelatedUser.SystemUserOwnerOrgNo,
-                    SystemUserName = _instanceEvent.RelatedUser.SystemUserName,
+                    UserId = instanceEvent.RelatedUser.UserId,
+                    OrgId = instanceEvent.RelatedUser.OrgId,
+                    AuthenticationLevel = instanceEvent.RelatedUser.AuthenticationLevel,
+                    EndUserSystemId = instanceEvent.RelatedUser.EndUserSystemId,
+                    NationalIdentityNumber = instanceEvent.RelatedUser.NationalIdentityNumber,
+                    SystemUserId = instanceEvent.RelatedUser.SystemUserId,
+                    SystemUserOwnerOrgNo = instanceEvent.RelatedUser.SystemUserOwnerOrgNo,
+                    SystemUserName = instanceEvent.RelatedUser.SystemUserName,
                 }
                 : null,
-            ProcessInfo = _instanceEvent.ProcessInfo != null
+            ProcessInfo = instanceEvent.ProcessInfo != null
                 ? new ProcessState
                 {
-                    Started = _instanceEvent.ProcessInfo.Started,
-                    StartEvent = _instanceEvent.ProcessInfo.StartEvent,
-                    CurrentTask = _instanceEvent.ProcessInfo.CurrentTask,
-                    Ended = _instanceEvent.ProcessInfo.Ended,
-                    EndEvent = _instanceEvent.ProcessInfo.EndEvent
+                    Started = instanceEvent.ProcessInfo.Started,
+                    StartEvent = instanceEvent.ProcessInfo.StartEvent,
+                    CurrentTask = instanceEvent.ProcessInfo.CurrentTask,
+                    Ended = instanceEvent.ProcessInfo.Ended,
+                    EndEvent = instanceEvent.ProcessInfo.EndEvent
                 }
                 : null,
-            AdditionalInfo = _instanceEvent.AdditionalInfo
+            AdditionalInfo = instanceEvent.AdditionalInfo
         };
     }
 }

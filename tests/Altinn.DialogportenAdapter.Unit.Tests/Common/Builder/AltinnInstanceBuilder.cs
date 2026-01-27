@@ -3,15 +3,8 @@ using Altinn.Platform.Storage.Interface.Models;
 
 namespace Altinn.DialogportenAdapter.Unit.Tests.Common.Builder;
 
-public class AltinnInstanceBuilder
+public class AltinnInstanceBuilder(Instance instance)
 {
-    private readonly Instance _instance;
-
-    private AltinnInstanceBuilder(Instance instance)
-    {
-        _instance = instance;
-    }
-
     public static AltinnInstanceBuilder NewInProgressInstance()
     {
         return new AltinnInstanceBuilder
@@ -97,91 +90,91 @@ public class AltinnInstanceBuilder
 
     public AltinnInstanceBuilder WithCreated(DateTime created)
     {
-        _instance.Created = created;
+        instance.Created = created;
         return this;
     }
 
     public AltinnInstanceBuilder WithCreatedBy(string createdBy)
     {
-        _instance.CreatedBy = createdBy;
+        instance.CreatedBy = createdBy;
         return this;
     }
 
     public AltinnInstanceBuilder WithLastChanged(DateTime lastChanged)
     {
-        _instance.LastChanged = lastChanged;
+        instance.LastChanged = lastChanged;
         return this;
     }
 
     public AltinnInstanceBuilder WithLastChangedBy(string lastChangedBy)
     {
-        _instance.LastChangedBy = lastChangedBy;
+        instance.LastChangedBy = lastChangedBy;
         return this;
     }
 
     public AltinnInstanceBuilder WithId(string id)
     {
-        _instance.Id = id;
+        instance.Id = id;
         return this;
     }
 
     public AltinnInstanceBuilder WithInstanceOwner(InstanceOwner owner)
     {
-        _instance.InstanceOwner = owner;
+        instance.InstanceOwner = owner;
         return this;
     }
 
     public AltinnInstanceBuilder WithAppId(string appId)
     {
-        _instance.AppId = appId;
+        instance.AppId = appId;
         return this;
     }
 
     public AltinnInstanceBuilder WithOrg(string org)
     {
-        _instance.Org = org;
+        instance.Org = org;
         return this;
     }
 
     public AltinnInstanceBuilder WithSelfLinks(ResourceLinks links)
     {
-        _instance.SelfLinks = links;
+        instance.SelfLinks = links;
         return this;
     }
 
     public AltinnInstanceBuilder WithDueBefore(DateTime? dueBefore)
     {
-        _instance.DueBefore = dueBefore;
+        instance.DueBefore = dueBefore;
         return this;
     }
 
     public AltinnInstanceBuilder WithVisibleAfter(DateTime? visibleAfter)
     {
-        _instance.VisibleAfter = visibleAfter;
+        instance.VisibleAfter = visibleAfter;
         return this;
     }
 
     public AltinnInstanceBuilder WithProcess(ProcessState process)
     {
-        _instance.Process = process;
+        instance.Process = process;
         return this;
     }
 
     public AltinnInstanceBuilder WithStatus(InstanceStatus status)
     {
-        _instance.Status = status;
+        instance.Status = status;
         return this;
     }
 
     public AltinnInstanceBuilder WithData(List<DataElement> data)
     {
-        _instance.Data = data;
+        instance.Data = data;
         return this;
     }
 
     public AltinnInstanceBuilder WithCompleteConfirmations(List<CompleteConfirmation> completeConfirmations)
     {
-        _instance.CompleteConfirmations = completeConfirmations;
+        instance.CompleteConfirmations = completeConfirmations;
         return this;
     }
 
@@ -189,79 +182,79 @@ public class AltinnInstanceBuilder
     {
         return new Instance
         {
-            Created = _instance.Created,
-            CreatedBy = _instance.CreatedBy,
-            LastChanged = _instance.LastChanged,
-            LastChangedBy = _instance.LastChangedBy,
-            Id = _instance.Id,
-            InstanceOwner = _instance.InstanceOwner != null
+            Created = instance.Created,
+            CreatedBy = instance.CreatedBy,
+            LastChanged = instance.LastChanged,
+            LastChangedBy = instance.LastChangedBy,
+            Id = instance.Id,
+            InstanceOwner = instance.InstanceOwner != null
                 ? new InstanceOwner
                 {
-                    PartyId = _instance.InstanceOwner.PartyId,
-                    PersonNumber = _instance.InstanceOwner.PersonNumber,
-                    OrganisationNumber = _instance.InstanceOwner.OrganisationNumber,
-                    Username = _instance.InstanceOwner.Username
+                    PartyId = instance.InstanceOwner.PartyId,
+                    PersonNumber = instance.InstanceOwner.PersonNumber,
+                    OrganisationNumber = instance.InstanceOwner.OrganisationNumber,
+                    Username = instance.InstanceOwner.Username
                 }
                 : null,
-            AppId = _instance.AppId,
-            Org = _instance.Org,
-            SelfLinks = _instance.SelfLinks != null
+            AppId = instance.AppId,
+            Org = instance.Org,
+            SelfLinks = instance.SelfLinks != null
                 ? new ResourceLinks
                 {
-                    Apps = _instance.SelfLinks.Apps,
-                    Platform = _instance.SelfLinks.Platform,
+                    Apps = instance.SelfLinks.Apps,
+                    Platform = instance.SelfLinks.Platform,
                 }
                 : null,
-            DueBefore = _instance.DueBefore,
-            VisibleAfter = _instance.VisibleAfter,
-            Process = _instance.Process != null
+            DueBefore = instance.DueBefore,
+            VisibleAfter = instance.VisibleAfter,
+            Process = instance.Process != null
                 ? new ProcessState
                 {
-                    Started = _instance.Process.Started,
-                    StartEvent = _instance.Process.StartEvent,
-                    CurrentTask = _instance.Process.CurrentTask != null
+                    Started = instance.Process.Started,
+                    StartEvent = instance.Process.StartEvent,
+                    CurrentTask = instance.Process.CurrentTask != null
                         ? new ProcessElementInfo
                         {
-                            Flow = _instance.Process.CurrentTask.Flow,
-                            Started = _instance.Process.CurrentTask.Started,
-                            ElementId = _instance.Process.CurrentTask.ElementId,
-                            Name = _instance.Process.CurrentTask.Name,
-                            AltinnTaskType = _instance.Process.CurrentTask.AltinnTaskType,
-                            Ended = _instance.Process.CurrentTask.Ended,
-                            FlowType = _instance.Process.CurrentTask.FlowType
+                            Flow = instance.Process.CurrentTask.Flow,
+                            Started = instance.Process.CurrentTask.Started,
+                            ElementId = instance.Process.CurrentTask.ElementId,
+                            Name = instance.Process.CurrentTask.Name,
+                            AltinnTaskType = instance.Process.CurrentTask.AltinnTaskType,
+                            Ended = instance.Process.CurrentTask.Ended,
+                            FlowType = instance.Process.CurrentTask.FlowType
                         }
                         : null,
-                    Ended = _instance.Process.Ended,
-                    EndEvent = _instance.Process.EndEvent
+                    Ended = instance.Process.Ended,
+                    EndEvent = instance.Process.EndEvent
                 }
                 : null,
-            Status = _instance.Status != null
+            Status = instance.Status != null
                 ? new InstanceStatus
                 {
-                    IsArchived = _instance.Status.IsArchived,
-                    Archived = _instance.Status.Archived,
-                    IsSoftDeleted = _instance.Status.IsSoftDeleted,
-                    SoftDeleted = _instance.Status.SoftDeleted,
-                    IsHardDeleted = _instance.Status.IsHardDeleted,
-                    HardDeleted = _instance.Status.HardDeleted,
-                    ReadStatus = _instance.Status.ReadStatus,
-                    Substatus = _instance.Status.Substatus != null
+                    IsArchived = instance.Status.IsArchived,
+                    Archived = instance.Status.Archived,
+                    IsSoftDeleted = instance.Status.IsSoftDeleted,
+                    SoftDeleted = instance.Status.SoftDeleted,
+                    IsHardDeleted = instance.Status.IsHardDeleted,
+                    HardDeleted = instance.Status.HardDeleted,
+                    ReadStatus = instance.Status.ReadStatus,
+                    Substatus = instance.Status.Substatus != null
                         ? new Substatus
                         {
-                            Label = _instance.Status.Substatus.Label,
-                            Description = _instance.Status.Substatus.Description,
+                            Label = instance.Status.Substatus.Label,
+                            Description = instance.Status.Substatus.Description,
                         }
                         : null
                 }
                 : null,
-            CompleteConfirmations = _instance.CompleteConfirmations?.Select(cc => new CompleteConfirmation
+            CompleteConfirmations = instance.CompleteConfirmations?.Select(cc => new CompleteConfirmation
             {
                 StakeholderId = cc.StakeholderId,
                 ConfirmedOn = cc.ConfirmedOn
             }).ToList(),
-            Data = _instance.Data?.Select(d => new AltinnDataElementBuilder(d).Build()).ToList(),
-            PresentationTexts = _instance.PresentationTexts?.ToDictionary(k => k.Key, v => v.Value),
-            DataValues = _instance.DataValues?.ToDictionary(k => k.Key, v => v.Value),
+            Data = instance.Data?.Select(d => new AltinnDataElementBuilder(d).Build()).ToList(),
+            PresentationTexts = instance.PresentationTexts?.ToDictionary(k => k.Key, v => v.Value),
+            DataValues = instance.DataValues?.ToDictionary(k => k.Key, v => v.Value),
         };
     }
 }
