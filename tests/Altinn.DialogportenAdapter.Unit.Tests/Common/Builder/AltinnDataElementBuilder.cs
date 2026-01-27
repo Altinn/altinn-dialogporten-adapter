@@ -5,203 +5,185 @@ namespace Altinn.DialogportenAdapter.Unit.Tests.Common.Builder;
 
 public class AltinnDataElementBuilder
 {
-    private DateTime _created;
-    private string _createdBy;
-    private DateTime _lastChanged;
-    private string _lastChangedBy;
-    private string _id;
-    private string _instanceGuid;
-    private string _dataType;
-    private string _filename;
-    private string _contentType;
-    private string _blobStoragePath;
-    private ResourceLinks _selfLinks;
-    private long _size;
-    private string _contentHash;
-    private bool _locked;
-    private List<Guid> _refs;
-    private bool _isRead = true;
-    private List<string> _tags;
-    private List<KeyValueEntry> _userDefinedMetadata;
-    private List<KeyValueEntry> _metadata;
-    private DeleteStatus _deleteStatus;
-    private FileScanResult _fileScanResult;
-    private List<Reference> _references;
+    private DataElement _dataElement;
 
-    private AltinnDataElementBuilder()
+    public AltinnDataElementBuilder(DataElement dataElement)
     {
+        _dataElement = dataElement;
     }
 
     public static AltinnDataElementBuilder NewDefaultDataElementBuilder()
     {
         return new AltinnDataElementBuilder
-        {
-            _created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-            _createdBy = "me",
-            _lastChanged = new DateTime(2000, 2, 1, 1, 1, 1, DateTimeKind.Utc),
-            _lastChangedBy = "123456789",
-            _id = "019bd57e-ce5e-74ed-8130-3a1ac8af3d91",
-            _instanceGuid = "019bd57f-7146-73fa-9292-e6401d8ef5e8",
-            _dataType = null,
-            _filename = "filename",
-            _contentType = "image/jpg",
-            _blobStoragePath = "/images",
-            _selfLinks = new ResourceLinks
+        (
+            new DataElement
             {
-                Apps = null,
-                Platform = "http://platform.localhost"
-            },
-            _size = 1024,
-            _contentHash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-            _locked = false,
-            _refs = [Guid.Parse("019bd582-ef52-7850-a483-94ba72e9bba5")],
-            _isRead = false,
-            _tags = ["Viktig", "Konfidensiell"],
-            _userDefinedMetadata = [new KeyValueEntry { Key = "eier", Value = "Trond" }],
-            _metadata = [new KeyValueEntry { Key = "versjon", Value = "2" }],
-            _deleteStatus = null,
-            _fileScanResult = FileScanResult.NotApplicable,
-            _references =
-            [
-                new Reference
+                Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+                CreatedBy = "me",
+                LastChanged = new DateTime(2000, 2, 1, 1, 1, 1, DateTimeKind.Utc),
+                LastChangedBy = "123456789",
+                Id = "019bd57e-ce5e-74ed-8130-3a1ac8af3d91",
+                InstanceGuid = "019bd57f-7146-73fa-9292-e6401d8ef5e8",
+                DataType = null,
+                Filename = "filename",
+                ContentType = "image/jpg",
+                BlobStoragePath = "/images",
+                SelfLinks = new ResourceLinks
                 {
-                    Value = "https://localhost",
-                    Relation = RelationType.GeneratedFrom,
-                    ValueType = ReferenceType.DataElement
-                }
-            ],
-        };
+                    Apps = null,
+                    Platform = "http://platform.localhost"
+                },
+                Size = 1024,
+                ContentHash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                Locked = false,
+                Refs = [Guid.Parse("019bd582-ef52-7850-a483-94ba72e9bba5")],
+                IsRead = false,
+                Tags = ["Viktig", "Konfidensiell"],
+                UserDefinedMetadata = [new KeyValueEntry { Key = "eier", Value = "Trond" }],
+                Metadata = [new KeyValueEntry { Key = "versjon", Value = "2" }],
+                DeleteStatus = null,
+                FileScanResult = FileScanResult.NotApplicable,
+                References =
+                [
+                    new Reference
+                    {
+                        Value = "https://localhost",
+                        Relation = RelationType.GeneratedFrom,
+                        ValueType = ReferenceType.DataElement
+                    }
+                ],
+            });
     }
 
     public AltinnDataElementBuilder WithCreated(DateTime created)
     {
-        _created = created;
+        _dataElement.Created = created;
         return this;
     }
 
     public AltinnDataElementBuilder WithCreatedBy(string createdBy)
     {
-        _createdBy = createdBy;
+        _dataElement.CreatedBy = createdBy;
         return this;
     }
 
     public AltinnDataElementBuilder WithLastChanged(DateTime lastChanged)
     {
-        _lastChanged = lastChanged;
+        _dataElement.LastChanged = lastChanged;
         return this;
     }
 
     public AltinnDataElementBuilder WithLastChangedBy(string lastChangedBy)
     {
-        _lastChangedBy = lastChangedBy;
+        _dataElement.LastChangedBy = lastChangedBy;
         return this;
     }
 
     public AltinnDataElementBuilder WithId(string id)
     {
-        _id = id;
+        _dataElement.Id = id;
         return this;
     }
 
     public AltinnDataElementBuilder WithInstanceGuid(string instanceGuid)
     {
-        _instanceGuid = instanceGuid;
+        _dataElement.InstanceGuid = instanceGuid;
         return this;
     }
 
     public AltinnDataElementBuilder WithDataType(string dataType)
     {
-        _dataType = dataType;
+        _dataElement.DataType = dataType;
         return this;
     }
 
     public AltinnDataElementBuilder WithFilename(string filename)
     {
-        _filename = filename;
+        _dataElement.Filename = filename;
         return this;
     }
 
     public AltinnDataElementBuilder WithContentType(string contentType)
     {
-        _contentType = contentType;
+        _dataElement.ContentType = contentType;
         return this;
     }
 
     public AltinnDataElementBuilder WithBlobStoragePath(string blobStoragePath)
     {
-        _blobStoragePath = blobStoragePath;
+        _dataElement.BlobStoragePath = blobStoragePath;
         return this;
     }
 
     public AltinnDataElementBuilder WithSelfLinks(ResourceLinks selfLinks)
     {
-        _selfLinks = selfLinks;
+        _dataElement.SelfLinks = selfLinks;
         return this;
     }
 
     public AltinnDataElementBuilder WithSize(long size)
     {
-        _size = size;
+        _dataElement.Size = size;
         return this;
     }
 
     public AltinnDataElementBuilder WithContentHash(string contentHash)
     {
-        _contentHash = contentHash;
+        _dataElement.ContentHash = contentHash;
         return this;
     }
 
     public AltinnDataElementBuilder WithLocked(bool locked)
     {
-        _locked = locked;
+        _dataElement.Locked = locked;
         return this;
     }
 
     public AltinnDataElementBuilder WithRefs(List<Guid> refs)
     {
-        _refs = refs;
+        _dataElement.Refs = refs;
         return this;
     }
 
     public AltinnDataElementBuilder WithIsRead(bool isRead)
     {
-        _isRead = isRead;
+        _dataElement.IsRead = isRead;
         return this;
     }
 
     public AltinnDataElementBuilder WithTags(List<string> tags)
     {
-        _tags = tags;
+        _dataElement.Tags = tags;
         return this;
     }
 
     public AltinnDataElementBuilder WithUserDefinedMetadata(List<KeyValueEntry> userDefinedMetadata)
     {
-        _userDefinedMetadata = userDefinedMetadata;
+        _dataElement.UserDefinedMetadata = userDefinedMetadata;
         return this;
     }
 
     public AltinnDataElementBuilder WithMetadata(List<KeyValueEntry> metadata)
     {
-        _metadata = metadata;
+        _dataElement.Metadata = metadata;
         return this;
     }
 
     public AltinnDataElementBuilder WithDeleteStatus(DeleteStatus deleteStatus)
     {
-        _deleteStatus = deleteStatus;
+        _dataElement.DeleteStatus = deleteStatus;
         return this;
     }
 
     public AltinnDataElementBuilder WithFileScanResult(FileScanResult fileScanResult)
     {
-        _fileScanResult = fileScanResult;
+        _dataElement.FileScanResult = fileScanResult;
         return this;
     }
 
     public AltinnDataElementBuilder WithReferences(List<Reference> references)
     {
-        _references = references;
+        _dataElement.References = references;
         return this;
     }
 
@@ -209,27 +191,53 @@ public class AltinnDataElementBuilder
     {
         return new DataElement
         {
-            Created = _created,
-            CreatedBy = _createdBy,
-            LastChanged = _lastChanged,
-            LastChangedBy = _lastChangedBy,
-            Id = _id,
-            InstanceGuid = _instanceGuid,
-            DataType = _dataType,
-            Filename = _filename,
-            ContentType = _contentType,
-            BlobStoragePath = _blobStoragePath,
-            SelfLinks = _selfLinks,
-            Size = _size,
-            ContentHash = _contentHash,
-            Locked = _locked,
-            Refs = _refs,
-            IsRead = _isRead,
-            Tags = _tags,
-            UserDefinedMetadata = _userDefinedMetadata,
-            Metadata = _metadata,
-            DeleteStatus = _deleteStatus,
-            FileScanResult = _fileScanResult,
+            Created = _dataElement.Created,
+            CreatedBy = _dataElement.CreatedBy,
+            LastChanged = _dataElement.LastChanged,
+            LastChangedBy = _dataElement.LastChangedBy,
+            Id = _dataElement.Id,
+            InstanceGuid = _dataElement.InstanceGuid,
+            DataType = _dataElement.DataType,
+            Filename = _dataElement.Filename,
+            ContentType = _dataElement.ContentType,
+            BlobStoragePath = _dataElement.BlobStoragePath,
+            SelfLinks = _dataElement.SelfLinks != null
+                ? new ResourceLinks
+                {
+                    Apps = _dataElement.SelfLinks.Apps,
+                    Platform = _dataElement.SelfLinks.Platform,
+                }
+                : null,
+            Size = _dataElement.Size,
+            ContentHash = _dataElement.ContentHash,
+            Locked = _dataElement.Locked,
+            Refs = _dataElement.Refs?.ToList(),
+            IsRead = _dataElement.IsRead,
+            Tags = _dataElement.Tags?.Select(r => r).ToList(),
+            UserDefinedMetadata = _dataElement.UserDefinedMetadata?.Select(md => new KeyValueEntry
+            {
+                Key = md.Key,
+                Value = md.Value
+            }).ToList(),
+            Metadata = _dataElement.Metadata?.Select(md => new KeyValueEntry
+            {
+                Key = md.Key,
+                Value = md.Value
+            }).ToList(),
+            DeleteStatus = _dataElement.DeleteStatus != null
+                ? new DeleteStatus
+                {
+                    IsHardDeleted = _dataElement.DeleteStatus.IsHardDeleted,
+                    HardDeleted = _dataElement.DeleteStatus.HardDeleted,
+                }
+                : null,
+            FileScanResult = _dataElement.FileScanResult,
+            References = _dataElement.References?.Select(r => new Reference
+            {
+                Value = r.Value,
+                Relation = r.Relation,
+                ValueType = r.ValueType
+            }).ToList()
         };
     }
 }

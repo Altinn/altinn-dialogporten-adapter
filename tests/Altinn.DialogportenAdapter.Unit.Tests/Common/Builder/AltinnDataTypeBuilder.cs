@@ -4,154 +4,143 @@ namespace Altinn.DialogportenAdapter.Unit.Tests.Common.Builder;
 
 public class AltinnDataTypeBuilder
 {
-    private string _id;
-    private LanguageString _description;
-    private List<string> _allowedContentTypes;
-    private List<string> _allowedContributers;
-    private List<string> _allowedContributors;
-    private ApplicationLogic? _appLogic;
-    private string? _taskId;
-    private int? _maxSize;
-    private int _maxCount = 1;
-    private int _minCount = 1;
-    private string? _grouping;
-    private bool _enablePdfCreation = true;
-    private bool _enableFileScan;
-    private bool _validationErrorOnPendingFileScan;
-    private List<string>? _enabledFileAnalysers = [];
-    private List<string>? _enabledFileValidators = [];
-    private List<string>? _allowedKeysForUserDefinedMetadata;
+    private DataType _dataType;
 
-    private AltinnDataTypeBuilder() {}
+    public AltinnDataTypeBuilder(DataType dataType)
+    {
+        _dataType = dataType;
+    }
 
     public static AltinnDataTypeBuilder NewDefaultDataType()
     {
         return new AltinnDataTypeBuilder
-        {
-            _id = "png-1",
-            _description = new LanguageString
+        (
+            new DataType
             {
+                Id = "png-1",
+                Description = new LanguageString
                 {
-                    "nb", "I gui: ID er ref-data-as-pdf"
-                }
-            },
-            _allowedContentTypes = [],
-            _allowedContributers = [],
-            _allowedContributors = [],
-            _appLogic = null,
-            _taskId = null,
-            _maxSize = null,
-            _maxCount = 0,
-            _minCount = 0,
-            _grouping = null,
-            _enablePdfCreation = false,
-            _enableFileScan = false,
-            _validationErrorOnPendingFileScan = false,
-            _enabledFileAnalysers = null,
-            _enabledFileValidators = null,
-            _allowedKeysForUserDefinedMetadata = null
-        };
+                    {
+                        "nb", "I gui: ID er ref-data-as-pdf"
+                    }
+                },
+                AllowedContentTypes = [],
+                AllowedContributers = [],
+                AllowedContributors = [],
+                AppLogic = null,
+                TaskId = null,
+                MaxSize = null,
+                MaxCount = 0,
+                MinCount = 0,
+                Grouping = null,
+                EnablePdfCreation = false,
+                EnableFileScan = false,
+                ValidationErrorOnPendingFileScan = false,
+                EnabledFileAnalysers = null,
+                EnabledFileValidators = null,
+                AllowedKeysForUserDefinedMetadata = null
+            });
     }
 
     public AltinnDataTypeBuilder WithId(string id)
     {
-        _id = id;
+        _dataType.Id = id;
         return this;
     }
 
     public AltinnDataTypeBuilder WithDescription(LanguageString description)
     {
-        _description = description;
+        _dataType.Description = description;
         return this;
     }
 
     public AltinnDataTypeBuilder WithAllowedContentTypes(List<string> allowedContentTypes)
     {
-        _allowedContentTypes = allowedContentTypes;
+        _dataType.AllowedContentTypes = allowedContentTypes;
         return this;
     }
 
     public AltinnDataTypeBuilder WithAllowedContributers(List<string> allowedContributers)
     {
-        _allowedContributers = allowedContributers;
+        _dataType.AllowedContributers = allowedContributers;
         return this;
     }
 
     public AltinnDataTypeBuilder WithAllowedContributors(List<string> allowedContributors)
     {
-        _allowedContributors = allowedContributors;
+        _dataType.AllowedContributors = allowedContributors;
         return this;
     }
 
     public AltinnDataTypeBuilder WithAppLogic(ApplicationLogic appLogic)
     {
-        _appLogic = appLogic;
+        _dataType.AppLogic = appLogic;
         return this;
     }
 
     public AltinnDataTypeBuilder WithTaskId(string taskId)
     {
-        _taskId = taskId;
+        _dataType.TaskId = taskId;
         return this;
     }
 
     public AltinnDataTypeBuilder WithMaxSize(int? maxSize)
     {
-        _maxSize = maxSize;
+        _dataType.MaxSize = maxSize;
         return this;
     }
 
     public AltinnDataTypeBuilder WithMaxCount(int maxCount)
     {
-        _maxCount = maxCount;
+        _dataType.MaxCount = maxCount;
         return this;
     }
 
     public AltinnDataTypeBuilder WithMinCount(int minCount)
     {
-        _minCount = minCount;
+        _dataType.MinCount = minCount;
         return this;
     }
 
     public AltinnDataTypeBuilder WithGrouping(string grouping)
     {
-        _grouping = grouping;
+        _dataType.Grouping = grouping;
         return this;
     }
 
     public AltinnDataTypeBuilder WithEnablePdfCreation(bool enablePdfCreation)
     {
-        _enablePdfCreation = enablePdfCreation;
+        _dataType.EnablePdfCreation = enablePdfCreation;
         return this;
     }
 
     public AltinnDataTypeBuilder WithEnableFileScan(bool enableFileScan)
     {
-        _enableFileScan = enableFileScan;
+        _dataType.EnableFileScan = enableFileScan;
         return this;
     }
 
     public AltinnDataTypeBuilder WithValidationErrorOnPendingFileScan(bool validationErrorOnPendingFileScan)
     {
-        _validationErrorOnPendingFileScan = validationErrorOnPendingFileScan;
+        _dataType.ValidationErrorOnPendingFileScan = validationErrorOnPendingFileScan;
         return this;
     }
 
     public AltinnDataTypeBuilder WithEnabledFileAnalysers(List<string> enabledFileAnalysers)
     {
-        _enabledFileAnalysers = enabledFileAnalysers;
+        _dataType.EnabledFileAnalysers = enabledFileAnalysers;
         return this;
     }
 
     public AltinnDataTypeBuilder WithEnabledFileValidators(List<string> enabledFileValidators)
     {
-        _enabledFileValidators = enabledFileValidators;
+        _dataType.EnabledFileValidators = enabledFileValidators;
         return this;
     }
 
     public AltinnDataTypeBuilder WithAllowedKeysForUserDefinedMetadata(List<string> allowedKeys)
     {
-        _allowedKeysForUserDefinedMetadata = allowedKeys;
+        _dataType.AllowedKeysForUserDefinedMetadata = allowedKeys;
         return this;
     }
 
@@ -159,23 +148,48 @@ public class AltinnDataTypeBuilder
     {
         return new DataType
         {
-            Id = _id,
-            Description = _description,
-            AllowedContentTypes = _allowedContentTypes,
-            AllowedContributers = _allowedContributers,
-            AllowedContributors = _allowedContributors,
-            AppLogic = _appLogic,
-            TaskId = _taskId,
-            MaxSize = _maxSize,
-            MaxCount = _maxCount,
-            MinCount = _minCount,
-            Grouping = _grouping,
-            EnablePdfCreation = _enablePdfCreation,
-            EnableFileScan = _enableFileScan,
-            ValidationErrorOnPendingFileScan = _validationErrorOnPendingFileScan,
-            EnabledFileAnalysers = _enabledFileAnalysers,
-            EnabledFileValidators = _enabledFileValidators,
-            AllowedKeysForUserDefinedMetadata = _allowedKeysForUserDefinedMetadata
+            Id = _dataType.Id,
+            Description = _dataType.Description?.Aggregate(
+                new LanguageString(),
+                (dict, kvp) =>
+                {
+                    dict[kvp.Key] = kvp.Value;
+                    return dict;
+                }
+            ),
+            AllowedContentTypes = _dataType.AllowedContentTypes?.ToList(),
+            AllowedContributers = _dataType.AllowedContributers?.ToList(),
+            AllowedContributors = _dataType.AllowedContributors?.ToList(),
+            AppLogic = _dataType.AppLogic != null
+                ? new ApplicationLogic
+                {
+                    AutoCreate = _dataType.AppLogic.AutoCreate,
+                    ClassRef = _dataType.AppLogic.ClassRef,
+                    SchemaRef = _dataType.AppLogic.SchemaRef,
+                    AllowAnonymousOnStateless = _dataType.AppLogic.AllowAnonymousOnStateless,
+                    AutoDeleteOnProcessEnd = _dataType.AppLogic.AutoDeleteOnProcessEnd,
+                    DisallowUserCreate = _dataType.AppLogic.DisallowUserCreate,
+                    DisallowUserDelete = _dataType.AppLogic.DisallowUserDelete,
+                    ShadowFields = _dataType.AppLogic.ShadowFields != null
+                        ? new ShadowFields
+                        {
+                            Prefix = _dataType.AppLogic.ShadowFields.Prefix,
+                            SaveToDataType = _dataType.AppLogic.ShadowFields.SaveToDataType
+                        }
+                        : null
+                }
+                : null,
+            TaskId = _dataType.TaskId,
+            MaxSize = _dataType.MaxSize,
+            MaxCount = _dataType.MaxCount,
+            MinCount = _dataType.MinCount,
+            Grouping = _dataType.Grouping,
+            EnablePdfCreation = _dataType.EnablePdfCreation,
+            EnableFileScan = _dataType.EnableFileScan,
+            ValidationErrorOnPendingFileScan = _dataType.ValidationErrorOnPendingFileScan,
+            EnabledFileAnalysers = _dataType.EnabledFileAnalysers?.ToList(),
+            EnabledFileValidators = _dataType.EnabledFileValidators?.ToList(),
+            AllowedKeysForUserDefinedMetadata = _dataType.AllowedKeysForUserDefinedMetadata?.ToList(),
         };
     }
 }
