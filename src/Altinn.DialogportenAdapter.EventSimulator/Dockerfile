@@ -1,8 +1,13 @@
 FROM mcr.microsoft.com/dotnet/sdk:9.0.102-alpine3.20 AS build
 WORKDIR /app
 
-# Copy csproj and restore as distinct layers
+COPY ["Directory.Build.props", "."]
+
+# Main project
 COPY src/Altinn.DialogportenAdapter.EventSimulator/*.csproj ./src/Altinn.DialogportenAdapter.EventSimulator/
+# Dependencies
+COPY src/Altinn.DialogportenAdapter.Contracts/*.csproj ./src/Altinn.DialogportenAdapter.Contracts/
+# Restore project
 RUN dotnet restore ./src/Altinn.DialogportenAdapter.EventSimulator/Altinn.DialogportenAdapter.EventSimulator.csproj
 
 # Copy everything else and build
