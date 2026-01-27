@@ -106,17 +106,17 @@ public class StorageDialogportenDataMergerUpdateTest
                 .Build(),
             ApplicationTexts: new ApplicationTexts
             {
-                Translations = new Dictionary<string, ApplicationTextsTranslation>()
-                {
-                    ["nb"] = new()
+                Translations =
+                [
+                    new ApplicationTextsTranslation
                     {
                         Language = "nb",
-                        Texts = new Dictionary<string, string>()
+                        Texts = new Dictionary<string, string>
                         {
                             ["dp.additionalinfo.element-id"] = "ekstrainfo"
                         }
                     }
-                }
+                ]
             },
             DialogId: dialogId,
             Events: new InstanceEventList
@@ -291,10 +291,7 @@ public class StorageDialogportenDataMergerUpdateTest
             Application: AltinnApplicationBuilder
                 .NewDefaultAltinnApplication()
                 .Build(),
-            ApplicationTexts: new ApplicationTexts
-            {
-                Translations = new Dictionary<string, ApplicationTextsTranslation>()
-            },
+            ApplicationTexts: new ApplicationTexts { Translations = [] },
             DialogId: dialogId,
             Events: new InstanceEventList
             {
@@ -461,10 +458,7 @@ public class StorageDialogportenDataMergerUpdateTest
                     }
                 ])
                 .Build(),
-            ApplicationTexts: new ApplicationTexts
-            {
-                Translations = new Dictionary<string, ApplicationTextsTranslation>()
-            },
+            ApplicationTexts: new ApplicationTexts { Translations = [] },
             DialogId: dialogId,
             Events: new InstanceEventList
             {

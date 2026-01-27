@@ -2,7 +2,7 @@ namespace Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 
 public class ApplicationTexts
 {
-    public Dictionary<string, ApplicationTextsTranslation> Translations { get; set; } = new();
+    public List<ApplicationTextsTranslation> Translations { get; set; } = new();
 }
 
 public class ApplicationTextsTranslation

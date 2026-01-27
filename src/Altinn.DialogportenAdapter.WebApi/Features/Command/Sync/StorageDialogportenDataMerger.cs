@@ -389,11 +389,11 @@ internal sealed class StorageDialogportenDataMerger
 
         var labelLocalized = dto.ApplicationTexts
             .Translations
-            .Where(t => t.Value.Texts.ContainsKey(label))
+            .Where(t => t.Texts.ContainsKey(label))
             .Select(t => new LocalizationDto
             {
-                LanguageCode = t.Key,
-                Value = t.Value.Texts[label].Truncate(Constants.ExtendedStatusMaxStringLength)
+                LanguageCode = t.Language,
+                Value = t.Texts[label].Truncate(Constants.ExtendedStatusMaxStringLength)
             })
             .DefaultIfEmpty(new LocalizationDto
             {

@@ -92,7 +92,7 @@ public class StorageDialogportenDataMergerTest
             },
             ApplicationTexts: new ApplicationTexts
             {
-                Translations = new Dictionary<string, ApplicationTextsTranslation>()
+                Translations = []
             },
             DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
             Events: new InstanceEventList
@@ -194,7 +194,7 @@ public class StorageDialogportenDataMergerTest
                 .Build(),
             ApplicationTexts: new ApplicationTexts
             {
-                Translations = new Dictionary<string, ApplicationTextsTranslation>()
+                Translations = []
             },
             DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
             Events: new InstanceEventList
@@ -308,51 +308,45 @@ public class StorageDialogportenDataMergerTest
             Application: AltinnApplicationBuilder.NewDefaultAltinnApplication().Build(),
             ApplicationTexts: new ApplicationTexts
             {
-                Translations = new Dictionary<string, ApplicationTextsTranslation>()
-                {
+                Translations =
+                [
+                    new ApplicationTextsTranslation
                     {
-                        "nb",
-                        new ApplicationTextsTranslation
+                        Language = "nb",
+                        Texts = new Dictionary<string, string>
                         {
-                            Language = "nb", Texts = new Dictionary<string, string>
+                            { "substatus.label", "Registrering av tiltak, og litt for lang tekst" },
                             {
-                                { "substatus.label", "Registrering av tiltak, og litt for lang tekst" },
-                                {
-                                    "substatus.description",
-                                    "øke sikkerheten og beredskapen i den digitale grunnmuren i sårbare kommuner og regioner gjennom målrettede tilskudd"
-                                },
-                            }
+                                "substatus.description",
+                                "øke sikkerheten og beredskapen i den digitale grunnmuren i sårbare kommuner og regioner gjennom målrettede tilskudd"
+                            },
+                        },
+                    },
+                    new ApplicationTextsTranslation
+                    {
+                        Language = "nn",
+                        Texts = new Dictionary<string, string>
+                        {
+                            { "substatus.label", "Registrering av tiltak nn" },
+                            {
+                                "substatus.description",
+                                "Auke tryggleiken og beredskapen i den digitale grunnmuren i sårbare kommunar og regionar gjennom målretta tilskot"
+                            },
+                        },
+                    },
+                    new ApplicationTextsTranslation
+                    {
+                        Language = "en",
+                        Texts = new Dictionary<string, string>
+                        {
+                            { "substatus.label", "Registration of measures" },
+                            {
+                                "substatus.description",
+                                "Increase security and preparedness in the digital infrastructure in vulnerable municipalities and regions through targeted grants"
+                            },
                         }
                     },
-                    {
-                        "nn",
-                        new ApplicationTextsTranslation
-                        {
-                            Language = "nn", Texts = new Dictionary<string, string>
-                            {
-                                { "substatus.label", "Registrering av tiltak nn" },
-                                {
-                                    "substatus.description",
-                                    "Auke tryggleiken og beredskapen i den digitale grunnmuren i sårbare kommunar og regionar gjennom målretta tilskot"
-                                },
-                            }
-                        }
-                    },
-                    {
-                        "en",
-                        new ApplicationTextsTranslation
-                        {
-                            Language = "en", Texts = new Dictionary<string, string>
-                            {
-                                { "substatus.label", "Registration of measures" },
-                                {
-                                    "substatus.description",
-                                    "Increase security and preparedness in the digital infrastructure in vulnerable municipalities and regions through targeted grants"
-                                },
-                            }
-                        }
-                    },
-                }
+                ]
             },
             DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
             Events: new InstanceEventList
@@ -368,9 +362,7 @@ public class StorageDialogportenDataMergerTest
             }).Build(),
             ExistingDialog: null,
             IsMigration: false);
-
         var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
-
         actualDialogDto.Should().BeEquivalentTo(new DialogDto
         {
             Id = Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
@@ -426,10 +418,7 @@ public class StorageDialogportenDataMergerTest
     {
         var mergeDto = new MergeDto(
             Application: AltinnApplicationBuilder.NewDefaultAltinnApplication().Build(),
-            ApplicationTexts: new ApplicationTexts
-            {
-                Translations = new Dictionary<string, ApplicationTextsTranslation>()
-            },
+            ApplicationTexts: new ApplicationTexts { Translations = [] },
             DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
             Events: new InstanceEventList
             {
@@ -505,7 +494,7 @@ public class StorageDialogportenDataMergerTest
             Application: AltinnApplicationBuilder.NewDefaultAltinnApplication().Build(),
             ApplicationTexts: new ApplicationTexts
             {
-                Translations = new Dictionary<string, ApplicationTextsTranslation>()
+                Translations = []
             },
             DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
             Events: new InstanceEventList
@@ -565,7 +554,7 @@ public class StorageDialogportenDataMergerTest
             Application: AltinnApplicationBuilder.NewDefaultAltinnApplication().Build(),
             ApplicationTexts: new ApplicationTexts
             {
-                Translations = new Dictionary<string, ApplicationTextsTranslation>()
+                Translations = []
             },
             DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
             Events: new InstanceEventList
@@ -631,7 +620,7 @@ public class StorageDialogportenDataMergerTest
                 .Build(),
             ApplicationTexts: new ApplicationTexts
             {
-                Translations = new Dictionary<string, ApplicationTextsTranslation>()
+                Translations = []
             },
             DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
             Events: new InstanceEventList
@@ -1029,7 +1018,7 @@ public class StorageDialogportenDataMergerTest
                 .Build(),
             ApplicationTexts: new ApplicationTexts
             {
-                Translations = new Dictionary<string, ApplicationTextsTranslation>()
+                Translations = []
             },
             DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
             Events: new InstanceEventList
@@ -1504,7 +1493,7 @@ public class StorageDialogportenDataMergerTest
                 .Build(),
             ApplicationTexts: new ApplicationTexts
             {
-                Translations = new Dictionary<string, ApplicationTextsTranslation>()
+                Translations = []
             },
             DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
             Events: new InstanceEventList
@@ -1904,7 +1893,7 @@ public class StorageDialogportenDataMergerTest
                 .Build(),
             ApplicationTexts: new ApplicationTexts
             {
-                Translations = new Dictionary<string, ApplicationTextsTranslation>()
+                Translations = []
             },
             DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
             Events: new InstanceEventList

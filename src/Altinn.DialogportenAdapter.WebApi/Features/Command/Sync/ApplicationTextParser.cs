@@ -73,7 +73,7 @@ public static class ApplicationTextParser
 #endif
 
         var localizations = new List<LocalizationDto>();
-        foreach (var translation in applicationTexts.Translations.Values)
+        foreach (var translation in applicationTexts.Translations)
         {
             if (!LanguageCodes.IsValidTwoLetterLanguageCode(translation.Language))
             {
