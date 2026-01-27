@@ -61,7 +61,9 @@ internal sealed class ActivityDtoTransformer
                 Type = activityType.Value,
                 CreatedAt = @event.Created,
                 PerformedBy = GetPerformedBy(@event.User, instanceOwner, actorUrnByUserId),
-                Description = []
+                Description = activityType == DialogActivityType.Information // Todo: This never happens. The Information type is never handled
+                    ? [ new LocalizationDto { LanguageCode = "nb", Value = eventType.ToString() } ]
+                    : [ ]
             });
         }
 
