@@ -28,7 +28,7 @@ internal static class SpanExtensions
     }
 
     /// <summary>
-    /// Replaces the trailing characters of a string with "..." if its total length is less than or equal to maxLength.
+    /// Replaces the trailing characters of a string with "..." if its total length is longer than maxLength.
     /// If the destination span reminder is too small, the source span will be truncated and "..." will be appended to the destination span.
     /// </summary>
     /// <param name="text">"this" span</param>
