@@ -60,11 +60,11 @@ internal sealed class StorageDialogportenDataMerger
                 ? null!
                 : storageDialog.Content.Summary;
 
-            storageDialog.Content.AdditionalInfo = syncAdapterSettings.DisableSyncContentSummary // FIXME! Change with correct setting when available
+            storageDialog.Content.AdditionalInfo = syncAdapterSettings.DisableSyncContentSummary // TODO: Introduce feature flag
                 ? null!
                 : storageDialog.Content.AdditionalInfo;
 
-            storageDialog.Content.ExtendedStatus = syncAdapterSettings.DisableSyncContentSummary // FIXME too!
+            storageDialog.Content.ExtendedStatus = false // TODO: Introduce feature flag
                 ? null!
                 : storageDialog.Content.ExtendedStatus;
 
@@ -113,11 +113,11 @@ internal sealed class StorageDialogportenDataMerger
             ? existing.Content.Summary
             : storageDialog.Content.Summary;
 
-        existing.Content.AdditionalInfo = syncAdapterSettings.DisableSyncContentSummary // FIXME! Change with correct setting when available
+        existing.Content.AdditionalInfo = syncAdapterSettings.DisableSyncContentSummary // TODO: Introduce feature flag
             ? existing.Content.AdditionalInfo
             : storageDialog.Content.AdditionalInfo;
 
-        existing.Content.ExtendedStatus = syncAdapterSettings.DisableSyncContentSummary
+        existing.Content.ExtendedStatus = false // TODO: Introduce feature flag
             ? existing.Content.ExtendedStatus
             : storageDialog.Content.ExtendedStatus;
             
