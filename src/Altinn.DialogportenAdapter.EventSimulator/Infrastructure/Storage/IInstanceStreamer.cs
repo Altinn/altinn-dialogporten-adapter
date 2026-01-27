@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using Altinn.DialogportenAdapter.EventSimulator.Common;
@@ -19,6 +20,7 @@ public interface IInstanceStreamer
         string? appId = null,
         string? partyId = null,
         DateTimeOffset? from = null,
+        [SuppressMessage("Naming", "CA1716:Identifiers should not match keywords")] 
         DateTimeOffset? to = null,
         int pageSize = 100,
         Order sortOrder = Order.Ascending,
@@ -27,7 +29,7 @@ public interface IInstanceStreamer
     public enum Order { Ascending, Descending }
 }
 
-internal sealed class InstanceStreamer : IInstanceStreamer
+internal sealed partial class InstanceStreamer : IInstanceStreamer
 {
     private static readonly List<TimeSpan> BackoffDelays =
     [
@@ -69,7 +71,7 @@ internal sealed class InstanceStreamer : IInstanceStreamer
                 from = instanceDto.LastChanged > from ? instanceDto.LastChanged : from;
                 yield return instanceDto;
             }
-            _logger.LogDebug("Done fetching instances for {org}. New fetch in {delay} +- {jitter}%.", org, backoffHandler.Current, BackoffHandler.JitterPercentage);
+            LogDoneFetchingInstancesForOrg(org, backoffHandler.Current, BackoffHandler.JitterPercentage);
             await backoffHandler.Delay(cancellationToken);
             backoffHandler.Next();
         }
@@ -119,13 +121,13 @@ internal sealed class InstanceStreamer : IInstanceStreamer
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "Failed to fetch instance stream.");
+                LogFailedToFetchInstanceStream(e);
                 yield break;
             }
 
             if (result is null)
             {
-                _logger.LogWarning("No instance response from storage.");
+                LogNoInstanceResponseFromStorage();
                 break;
             }
 
@@ -138,4 +140,13 @@ internal sealed class InstanceStreamer : IInstanceStreamer
     }
 
     private sealed record InstanceQueryResponse(List<InstanceDto> Instances, string? Next);
+
+    [LoggerMessage(LogLevel.Debug, "Done fetching instances for {org}. New fetch in {delay} +- {jitter}%.")]
+    partial void LogDoneFetchingInstancesForOrg(string org, TimeSpan delay, double jitter);
+
+    [LoggerMessage(LogLevel.Error, "Failed to fetch instance stream.")]
+    partial void LogFailedToFetchInstanceStream(Exception exception);
+
+    [LoggerMessage(LogLevel.Warning, "No instance response from storage.")]
+    partial void LogNoInstanceResponseFromStorage();
 }

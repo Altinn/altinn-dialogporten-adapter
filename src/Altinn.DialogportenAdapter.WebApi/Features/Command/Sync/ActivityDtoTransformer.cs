@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using Altinn.DialogportenAdapter.WebApi.Common;
 using System.Text.Json;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
@@ -57,7 +58,7 @@ internal sealed class ActivityDtoTransformer
 
             activities.Add(new ActivityDto
             {
-                Id = @event.Id.Value.ToVersion7(@event.Created.Value),
+                Id = @event.Id!.Value.ToVersion7(@event.Created!.Value),
                 Type = activityType.Value,
                 CreatedAt = @event.Created,
                 PerformedBy = GetPerformedBy(@event.User, instanceOwner, actorUrnByUserId),
@@ -81,7 +82,7 @@ internal sealed class ActivityDtoTransformer
 
                 state.SavedActivities.Add(state.PreviousActivity = new ActivityDto
                 {
-                    Id = @event.Id.Value.ToVersion7(@event.Created.Value),
+                    Id = @event.Id!.Value.ToVersion7(@event.Created!.Value),
                     Type = DialogActivityType.FormSaved,
                     CreatedAt = @event.Created,
                     PerformedBy = currentActor
@@ -110,12 +111,12 @@ internal sealed class ActivityDtoTransformer
     {
         var actorUrnByUserUrn = await _registerRepository.GetActorUrnByUserId(
             events.Where(x => x.User?.UserId != null)
-                .Select(x => x.User.UserId!.Value.ToString())
+                .Select(x => x.User.UserId!.Value.ToString(CultureInfo.InvariantCulture))
                 .Distinct(),
             cancellationToken
         );
 
-        return actorUrnByUserUrn.ToDictionary(x => int.Parse(x.Key), x => x.Value);
+        return actorUrnByUserUrn.ToDictionary(x => int.Parse(x.Key, CultureInfo.InvariantCulture), x => x.Value);
     }
 
     private static ActorDto GetPerformedBy(PlatformUser user, InstanceOwner instanceOwner, Dictionary<int, string> actorUrnByUserId)
@@ -123,7 +124,7 @@ internal sealed class ActivityDtoTransformer
         if (user.UserId.HasValue && actorUrnByUserId.TryGetValue(user.UserId.Value, out var actorUrn))
         {
             // Legacy system ids and enterprise users does not have a standard urn format in register, so just return the name
-            return actorUrn.StartsWith(Constants.DisplayNameUrnPrefix)
+            return actorUrn.StartsWith(Constants.DisplayNameUrnPrefix, StringComparison.InvariantCulture)
                 ? new ActorDto { ActorType = ActorType.PartyRepresentative, ActorName = actorUrn[Constants.DisplayNameUrnPrefix.Length..] }
                 : new ActorDto { ActorType = ActorType.PartyRepresentative, ActorId = actorUrn };
         }

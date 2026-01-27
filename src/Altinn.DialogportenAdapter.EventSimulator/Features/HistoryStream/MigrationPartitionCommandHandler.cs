@@ -17,7 +17,7 @@ public static class MigrationPartitionCommandHandler
     {
         var entity = command.IsTest
             ? ToEntity(command)
-            : await repo.Get(command.Partition, command.Organization, cancellationToken) ?? ToEntity(command);
+            : await repo.GetMigrationPartition(command.Partition, command.Organization, cancellationToken) ?? ToEntity(command);
 
         DateTimeOffset from = command.Partition.ToDateTime(TimeOnly.MinValue, DateTimeKind.Local);
         DateTimeOffset to = entity.Checkpoint ??= command.Partition.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Local);

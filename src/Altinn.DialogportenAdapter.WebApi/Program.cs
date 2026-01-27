@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Net;
 using Altinn.ApiClients.Dialogporten;
 using Altinn.ApiClients.Maskinporten.Extensions;
@@ -38,7 +37,7 @@ try
 }
 catch (Exception e)
 {
-    bootstrapLogger.LogCritical(e, "Application terminated unexpectedly");
+    LogApplicationTerminatedUnexpectedly(bootstrapLogger, e);
     throw;
 }
 
@@ -350,3 +349,9 @@ ILoggerFactory CreateBootstrapLoggerFactory() => LoggerFactory.Create(builder =>
         options.SingleLine = true;
         options.TimestampFormat = "yyyy-MM-dd HH:mm:ss ";
     }));
+
+partial class Program
+{
+    [LoggerMessage(LogLevel.Critical, "Application terminated unexpectedly")]
+    static partial void LogApplicationTerminatedUnexpectedly(ILogger<Program> logger, Exception exception);
+}
