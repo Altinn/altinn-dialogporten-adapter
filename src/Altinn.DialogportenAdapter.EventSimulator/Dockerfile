@@ -21,7 +21,7 @@ EXPOSE 5012
 
 COPY --from=build /app/out .
 
-RUN addgroup --gid 3000 dotnet && adduser --uid 1000 --ingroup dotnet --disabled-login --shell /bin/false dotnet
+RUN groupadd --gid 3000 dotnet && useradd --uid 3000 --gid dotnet --no-create-home --shell /bin/false dotnet
 USER dotnet
 RUN mkdir /tmp/logtelemetry
 
