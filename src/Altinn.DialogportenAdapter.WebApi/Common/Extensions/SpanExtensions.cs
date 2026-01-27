@@ -27,8 +27,24 @@ internal static class SpanExtensions
         return true;
     }
 
-    public static string Truncate(this ReadOnlySpan<char> text, int maxLength)
+    /// <summary>
+    /// Replaces the trailing characters of a string with "..." if its total length is less than or equal to maxLength.
+    /// If the destination span reminder is too small, the source span will be truncated and "..." will be appended to the destination span.
+    /// </summary>
+    /// <param name="text">"this" span</param>
+    /// <param name="maxLength">The max length of the final string (including ellipsis)</param>
+    /// <exception cref="ArgumentOutOfRangeException">If maxLength is less than 3</exception>
+    /// <returns>The shortened string with "..." at the end.</returns>
+    public static string TruncateEllipsis(this ReadOnlySpan<char> text, int maxLength)
     {
+        if (maxLength < 3)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maxLength),
+                "maxLength must be at least 3 to accommodate the truncation indicator."
+            );
+        }
+
         if (text.IsEmpty || text.IsWhiteSpace() || text.Length <= maxLength)
         {
             return text.ToString();
