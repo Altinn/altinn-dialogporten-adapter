@@ -391,7 +391,7 @@ public class StorageDialogportenDataMergerTest
                 {
                     Value =
                     [
-                        new LocalizationDto { LanguageCode = "nb", Value = "Registrering av tiltak, o" },
+                        new LocalizationDto { LanguageCode = "nb", Value = "Registrering av tiltak..." },
                         new LocalizationDto { LanguageCode = "nn", Value = "Registrering av tiltak nn" },
                         new LocalizationDto { LanguageCode = "en", Value = "Registration of measures" }
                     ],
@@ -468,7 +468,7 @@ public class StorageDialogportenDataMergerTest
                 {
                     Value =
                     [
-                        new LocalizationDto { LanguageCode = "nb", Value = "En substatus som vi antar" },
+                        new LocalizationDto { LanguageCode = "nb", Value = "En substatus som vi an..." },
                     ],
                     MediaType = "text/plain"
                 },

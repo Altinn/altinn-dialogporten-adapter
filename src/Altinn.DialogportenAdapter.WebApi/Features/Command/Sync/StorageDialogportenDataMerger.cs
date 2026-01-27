@@ -393,12 +393,12 @@ internal sealed class StorageDialogportenDataMerger
             .Select(t => new LocalizationDto
             {
                 LanguageCode = t.Language,
-                Value = t.Texts[label].Truncate(Constants.ExtendedStatusMaxStringLength)
+                Value = t.Texts[label].AsSpan().Truncate(Constants.ExtendedStatusMaxStringLength)
             })
             .DefaultIfEmpty(new LocalizationDto
             {
                 LanguageCode = "nb",
-                Value = label.Truncate(Constants.ExtendedStatusMaxStringLength)
+                Value = label.AsSpan().Truncate(Constants.ExtendedStatusMaxStringLength)
             })
             .ToList();
 

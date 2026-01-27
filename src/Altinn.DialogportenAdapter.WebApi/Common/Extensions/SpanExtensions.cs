@@ -26,4 +26,17 @@ internal static class SpanExtensions
         offset += source.Length;
         return true;
     }
+
+    public static string Truncate(this ReadOnlySpan<char> text, int maxLength)
+    {
+        if (text.IsEmpty || text.IsWhiteSpace() || text.Length <= maxLength)
+        {
+            return text.ToString();
+        }
+
+        var offset = 0;
+        var buffer = maxLength <= 1024 ? stackalloc char[maxLength] : new char[maxLength];
+        text.TryCopyTo(buffer, ref offset);
+        return buffer.ToString();
+    }
 }
