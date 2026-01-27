@@ -1,5 +1,6 @@
-using System;
 using Altinn.ApiClients.Maskinporten.Config;
+using Altinn.DialogportenAdapter.Unit.Tests.Common.Assert;
+using Altinn.DialogportenAdapter.Unit.Tests.Common.Builder;
 using Altinn.DialogportenAdapter.WebApi;
 using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
@@ -10,7 +11,6 @@ using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using FluentAssertions;
-using FluentAssertions.Execution;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 
@@ -20,6 +20,8 @@ public class StorageDialogportenDataMergerTest
 {
     private readonly IRegisterRepository _registerRepositoryMock = Substitute.For<IRegisterRepository>();
     private readonly StorageDialogportenDataMerger _storageDialogportenDataMerger;
+    private const string PartyId1 = "party-1";
+    private const string PartyId2 = "party-2";
     private const int UserId1 = 1;
     private const int UserId2 = 2;
     private const int UserUnknown = 999;
@@ -27,6 +29,9 @@ public class StorageDialogportenDataMergerTest
 
     public StorageDialogportenDataMergerTest()
     {
+        AssertionOptions.FormattingOptions.MaxLines = 500;
+        AssertionOptions.FormattingOptions.MaxDepth = 10;
+
         var options = Substitute.For<IOptionsSnapshot<Settings>>();
         options.Value.Returns(new Settings
         {
@@ -52,7 +57,11 @@ public class StorageDialogportenDataMergerTest
         });
 
         _registerRepositoryMock.GetActorUrnByPartyId(Arg.Any<IEnumerable<string>>(), Arg.Any<CancellationToken>())
-            .Returns(new Dictionary<string, string> { { "partyId", "urn:actor.by.party.id" } });
+            .Returns(new Dictionary<string, string>
+            {
+                { PartyId1, "urn:actor.by.party.id.party1" },
+                { PartyId2, "urn:actor.by.party.id.party2" }
+            });
 
         _registerRepositoryMock.GetActorUrnByUserId(Arg.Any<IEnumerable<string>>(), Arg.Any<CancellationToken>())
             .Returns(new Dictionary<string, string>
@@ -75,7 +84,11 @@ public class StorageDialogportenDataMergerTest
         var mergeDto = new MergeDto(
             Application: new Application
             {
-                Title = new Dictionary<string, string> { { "nb", "title" } },
+                Title = new Dictionary<string, string>
+                {
+                    ["nb"] = "Test applikasjon",
+                    ["en"] = "Test application"
+                }
             },
             ApplicationTexts: new ApplicationTexts
             {
@@ -96,29 +109,7 @@ public class StorageDialogportenDataMergerTest
                     }
                 ]
             },
-            Instance: new Instance
-            {
-                Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-                CreatedBy = "Me",
-                LastChanged = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
-                LastChangedBy = "AlsoMe",
-                Id = "id",
-                InstanceOwner = new InstanceOwner
-                {
-                    PartyId = "partyId",
-                },
-                AppId = "appid",
-                Org = "org",
-                SelfLinks = null,
-                DueBefore = null,
-                VisibleAfter = null,
-                Process = new ProcessState(),
-                Status = new InstanceStatus(),
-                CompleteConfirmations = [],
-                Data = [],
-                PresentationTexts = new Dictionary<string, string>(),
-                DataValues = new Dictionary<string, string>()
-            },
+            Instance: AltinnInstanceBuilder.NewInProgressInstance().Build(),
             ExistingDialog: null,
             IsMigration: false
         );
@@ -130,8 +121,8 @@ public class StorageDialogportenDataMergerTest
             Id = Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
             IsApiOnly = false,
             Revision = null,
-            ServiceResource = "urn:altinn:resource:app_appid",
-            Party = "urn:actor.by.party.id",
+            ServiceResource = "urn:altinn:resource:app_urn:altinn:instance-id",
+            Party = "urn:actor.by.party.id.party1",
             Progress = null,
             ExtendedStatus = null,
             ExternalReference = null,
@@ -140,76 +131,19 @@ public class StorageDialogportenDataMergerTest
             Process = null,
             PrecedingProcess = null,
             ExpiresAt = null,
-            CreatedAt = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-            UpdatedAt = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
+            CreatedAt = new DateTime(1000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+            UpdatedAt = new DateTime(1000, 2, 1, 1, 1, 1, DateTimeKind.Utc),
             Status = DialogStatus.InProgress,
             SystemLabel = SystemLabel.Default,
-            ServiceOwnerContext = new ServiceOwnerContext
-            {
-                ServiceOwnerLabels =
-                [
-                    new ServiceOwnerLabel { Value = "urn:altinn:integration:storage:id" }
-                ]
-            },
-            Content = new ContentDto
-            {
-                Summary = new ContentValueDto
-                {
-                    Value =
-                    [
-                        new LocalizationDto { LanguageCode = "nb", Value = "Innsendingen er klar for å fylles ut." },
-                        new LocalizationDto { LanguageCode = "nn", Value = "Innsendinga er klar til å fyllast ut." },
-                        new LocalizationDto { LanguageCode = "en", Value = "The submission is ready to be filled out." }
-                    ],
-                    MediaType = "text/plain"
-                },
-                Title = new ContentValueDto
-                {
-                    Value = [new LocalizationDto { Value = "title", LanguageCode = "nb" }],
-                    MediaType = "text/plain",
-                },
-                ExtendedStatus = null,
-            },
+            ServiceOwnerContext = Regulars.ServiceOwnerContexts.DefaultContext,
+            Content = Regulars.Content.ReadyForSubmission,
             SearchTags = [],
             Attachments = [],
             Transmissions = [],
             GuiActions =
             [
-                new GuiActionDto
-                {
-                    Id = mergeDto.DialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.Delete),
-                    Action = "delete",
-                    Url = "http://adapter.localhost/api/v1/instance/id",
-                    AuthorizationAttribute = null,
-                    IsDeleteDialogAction = true,
-                    HttpMethod = HttpVerb.DELETE,
-                    Priority = DialogGuiActionPriority.Secondary,
-                    Title =
-                    [
-                        new LocalizationDto { LanguageCode = "nb", Value = "Slett" },
-                        new LocalizationDto { LanguageCode = "nn", Value = "Slett" },
-                        new LocalizationDto { LanguageCode = "en", Value = "Delete" }
-                    ],
-                    Prompt = null
-                },
-                new GuiActionDto
-                {
-                    Id = mergeDto.DialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.GoTo),
-                    Action = "write",
-                    Url =
-                        "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Forg.apps.altinn.localhost%2Fappid%2F%3FdontChooseReportee%3Dtrue%23%2Finstance%2Fid",
-                    AuthorizationAttribute = null,
-                    IsDeleteDialogAction = false,
-                    HttpMethod = HttpVerb.GET,
-                    Priority = DialogGuiActionPriority.Primary,
-                    Title =
-                    [
-                        new LocalizationDto { LanguageCode = "nb", Value = "Gå til skjemautfylling" },
-                        new LocalizationDto { LanguageCode = "nn", Value = "Gå til skjemautfylling" },
-                        new LocalizationDto { LanguageCode = "en", Value = "Go to form completion" }
-                    ],
-                    Prompt = null
-                }
+                Regulars.GuiActions.Delete(mergeDto.DialogId),
+                Regulars.GuiActions.Write(mergeDto.DialogId),
             ],
             ApiActions = [],
             Activities = [],
@@ -221,26 +155,9 @@ public class StorageDialogportenDataMergerTest
     public async Task Merge_FullMergeDtoMergedTwice_ReturnsTheSameDialogDto()
     {
         var mergeDto = new MergeDto(
-            Application: new Application
-            {
-                Created = new DateTime(1000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-                CreatedBy = "you",
-                LastChanged = new DateTime(1001, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-                LastChangedBy = "another",
-                Id = "application-id",
-                VersionId = "version-id",
-                Org = "123456789",
-                Title = new Dictionary<string, string>
-                {
-                    {
-                        "nb", "title"
-                    }
-                },
-                ValidFrom = new DateTime(1003, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-                ValidTo = new DateTime(9999, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-                ProcessId = "process-id",
-                DataTypes =
-                [
+            Application: AltinnApplicationBuilder
+                .NewDefaultAltinnApplication()
+                .WithDataTypes([
                     new DataType
                     {
                         Id = "png-1",
@@ -265,78 +182,16 @@ public class StorageDialogportenDataMergerTest
                         EnabledFileValidators = null,
                         AllowedKeysForUserDefinedMetadata = null
                     },
-                ],
-                PartyTypesAllowed = new PartyTypesAllowed
-                {
-                    BankruptcyEstate = false,
-                    Organisation = true,
-                    Person = false,
-                    SubUnit = false
-                },
-                AutoDeleteOnProcessEnd = false,
-                PreventInstanceDeletionForDays = 1,
-                PresentationFields = [new DataField
+                ])
+                .WithDataFields([
+                    new DataField
                     {
-                        Id = "presentation-field-id",
+                        Id = "data-field-id",
                         Path = "/path",
-                        DataTypeId = "presentaiton-field-data-type-id"
+                        DataTypeId = "data-field-data-type-id"
                     }
-                ],
-                DataFields = [new DataField
-                {
-                    Id = "data-field-id",
-                    Path = "/path",
-                    DataTypeId = "data-field-data-type-id"
-                }],
-                EFormidling = new EFormidlingContract
-                {
-                    ServiceId = "service-id",
-                    DPFShipmentType = "DPFShipmentType",
-                    Receiver = "Receiver",
-                    SendAfterTaskId = "1",
-                    Process = "Process",
-                    Standard = "Standard",
-                    TypeVersion = "TypeVersion",
-                    Type = "Type",
-                    SecurityLevel = 0,
-                    DataTypes = ["eformidling-data-type"]
-                },
-                OnEntry = new OnEntryConfig
-                {
-                    Show = "show"
-                },
-                MessageBoxConfig = new MessageBoxConfig
-                {
-                    HideSettings = new HideSettings
-                    {
-                        HideAlways = false,
-                        HideOnTask = ["task-hide"]
-                    },
-                    SyncAdapterSettings = new SyncAdapterSettings
-                    {
-                        DisableSync = false,
-                        DisableCreate = false,
-                        DisableDelete = false,
-                        DisableAddActivities = false,
-                        DisableAddTransmissions = false,
-                        DisableSyncDueAt = false,
-                        DisableSyncStatus = false,
-                        DisableSyncContentTitle = false,
-                        DisableSyncContentSummary = false,
-                        DisableSyncAttachments = false,
-                        DisableSyncApiActions = false,
-                        DisableSyncGuiActions = false
-                    }
-                },
-                CopyInstanceSettings = new CopyInstanceSettings
-                {
-                    Enabled = false,
-                    ExcludedDataTypes = ["exclude-type"],
-                    ExcludedDataFields = ["exclude-field"],
-                },
-                StorageAccountNumber = 1,
-                DisallowUserInstantiation = false,
-            },
+                ])
+                .Build(),
             ApplicationTexts: new ApplicationTexts
             {
                 Translations = new Dictionary<string, ApplicationTextsTranslation>()
@@ -346,53 +201,13 @@ public class StorageDialogportenDataMergerTest
             {
                 InstanceEvents =
                 [
-                    new InstanceEvent
-                    {
-                        User = new PlatformUser
-                        {
-                            UserId = 1,
-                            OrgId = "org",
-                        }
-                    },
-                    new InstanceEvent
-                    {
-                        Id = Guid.Parse("4ef9d179-2d4b-403f-9fcc-6f7cd619f12e"),
-                        Created = new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-                        EventType = nameof(InstanceEventType.Submited),
-                        User = new PlatformUser
-                        {
-                            UserId = UserId2,
-                        }
-                    },
+                    AltinnInstanceEventBuilder.NewCreatedByPlatformUserInstanceEvent(UserId1).Build(),
+                    AltinnInstanceEventBuilder.NewSubmittedByPlatformUserInstanceEvent(UserId1).Build(),
                 ]
             },
-            Instance: new Instance
-            {
-                Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-                CreatedBy = "Me",
-                LastChanged = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
-                LastChangedBy = "AlsoMe",
-                Id = "id",
-                InstanceOwner = new InstanceOwner
-                {
-                    PartyId = "partyId",
-                },
-                AppId = "appid",
-                Org = "org",
-                SelfLinks = null,
-                DueBefore = null,
-                VisibleAfter = null,
-                Process = new ProcessState(),
-                Status = new InstanceStatus
-                {
-                    Substatus = new Substatus
-                    {
-                        Label = "En substatus som vi antar er på norsk og litt for lang",
-                    }
-                },
-                CompleteConfirmations = [],
-                Data =
-                [
+            Instance: AltinnInstanceBuilder
+                .NewInProgressInstance()
+                .WithData([
                     new DataElement
                     {
                         Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
@@ -467,10 +282,8 @@ public class StorageDialogportenDataMergerTest
                             }
                         ]
                     }
-                ],
-                PresentationTexts = new Dictionary<string, string>(),
-                DataValues = new Dictionary<string, string>()
-            },
+                ])
+                .Build(),
             ExistingDialog: null,
             IsMigration: false
         );
@@ -486,15 +299,13 @@ public class StorageDialogportenDataMergerTest
         actualDialogDto1.Should().BeEquivalentTo(actualDialogDto2);
     }
 
+
     [Fact(DisplayName =
         "Given a localized Substatus, Substatus should be truncated and mapped to ExtendedStatus in all languages")]
     public async Task Merge_LocalizedSubstatus_MapsAllLanguagesToExtendedStatus()
     {
         var mergeDto = new MergeDto(
-            Application: new Application
-            {
-                Title = new Dictionary<string, string> { { "nb", "title" } },
-            },
+            Application: AltinnApplicationBuilder.NewDefaultAltinnApplication().Build(),
             ApplicationTexts: new ApplicationTexts
             {
                 Translations = new Dictionary<string, ApplicationTextsTranslation>()
@@ -546,47 +357,15 @@ public class StorageDialogportenDataMergerTest
             DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
             Events: new InstanceEventList
             {
-                InstanceEvents =
-                [
-                    new InstanceEvent
-                    {
-                        User = new PlatformUser
-                        {
-                            UserId = 1,
-                            OrgId = "org",
-                        }
-                    }
-                ]
+                InstanceEvents = [AltinnInstanceEventBuilder.NewCreatedByPlatformUserInstanceEvent(UserId1).Build()]
             },
-            Instance: new Instance
+            Instance: AltinnInstanceBuilder.NewInProgressInstance().WithStatus(new InstanceStatus
             {
-                Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-                CreatedBy = "Me",
-                LastChanged = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
-                LastChangedBy = "Me",
-                Id = "id",
-                InstanceOwner = new InstanceOwner
+                Substatus = new Substatus
                 {
-                    PartyId = "partyId",
-                },
-                AppId = "appid",
-                Org = "org",
-                SelfLinks = null,
-                DueBefore = null,
-                VisibleAfter = null,
-                Process = new ProcessState(),
-                Status = new InstanceStatus
-                {
-                    Substatus = new Substatus
-                    {
-                        Label = "substatus.label",
-                    }
-                },
-                CompleteConfirmations = [],
-                Data = [],
-                PresentationTexts = new Dictionary<string, string>(),
-                DataValues = new Dictionary<string, string>()
-            },
+                    Label = "substatus.label",
+                }
+            }).Build(),
             ExistingDialog: null,
             IsMigration: false);
 
@@ -597,8 +376,8 @@ public class StorageDialogportenDataMergerTest
             Id = Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
             IsApiOnly = false,
             Revision = null,
-            ServiceResource = "urn:altinn:resource:app_appid",
-            Party = "urn:actor.by.party.id",
+            ServiceResource = "urn:altinn:resource:app_urn:altinn:instance-id",
+            Party = "urn:actor.by.party.id.party1",
             Progress = null,
             ExtendedStatus = null,
             ExternalReference = null,
@@ -607,34 +386,15 @@ public class StorageDialogportenDataMergerTest
             Process = null,
             PrecedingProcess = null,
             ExpiresAt = null,
-            CreatedAt = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-            UpdatedAt = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
+            CreatedAt = new DateTime(1000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+            UpdatedAt = new DateTime(1000, 2, 1, 1, 1, 1, DateTimeKind.Utc),
             Status = DialogStatus.InProgress,
             SystemLabel = SystemLabel.Default,
-            ServiceOwnerContext = new ServiceOwnerContext
-            {
-                ServiceOwnerLabels =
-                [
-                    new ServiceOwnerLabel { Value = "urn:altinn:integration:storage:id" }
-                ]
-            },
+            ServiceOwnerContext = Regulars.ServiceOwnerContexts.DefaultContext,
             Content = new ContentDto
             {
-                Summary = new ContentValueDto
-                {
-                    Value =
-                    [
-                        new LocalizationDto { LanguageCode = "nb", Value = "Innsendingen er klar for å fylles ut." },
-                        new LocalizationDto { LanguageCode = "nn", Value = "Innsendinga er klar til å fyllast ut." },
-                        new LocalizationDto { LanguageCode = "en", Value = "The submission is ready to be filled out." }
-                    ],
-                    MediaType = "text/plain"
-                },
-                Title = new ContentValueDto
-                {
-                    Value = [new LocalizationDto { Value = "title", LanguageCode = "nb" }],
-                    MediaType = "text/plain",
-                },
+                Summary = Regulars.Content.ReadyForSubmission.Summary,
+                Title = Regulars.Content.ReadyForSubmission.Title,
                 ExtendedStatus = new ContentValueDto
                 {
                     Value =
@@ -651,41 +411,8 @@ public class StorageDialogportenDataMergerTest
             Transmissions = [],
             GuiActions =
             [
-                new GuiActionDto
-                {
-                    Id = mergeDto.DialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.Delete),
-                    Action = "delete",
-                    Url = "http://adapter.localhost/api/v1/instance/id",
-                    AuthorizationAttribute = null,
-                    IsDeleteDialogAction = true,
-                    HttpMethod = HttpVerb.DELETE,
-                    Priority = DialogGuiActionPriority.Secondary,
-                    Title =
-                    [
-                        new LocalizationDto { LanguageCode = "nb", Value = "Slett" },
-                        new LocalizationDto { LanguageCode = "nn", Value = "Slett" },
-                        new LocalizationDto { LanguageCode = "en", Value = "Delete" }
-                    ],
-                    Prompt = null
-                },
-                new GuiActionDto
-                {
-                    Id = mergeDto.DialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.GoTo),
-                    Action = "write",
-                    Url =
-                        "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Forg.apps.altinn.localhost%2Fappid%2F%3FdontChooseReportee%3Dtrue%23%2Finstance%2Fid",
-                    AuthorizationAttribute = null,
-                    IsDeleteDialogAction = false,
-                    HttpMethod = HttpVerb.GET,
-                    Priority = DialogGuiActionPriority.Primary,
-                    Title =
-                    [
-                        new LocalizationDto { LanguageCode = "nb", Value = "Gå til skjemautfylling" },
-                        new LocalizationDto { LanguageCode = "nn", Value = "Gå til skjemautfylling" },
-                        new LocalizationDto { LanguageCode = "en", Value = "Go to form completion" }
-                    ],
-                    Prompt = null
-                }
+                Regulars.GuiActions.Delete(mergeDto.DialogId),
+                Regulars.GuiActions.Write(mergeDto.DialogId)
             ],
             ApiActions = [],
             Activities = [],
@@ -698,10 +425,7 @@ public class StorageDialogportenDataMergerTest
     public async Task Merge_SubstatusWithText_AssumesNorwegian()
     {
         var mergeDto = new MergeDto(
-            Application: new Application
-            {
-                Title = new Dictionary<string, string> { { "nb", "title" } },
-            },
+            Application: AltinnApplicationBuilder.NewDefaultAltinnApplication().Build(),
             ApplicationTexts: new ApplicationTexts
             {
                 Translations = new Dictionary<string, ApplicationTextsTranslation>()
@@ -709,47 +433,18 @@ public class StorageDialogportenDataMergerTest
             DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
             Events: new InstanceEventList
             {
-                InstanceEvents =
-                [
-                    new InstanceEvent
-                    {
-                        User = new PlatformUser
-                        {
-                            UserId = 1,
-                            OrgId = "org",
-                        }
-                    }
-                ]
+                InstanceEvents = [AltinnInstanceEventBuilder.NewCreatedByPlatformUserInstanceEvent(UserId1).Build()]
             },
-            Instance: new Instance
-            {
-                Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-                CreatedBy = "Me",
-                LastChanged = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
-                LastChangedBy = "Me",
-                Id = "id",
-                InstanceOwner = new InstanceOwner
-                {
-                    PartyId = "partyId",
-                },
-                AppId = "appid",
-                Org = "org",
-                SelfLinks = null,
-                DueBefore = null,
-                VisibleAfter = null,
-                Process = new ProcessState(),
-                Status = new InstanceStatus
+            Instance: AltinnInstanceBuilder
+                .NewInProgressInstance()
+                .WithStatus(new InstanceStatus
                 {
                     Substatus = new Substatus
                     {
                         Label = "En substatus som vi antar er på norsk og litt for lang",
                     }
-                },
-                CompleteConfirmations = [],
-                Data = [],
-                PresentationTexts = new Dictionary<string, string>(),
-                DataValues = new Dictionary<string, string>()
-            },
+                })
+                .Build(),
             ExistingDialog: null,
             IsMigration: false
         );
@@ -761,8 +456,8 @@ public class StorageDialogportenDataMergerTest
             Id = Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
             IsApiOnly = false,
             Revision = null,
-            ServiceResource = "urn:altinn:resource:app_appid",
-            Party = "urn:actor.by.party.id",
+            ServiceResource = "urn:altinn:resource:app_urn:altinn:instance-id",
+            Party = "urn:actor.by.party.id.party1",
             Progress = null,
             ExtendedStatus = null,
             ExternalReference = null,
@@ -771,34 +466,15 @@ public class StorageDialogportenDataMergerTest
             Process = null,
             PrecedingProcess = null,
             ExpiresAt = null,
-            CreatedAt = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-            UpdatedAt = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
+            CreatedAt = new DateTime(1000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+            UpdatedAt = new DateTime(1000, 2, 1, 1, 1, 1, DateTimeKind.Utc),
             Status = DialogStatus.InProgress,
             SystemLabel = SystemLabel.Default,
-            ServiceOwnerContext = new ServiceOwnerContext
-            {
-                ServiceOwnerLabels =
-                [
-                    new ServiceOwnerLabel { Value = "urn:altinn:integration:storage:id" }
-                ]
-            },
+            ServiceOwnerContext = Regulars.ServiceOwnerContexts.DefaultContext,
             Content = new ContentDto
             {
-                Summary = new ContentValueDto
-                {
-                    Value =
-                    [
-                        new LocalizationDto { LanguageCode = "nb", Value = "Innsendingen er klar for å fylles ut." },
-                        new LocalizationDto { LanguageCode = "nn", Value = "Innsendinga er klar til å fyllast ut." },
-                        new LocalizationDto { LanguageCode = "en", Value = "The submission is ready to be filled out." }
-                    ],
-                    MediaType = "text/plain"
-                },
-                Title = new ContentValueDto
-                {
-                    Value = [new LocalizationDto { Value = "title", LanguageCode = "nb" }],
-                    MediaType = "text/plain",
-                },
+                Summary = Regulars.Content.ReadyForSubmission.Summary,
+                Title = Regulars.Content.ReadyForSubmission.Title,
                 ExtendedStatus = new ContentValueDto
                 {
                     Value =
@@ -813,41 +489,8 @@ public class StorageDialogportenDataMergerTest
             Transmissions = [],
             GuiActions =
             [
-                new GuiActionDto
-                {
-                    Id = mergeDto.DialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.Delete),
-                    Action = "delete",
-                    Url = "http://adapter.localhost/api/v1/instance/id",
-                    AuthorizationAttribute = null,
-                    IsDeleteDialogAction = true,
-                    HttpMethod = HttpVerb.DELETE,
-                    Priority = DialogGuiActionPriority.Secondary,
-                    Title =
-                    [
-                        new LocalizationDto { LanguageCode = "nb", Value = "Slett" },
-                        new LocalizationDto { LanguageCode = "nn", Value = "Slett" },
-                        new LocalizationDto { LanguageCode = "en", Value = "Delete" }
-                    ],
-                    Prompt = null
-                },
-                new GuiActionDto
-                {
-                    Id = mergeDto.DialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.GoTo),
-                    Action = "write",
-                    Url =
-                        "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Forg.apps.altinn.localhost%2Fappid%2F%3FdontChooseReportee%3Dtrue%23%2Finstance%2Fid",
-                    AuthorizationAttribute = null,
-                    IsDeleteDialogAction = false,
-                    HttpMethod = HttpVerb.GET,
-                    Priority = DialogGuiActionPriority.Primary,
-                    Title =
-                    [
-                        new LocalizationDto { LanguageCode = "nb", Value = "Gå til skjemautfylling" },
-                        new LocalizationDto { LanguageCode = "nn", Value = "Gå til skjemautfylling" },
-                        new LocalizationDto { LanguageCode = "en", Value = "Go to form completion" }
-                    ],
-                    Prompt = null
-                }
+                Regulars.GuiActions.Delete(mergeDto.DialogId),
+                Regulars.GuiActions.Write(mergeDto.DialogId)
             ],
             ApiActions = [],
             Activities = [],
@@ -859,10 +502,7 @@ public class StorageDialogportenDataMergerTest
     public async Task Merge_DueBeforeAndVisibleAfterInThePast_SetBothToNull()
     {
         var mergeDto = new MergeDto(
-            Application: new Application
-            {
-                Title = new Dictionary<string, string> { { "nb", "title" } },
-            },
+            Application: AltinnApplicationBuilder.NewDefaultAltinnApplication().Build(),
             ApplicationTexts: new ApplicationTexts
             {
                 Translations = new Dictionary<string, ApplicationTextsTranslation>()
@@ -870,41 +510,13 @@ public class StorageDialogportenDataMergerTest
             DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
             Events: new InstanceEventList
             {
-                InstanceEvents =
-                [
-                    new InstanceEvent
-                    {
-                        User = new PlatformUser
-                        {
-                            UserId = 1,
-                            OrgId = "org",
-                        }
-                    }
-                ]
+                InstanceEvents = [AltinnInstanceEventBuilder.NewCreatedByPlatformUserInstanceEvent(UserId1).Build()]
             },
-            Instance: new Instance
-            {
-                Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-                CreatedBy = "Me",
-                LastChanged = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
-                LastChangedBy = "Me",
-                Id = "id",
-                InstanceOwner = new InstanceOwner
-                {
-                    PartyId = "partyId",
-                },
-                AppId = "appid",
-                Org = "org",
-                SelfLinks = null,
-                DueBefore = new DateTime(2000, 1, 1, 1, 1, 3),
-                VisibleAfter = new DateTime(2000, 1, 1, 1, 1, 4),
-                Process = new ProcessState(),
-                Status = new InstanceStatus(),
-                CompleteConfirmations = [],
-                Data = [],
-                PresentationTexts = new Dictionary<string, string>(),
-                DataValues = new Dictionary<string, string>()
-            },
+            Instance: AltinnInstanceBuilder
+                .NewInProgressInstance()
+                .WithDueBefore(new DateTime(900, 1, 1, 1, 1, 3))
+                .WithVisibleAfter(new DateTime(900, 1, 1, 1, 1, 4)).Build()
+            ,
             ExistingDialog: null,
             IsMigration: false
         );
@@ -916,8 +528,8 @@ public class StorageDialogportenDataMergerTest
             Id = Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
             IsApiOnly = false,
             Revision = null,
-            ServiceResource = "urn:altinn:resource:app_appid",
-            Party = "urn:actor.by.party.id",
+            ServiceResource = "urn:altinn:resource:app_urn:altinn:instance-id",
+            Party = "urn:actor.by.party.id.party1",
             Progress = null,
             ExtendedStatus = null,
             ExternalReference = null,
@@ -926,76 +538,19 @@ public class StorageDialogportenDataMergerTest
             Process = null,
             PrecedingProcess = null,
             ExpiresAt = null,
-            CreatedAt = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-            UpdatedAt = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
+            CreatedAt = new DateTime(1000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+            UpdatedAt = new DateTime(1000, 2, 1, 1, 1, 1, DateTimeKind.Utc),
             Status = DialogStatus.InProgress,
             SystemLabel = SystemLabel.Default,
-            ServiceOwnerContext = new ServiceOwnerContext
-            {
-                ServiceOwnerLabels =
-                [
-                    new ServiceOwnerLabel { Value = "urn:altinn:integration:storage:id" }
-                ]
-            },
-            Content = new ContentDto
-            {
-                Summary = new ContentValueDto
-                {
-                    Value =
-                    [
-                        new LocalizationDto { LanguageCode = "nb", Value = "Innsendingen er klar for å fylles ut." },
-                        new LocalizationDto { LanguageCode = "nn", Value = "Innsendinga er klar til å fyllast ut." },
-                        new LocalizationDto { LanguageCode = "en", Value = "The submission is ready to be filled out." }
-                    ],
-                    MediaType = "text/plain"
-                },
-                Title = new ContentValueDto
-                {
-                    Value = [new LocalizationDto { Value = "title", LanguageCode = "nb" }],
-                    MediaType = "text/plain",
-                },
-                ExtendedStatus = null
-            },
+            ServiceOwnerContext = Regulars.ServiceOwnerContexts.DefaultContext,
+            Content = Regulars.Content.ReadyForSubmission,
             SearchTags = [],
             Attachments = [],
             Transmissions = [],
             GuiActions =
             [
-                new GuiActionDto
-                {
-                    Id = mergeDto.DialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.Delete),
-                    Action = "delete",
-                    Url = "http://adapter.localhost/api/v1/instance/id",
-                    AuthorizationAttribute = null,
-                    IsDeleteDialogAction = true,
-                    HttpMethod = HttpVerb.DELETE,
-                    Priority = DialogGuiActionPriority.Secondary,
-                    Title =
-                    [
-                        new LocalizationDto { LanguageCode = "nb", Value = "Slett" },
-                        new LocalizationDto { LanguageCode = "nn", Value = "Slett" },
-                        new LocalizationDto { LanguageCode = "en", Value = "Delete" }
-                    ],
-                    Prompt = null
-                },
-                new GuiActionDto
-                {
-                    Id = mergeDto.DialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.GoTo),
-                    Action = "write",
-                    Url =
-                        "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Forg.apps.altinn.localhost%2Fappid%2F%3FdontChooseReportee%3Dtrue%23%2Finstance%2Fid",
-                    AuthorizationAttribute = null,
-                    IsDeleteDialogAction = false,
-                    HttpMethod = HttpVerb.GET,
-                    Priority = DialogGuiActionPriority.Primary,
-                    Title =
-                    [
-                        new LocalizationDto { LanguageCode = "nb", Value = "Gå til skjemautfylling" },
-                        new LocalizationDto { LanguageCode = "nn", Value = "Gå til skjemautfylling" },
-                        new LocalizationDto { LanguageCode = "en", Value = "Go to form completion" }
-                    ],
-                    Prompt = null
-                }
+                Regulars.GuiActions.Delete(mergeDto.DialogId),
+                Regulars.GuiActions.Write(mergeDto.DialogId)
             ],
             ApiActions = [],
             Activities = [],
@@ -1007,10 +562,7 @@ public class StorageDialogportenDataMergerTest
     public async Task Merge_DueBeforeAndVisibleAfterInTheFuture_IncludesBoth()
     {
         var mergeDto = new MergeDto(
-            Application: new Application
-            {
-                Title = new Dictionary<string, string> { { "nb", "title" } },
-            },
+            Application: AltinnApplicationBuilder.NewDefaultAltinnApplication().Build(),
             ApplicationTexts: new ApplicationTexts
             {
                 Translations = new Dictionary<string, ApplicationTextsTranslation>()
@@ -1018,41 +570,13 @@ public class StorageDialogportenDataMergerTest
             DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
             Events: new InstanceEventList
             {
-                InstanceEvents =
-                [
-                    new InstanceEvent
-                    {
-                        User = new PlatformUser
-                        {
-                            UserId = 1,
-                            OrgId = "org",
-                        }
-                    },
-                ]
+                InstanceEvents = [AltinnInstanceEventBuilder.NewCreatedByPlatformUserInstanceEvent(UserId1).Build()]
             },
-            Instance: new Instance
-            {
-                Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-                CreatedBy = "Me",
-                LastChanged = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
-                LastChangedBy = "Me",
-                Id = "id",
-                InstanceOwner = new InstanceOwner
-                {
-                    PartyId = "partyId",
-                },
-                AppId = "appid",
-                Org = "org",
-                SelfLinks = null,
-                DueBefore = new DateTime(9999, 1, 1, 1, 1, 3),
-                VisibleAfter = new DateTime(9999, 1, 1, 1, 1, 4),
-                Process = new ProcessState(),
-                Status = new InstanceStatus(),
-                CompleteConfirmations = [],
-                Data = [],
-                PresentationTexts = new Dictionary<string, string>(),
-                DataValues = new Dictionary<string, string>()
-            },
+            Instance: AltinnInstanceBuilder
+                .NewInProgressInstance()
+                .WithDueBefore(new DateTime(9999, 1, 1, 1, 1, 3))
+                .WithVisibleAfter(new DateTime(9999, 1, 1, 1, 1, 4)).Build()
+            ,
             ExistingDialog: null,
             IsMigration: false
         );
@@ -1064,8 +588,8 @@ public class StorageDialogportenDataMergerTest
             Id = Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
             IsApiOnly = false,
             Revision = null,
-            ServiceResource = "urn:altinn:resource:app_appid",
-            Party = "urn:actor.by.party.id",
+            ServiceResource = "urn:altinn:resource:app_urn:altinn:instance-id",
+            Party = "urn:actor.by.party.id.party1",
             Progress = null,
             ExtendedStatus = null,
             ExternalReference = null,
@@ -1074,76 +598,19 @@ public class StorageDialogportenDataMergerTest
             Process = null,
             PrecedingProcess = null,
             ExpiresAt = null,
-            CreatedAt = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-            UpdatedAt = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
+            CreatedAt = new DateTime(1000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+            UpdatedAt = new DateTime(1000, 2, 1, 1, 1, 1, DateTimeKind.Utc),
             Status = DialogStatus.InProgress,
             SystemLabel = SystemLabel.Default,
-            ServiceOwnerContext = new ServiceOwnerContext
-            {
-                ServiceOwnerLabels =
-                [
-                    new ServiceOwnerLabel { Value = "urn:altinn:integration:storage:id" }
-                ]
-            },
-            Content = new ContentDto
-            {
-                Summary = new ContentValueDto
-                {
-                    Value =
-                    [
-                        new LocalizationDto { LanguageCode = "nb", Value = "Innsendingen er klar for å fylles ut." },
-                        new LocalizationDto { LanguageCode = "nn", Value = "Innsendinga er klar til å fyllast ut." },
-                        new LocalizationDto { LanguageCode = "en", Value = "The submission is ready to be filled out." }
-                    ],
-                    MediaType = "text/plain"
-                },
-                Title = new ContentValueDto
-                {
-                    Value = [new LocalizationDto { Value = "title", LanguageCode = "nb" }],
-                    MediaType = "text/plain",
-                },
-                ExtendedStatus = null
-            },
+            ServiceOwnerContext = Regulars.ServiceOwnerContexts.DefaultContext,
+            Content = Regulars.Content.ReadyForSubmission,
             SearchTags = [],
             Attachments = [],
             Transmissions = [],
             GuiActions =
             [
-                new GuiActionDto
-                {
-                    Id = mergeDto.DialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.Delete),
-                    Action = "delete",
-                    Url = "http://adapter.localhost/api/v1/instance/id",
-                    AuthorizationAttribute = null,
-                    IsDeleteDialogAction = true,
-                    HttpMethod = HttpVerb.DELETE,
-                    Priority = DialogGuiActionPriority.Secondary,
-                    Title =
-                    [
-                        new LocalizationDto { LanguageCode = "nb", Value = "Slett" },
-                        new LocalizationDto { LanguageCode = "nn", Value = "Slett" },
-                        new LocalizationDto { LanguageCode = "en", Value = "Delete" }
-                    ],
-                    Prompt = null
-                },
-                new GuiActionDto
-                {
-                    Id = mergeDto.DialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.GoTo),
-                    Action = "write",
-                    Url =
-                        "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Forg.apps.altinn.localhost%2Fappid%2F%3FdontChooseReportee%3Dtrue%23%2Finstance%2Fid",
-                    AuthorizationAttribute = null,
-                    IsDeleteDialogAction = false,
-                    HttpMethod = HttpVerb.GET,
-                    Priority = DialogGuiActionPriority.Primary,
-                    Title =
-                    [
-                        new LocalizationDto { LanguageCode = "nb", Value = "Gå til skjemautfylling" },
-                        new LocalizationDto { LanguageCode = "nn", Value = "Gå til skjemautfylling" },
-                        new LocalizationDto { LanguageCode = "en", Value = "Go to form completion" }
-                    ],
-                    Prompt = null
-                }
+                Regulars.GuiActions.Delete(mergeDto.DialogId),
+                Regulars.GuiActions.Write(mergeDto.DialogId)
             ],
             ApiActions = [],
             Activities = [],
@@ -1155,14 +622,13 @@ public class StorageDialogportenDataMergerTest
     public async Task Merge_WithAllTypesOfInstanceEvents_MergesIntoActivitiesAsExpected()
     {
         var mergeDto = new MergeDto(
-            Application: new Application
-            {
-                Title = new Dictionary<string, string> { { "nb", "title" } },
-                MessageBoxConfig = new MessageBoxConfig
+            Application: AltinnApplicationBuilder
+                .NewDefaultAltinnApplication()
+                .WithMessageBoxConfig(new MessageBoxConfig
                 {
                     SyncAdapterSettings = new SyncAdapterSettings { DisableAddTransmissions = true }
-                },
-            },
+                })
+                .Build(),
             ApplicationTexts: new ApplicationTexts
             {
                 Translations = new Dictionary<string, ApplicationTextsTranslation>()
@@ -1267,267 +733,182 @@ public class StorageDialogportenDataMergerTest
                     },
                 ]
             },
-            Instance: new Instance
-            {
-                Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-                CreatedBy = "Me",
-                LastChanged = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
-                LastChangedBy = "Me",
-                Id = "id",
-                InstanceOwner = new InstanceOwner
-                {
-                    PartyId = "partyId",
-                },
-                AppId = "appid",
-                Org = "org",
-                SelfLinks = null,
-                DueBefore = null,
-                VisibleAfter = null,
-                Process = new ProcessState(),
-                Status = new InstanceStatus(),
-                CompleteConfirmations = [],
-                Data = [],
-                PresentationTexts = new Dictionary<string, string>(),
-                DataValues = new Dictionary<string, string>()
-            },
+            Instance: AltinnInstanceBuilder.NewInProgressInstance().Build(),
             ExistingDialog: null,
             IsMigration: false
         );
 
         var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
 
-        using (new AssertionScope { FormattingOptions = { MaxLines = 500 } })
+        actualDialogDto.Should().BeEquivalentTo(new DialogDto
         {
-            actualDialogDto.Should().BeEquivalentTo(new DialogDto
-            {
-                Id = Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
-                IsApiOnly = false,
-                Revision = null,
-                ServiceResource = "urn:altinn:resource:app_appid",
-                Party = "urn:actor.by.party.id",
-                Progress = null,
-                ExtendedStatus = null,
-                ExternalReference = null,
-                VisibleFrom = null,
-                DueAt = null,
-                Process = null,
-                PrecedingProcess = null,
-                ExpiresAt = null,
-                CreatedAt = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-                UpdatedAt = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
-                Status = DialogStatus.Draft,
-                SystemLabel = SystemLabel.Default,
-                ServiceOwnerContext = new ServiceOwnerContext
+            Id = Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
+            IsApiOnly = false,
+            Revision = null,
+            ServiceResource = "urn:altinn:resource:app_urn:altinn:instance-id",
+            Party = "urn:actor.by.party.id.party1",
+            Progress = null,
+            ExtendedStatus = null,
+            ExternalReference = null,
+            VisibleFrom = null,
+            DueAt = null,
+            Process = null,
+            PrecedingProcess = null,
+            ExpiresAt = null,
+            CreatedAt = new DateTime(1000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+            UpdatedAt = new DateTime(1000, 2, 1, 1, 1, 1, DateTimeKind.Utc),
+            Status = DialogStatus.Draft,
+            SystemLabel = SystemLabel.Default,
+            ServiceOwnerContext = Regulars.ServiceOwnerContexts.DefaultContext,
+            Content = Regulars.Content.ReadyForSubmission,
+            SearchTags = [],
+            Attachments = [],
+            GuiActions =
+            [
+                Regulars.GuiActions.Delete(mergeDto.DialogId),
+                Regulars.GuiActions.Write(mergeDto.DialogId)
+            ],
+            ApiActions = [],
+            Activities =
+            [
+                new ActivityDto
                 {
-                    ServiceOwnerLabels =
-                    [
-                        new ServiceOwnerLabel { Value = "urn:altinn:integration:storage:id" }
-                    ]
+                    Id = Guid.Parse("00e3c7df-10c8-7fdf-a7ec-f85248d2293c"),
+                    CreatedAt = new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+                    ExtendedType = null,
+                    Type = DialogActivityType.DialogCreated,
+                    TransmissionId = null,
+                    PerformedBy = new ActorDto
+                    {
+                        ActorType = ActorType.PartyRepresentative,
+                        ActorName = "Leif",
+                        ActorId = null
+                    },
+                    Description = []
                 },
-                Content = new ContentDto
+                new ActivityDto
                 {
-                    Summary = new ContentValueDto
+                    Id = Guid.Parse("00e3c7df-14b0-703f-9fcc-6f7cd619f12e"),
+                    CreatedAt = new DateTime(2001, 1, 1, 1, 1, 2, DateTimeKind.Utc),
+                    ExtendedType = null,
+                    Type = DialogActivityType.DialogDeleted,
+                    TransmissionId = null,
+                    PerformedBy = new ActorDto
                     {
-                        Value =
-                        [
-                            new LocalizationDto
-                                { LanguageCode = "nb", Value = "Innsendingen er klar for å fylles ut." },
-                            new LocalizationDto
-                                { LanguageCode = "nn", Value = "Innsendinga er klar til å fyllast ut." },
-                            new LocalizationDto
-                                { LanguageCode = "en", Value = "The submission is ready to be filled out." }
-                        ],
-                        MediaType = "text/plain"
+                        ActorType = ActorType.PartyRepresentative,
+                        ActorName = null,
+                        ActorId = "urn:altinn:person:legacy-selfidentified:Per"
                     },
-                    Title = new ContentValueDto
-                    {
-                        Value = [new LocalizationDto { Value = "title", LanguageCode = "nb" }],
-                        MediaType = "text/plain",
-                    },
-                    ExtendedStatus = null
+                    Description = []
                 },
-                SearchTags = [],
-                Attachments = [],
-                GuiActions =
-                [
-                    new GuiActionDto
+                new ActivityDto
+                {
+                    Id = Guid.Parse("00e3c7df-1898-78fc-aa11-6b89c409264b"),
+                    CreatedAt = new DateTime(2001, 1, 1, 1, 1, 3, DateTimeKind.Utc),
+                    ExtendedType = null,
+                    Type = DialogActivityType.DialogRestored,
+                    TransmissionId = null,
+                    PerformedBy = new ActorDto
                     {
-                        Id = mergeDto.DialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.Delete),
-                        Action = "delete",
-                        Url = "http://adapter.localhost/api/v1/instance/id",
-                        AuthorizationAttribute = null,
-                        IsDeleteDialogAction = true,
-                        HttpMethod = HttpVerb.DELETE,
-                        Priority = DialogGuiActionPriority.Secondary,
-                        Title =
-                        [
-                            new LocalizationDto { LanguageCode = "nb", Value = "Slett" },
-                            new LocalizationDto { LanguageCode = "nn", Value = "Slett" },
-                            new LocalizationDto { LanguageCode = "en", Value = "Delete" }
-                        ],
-                        Prompt = null
+                        ActorType = ActorType.PartyRepresentative,
+                        ActorName = "EUS #3",
+                        ActorId = null
                     },
-                    new GuiActionDto
+                    Description = []
+                },
+                new ActivityDto
+                {
+                    Id = Guid.Parse("00e3c7df-1c80-7f92-a462-0522af8f17d5"),
+                    CreatedAt = new DateTime(2001, 1, 1, 1, 1, 4, DateTimeKind.Utc),
+                    ExtendedType = null,
+                    Type = DialogActivityType.SentToSigning,
+                    TransmissionId = null,
+                    PerformedBy = new ActorDto
                     {
-                        Id = mergeDto.DialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.GoTo),
-                        Action = "write",
-                        Url =
-                            "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Forg.apps.altinn.localhost%2Fappid%2F%3FdontChooseReportee%3Dtrue%23%2Finstance%2Fid",
-                        AuthorizationAttribute = null,
-                        IsDeleteDialogAction = false,
-                        HttpMethod = HttpVerb.GET,
-                        Priority = DialogGuiActionPriority.Primary,
-                        Title =
-                        [
-                            new LocalizationDto { LanguageCode = "nb", Value = "Gå til skjemautfylling" },
-                            new LocalizationDto { LanguageCode = "nn", Value = "Gå til skjemautfylling" },
-                            new LocalizationDto { LanguageCode = "en", Value = "Go to form completion" }
-                        ],
-                        Prompt = null
-                    }
-                ],
-                ApiActions = [],
-                Activities =
-                [
-                    new ActivityDto
-                    {
-                        Id = Guid.Parse("00e3c7df-10c8-7fdf-a7ec-f85248d2293c"),
-                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-                        ExtendedType = null,
-                        Type = DialogActivityType.DialogCreated,
-                        TransmissionId = null,
-                        PerformedBy = new ActorDto
-                        {
-                            ActorType = ActorType.PartyRepresentative,
-                            ActorName = "Leif",
-                            ActorId = null
-                        },
-                        Description = []
+                        ActorType = ActorType.PartyRepresentative,
+                        ActorName = null,
+                        ActorId = "urn:altinn:organization:identifier-no:123456789"
                     },
-                    new ActivityDto
+                    Description = []
+                },
+                new ActivityDto
+                {
+                    Id = Guid.Parse("00e3c7df-2068-7875-8547-e747144f5952"),
+                    CreatedAt = new DateTime(2001, 1, 1, 1, 1, 5, DateTimeKind.Utc),
+                    ExtendedType = null,
+                    Type = DialogActivityType.SignatureProvided,
+                    TransmissionId = null,
+                    PerformedBy = new ActorDto
                     {
-                        Id = Guid.Parse("00e3c7df-14b0-703f-9fcc-6f7cd619f12e"),
-                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 2, DateTimeKind.Utc),
-                        ExtendedType = null,
-                        Type = DialogActivityType.DialogDeleted,
-                        TransmissionId = null,
-                        PerformedBy = new ActorDto
-                        {
-                            ActorType = ActorType.PartyRepresentative,
-                            ActorName = null,
-                            ActorId = "urn:altinn:person:legacy-selfidentified:Per"
-                        },
-                        Description = []
+                        ActorType = ActorType.ServiceOwner,
+                        ActorName = null,
+                        ActorId = null
                     },
-                    new ActivityDto
+                    Description = []
+                },
+                new ActivityDto
+                {
+                    Id = Guid.Parse("00e3c7df-2450-77fd-bc9b-c5efc2e93d61"),
+                    CreatedAt = new DateTime(2001, 1, 1, 1, 1, 6, DateTimeKind.Utc),
+                    ExtendedType = null,
+                    Type = DialogActivityType.SentToPayment,
+                    TransmissionId = null,
+                    PerformedBy = new ActorDto
                     {
-                        Id = Guid.Parse("00e3c7df-1898-78fc-aa11-6b89c409264b"),
-                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 3, DateTimeKind.Utc),
-                        ExtendedType = null,
-                        Type = DialogActivityType.DialogRestored,
-                        TransmissionId = null,
-                        PerformedBy = new ActorDto
-                        {
-                            ActorType = ActorType.PartyRepresentative,
-                            ActorName = "EUS #3",
-                            ActorId = null
-                        },
-                        Description = []
+                        ActorType = ActorType.PartyRepresentative,
+                        ActorName = "Leif",
+                        ActorId = null
                     },
-                    new ActivityDto
+                    Description = []
+                },
+                new ActivityDto
+                {
+                    Id = Guid.Parse("00e3c7df-2838-7d0a-aa34-c19bb45c358b"),
+                    CreatedAt = new DateTime(2001, 1, 1, 1, 1, 7, DateTimeKind.Utc),
+                    ExtendedType = null,
+                    Type = DialogActivityType.SentToFormFill,
+                    TransmissionId = null,
+                    PerformedBy = new ActorDto
                     {
-                        Id = Guid.Parse("00e3c7df-1c80-7f92-a462-0522af8f17d5"),
-                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 4, DateTimeKind.Utc),
-                        ExtendedType = null,
-                        Type = DialogActivityType.SentToSigning,
-                        TransmissionId = null,
-                        PerformedBy = new ActorDto
-                        {
-                            ActorType = ActorType.PartyRepresentative,
-                            ActorName = null,
-                            ActorId = "urn:altinn:organization:identifier-no:123456789"
-                        },
-                        Description = []
+                        ActorType = ActorType.PartyRepresentative,
+                        ActorName = "Leif",
+                        ActorId = null
                     },
-                    new ActivityDto
+                    Description = []
+                },
+                new ActivityDto
+                {
+                    Id = Guid.Parse("00e3c7df-2c20-7e41-a83d-b5a3ed22afb1"),
+                    CreatedAt = new DateTime(2001, 1, 1, 1, 1, 8, DateTimeKind.Utc),
+                    ExtendedType = null,
+                    Type = DialogActivityType.SentToSendIn,
+                    TransmissionId = null,
+                    PerformedBy = new ActorDto
                     {
-                        Id = Guid.Parse("00e3c7df-2068-7875-8547-e747144f5952"),
-                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 5, DateTimeKind.Utc),
-                        ExtendedType = null,
-                        Type = DialogActivityType.SignatureProvided,
-                        TransmissionId = null,
-                        PerformedBy = new ActorDto
-                        {
-                            ActorType = ActorType.ServiceOwner,
-                            ActorName = null,
-                            ActorId = null
-                        },
-                        Description = []
+                        ActorType = ActorType.PartyRepresentative,
+                        ActorName = "Leif",
+                        ActorId = null
                     },
-                    new ActivityDto
+                    Description = []
+                },
+                new ActivityDto
+                {
+                    Id = Guid.Parse("00e3c7df-3008-7fe6-aebe-62ef9e035791"),
+                    CreatedAt = new DateTime(2001, 1, 1, 1, 1, 9, DateTimeKind.Utc),
+                    ExtendedType = null,
+                    Type = DialogActivityType.FormSubmitted,
+                    TransmissionId = null,
+                    PerformedBy = new ActorDto
                     {
-                        Id = Guid.Parse("00e3c7df-2450-77fd-bc9b-c5efc2e93d61"),
-                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 6, DateTimeKind.Utc),
-                        ExtendedType = null,
-                        Type = DialogActivityType.SentToPayment,
-                        TransmissionId = null,
-                        PerformedBy = new ActorDto
-                        {
-                            ActorType = ActorType.PartyRepresentative,
-                            ActorName = "Leif",
-                            ActorId = null
-                        },
-                        Description = []
+                        ActorType = ActorType.PartyRepresentative,
+                        ActorName = "Leif",
+                        ActorId = null
                     },
-                    new ActivityDto
-                    {
-                        Id = Guid.Parse("00e3c7df-2838-7d0a-aa34-c19bb45c358b"),
-                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 7, DateTimeKind.Utc),
-                        ExtendedType = null,
-                        Type = DialogActivityType.SentToFormFill,
-                        TransmissionId = null,
-                        PerformedBy = new ActorDto
-                        {
-                            ActorType = ActorType.PartyRepresentative,
-                            ActorName = "Leif",
-                            ActorId = null
-                        },
-                        Description = []
-                    },
-                    new ActivityDto
-                    {
-                        Id = Guid.Parse("00e3c7df-2c20-7e41-a83d-b5a3ed22afb1"),
-                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 8, DateTimeKind.Utc),
-                        ExtendedType = null,
-                        Type = DialogActivityType.SentToSendIn,
-                        TransmissionId = null,
-                        PerformedBy = new ActorDto
-                        {
-                            ActorType = ActorType.PartyRepresentative,
-                            ActorName = "Leif",
-                            ActorId = null
-                        },
-                        Description = []
-                    },
-                    new ActivityDto
-                    {
-                        Id = Guid.Parse("00e3c7df-3008-7fe6-aebe-62ef9e035791"),
-                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 9, DateTimeKind.Utc),
-                        ExtendedType = null,
-                        Type = DialogActivityType.FormSubmitted,
-                        TransmissionId = null,
-                        PerformedBy = new ActorDto
-                        {
-                            ActorType = ActorType.PartyRepresentative,
-                            ActorName = "Leif",
-                            ActorId = null
-                        },
-                        Description = []
-                    },
-                ],
-                Deleted = false
-            });
-        }
+                    Description = []
+                },
+            ],
+            Deleted = false
+        });
     }
 
     [Fact(DisplayName =
@@ -1535,118 +916,117 @@ public class StorageDialogportenDataMergerTest
     public async Task Merge_WithOnlyAttachmentsAndEnabledTransmissions_MergesIntoAttachmentsAsExpected()
     {
         var mergeDto = new MergeDto(
-            Application: new Application
-            {
-                Title = new Dictionary<string, string> { { "nb", "title" } },
-                DataTypes =
-                [
-                    new DataType
-                    {
-                        Id = null,
-                        Description = new LanguageString { { "nb", "ikke i Gui: Uten ID" } },
-                        AllowedContentTypes = null,
-                        AllowedContributors = null,
-                        AppLogic = null,
-                        TaskId = null,
-                        MaxSize = null,
-                        MaxCount = 0,
-                        MinCount = 0,
-                        Grouping = null,
-                        EnablePdfCreation = false,
-                        EnableFileScan = false,
-                        ValidationErrorOnPendingFileScan = false,
-                        EnabledFileAnalysers = null,
-                        EnabledFileValidators = null,
-                        AllowedKeysForUserDefinedMetadata = null
-                    },
-                    new DataType
-                    {
-                        Id = "ref-data-as-pdf",
-                        Description = new LanguageString { { "nb", "I gui: ID er ref-data-as-pdf" } },
-                        AllowedContentTypes = null,
-                        AllowedContributors = null,
-                        AppLogic = null,
-                        TaskId = null,
-                        MaxSize = null,
-                        MaxCount = 0,
-                        MinCount = 0,
-                        Grouping = null,
-                        EnablePdfCreation = false,
-                        EnableFileScan = false,
-                        ValidationErrorOnPendingFileScan = false,
-                        EnabledFileAnalysers = null,
-                        EnabledFileValidators = null,
-                        AllowedKeysForUserDefinedMetadata = null
-                    },
-                    new DataType
-                    {
-                        Id = "app-logic",
-                        Description = new LanguageString { { "nb", "Ikke i Gui: AppLogic eksisterer" } },
-                        AllowedContentTypes = null,
-                        AllowedContributors = null,
-                        AppLogic = new ApplicationLogic
+            Application: AltinnApplicationBuilder
+                .NewDefaultAltinnApplication()
+                .WithDataTypes([
+                        new DataType
                         {
-                            AutoCreate = false,
-                            ClassRef = "no.digdir.ClassRef",
-                            SchemaRef = "123",
-                            AllowAnonymousOnStateless = false,
-                            AutoDeleteOnProcessEnd = false,
-                            DisallowUserCreate = false,
-                            DisallowUserDelete = false,
-                            ShadowFields = null
+                            Id = null,
+                            Description = new LanguageString { { "nb", "ikke i Gui: Uten ID" } },
+                            AllowedContentTypes = null,
+                            AllowedContributors = null,
+                            AppLogic = null,
+                            TaskId = null,
+                            MaxSize = null,
+                            MaxCount = 0,
+                            MinCount = 0,
+                            Grouping = null,
+                            EnablePdfCreation = false,
+                            EnableFileScan = false,
+                            ValidationErrorOnPendingFileScan = false,
+                            EnabledFileAnalysers = null,
+                            EnabledFileValidators = null,
+                            AllowedKeysForUserDefinedMetadata = null
                         },
-                        TaskId = null,
-                        MaxSize = null,
-                        MaxCount = 0,
-                        MinCount = 0,
-                        Grouping = null,
-                        EnablePdfCreation = false,
-                        EnableFileScan = false,
-                        ValidationErrorOnPendingFileScan = false,
-                        EnabledFileAnalysers = null,
-                        EnabledFileValidators = null,
-                        AllowedKeysForUserDefinedMetadata = null
-                    },
-                    new DataType
-                    {
-                        Id = "app-owned",
-                        Description = new LanguageString { { "nb", "Ikke i Gui: app:owned contributor" } },
-                        AllowedContentTypes = null,
-                        AllowedContributors = ["app:owned"],
-                        AppLogic = null,
-                        TaskId = null,
-                        MaxSize = null,
-                        MaxCount = 0,
-                        MinCount = 0,
-                        Grouping = null,
-                        EnablePdfCreation = false,
-                        EnableFileScan = false,
-                        ValidationErrorOnPendingFileScan = false,
-                        EnabledFileAnalysers = null,
-                        EnabledFileValidators = null,
-                        AllowedKeysForUserDefinedMetadata = null
-                    },
-                    new DataType
-                    {
-                        Id = "not-excluded",
-                        Description = new LanguageString { { "nb", "I Gui: Matcher ingen regler" } },
-                        AllowedContentTypes = null,
-                        AllowedContributors = null,
-                        AppLogic = null,
-                        TaskId = null,
-                        MaxSize = null,
-                        MaxCount = 0,
-                        MinCount = 0,
-                        Grouping = null,
-                        EnablePdfCreation = false,
-                        EnableFileScan = false,
-                        ValidationErrorOnPendingFileScan = false,
-                        EnabledFileAnalysers = null,
-                        EnabledFileValidators = null,
-                        AllowedKeysForUserDefinedMetadata = null
-                    },
-                ]
-            },
+                        new DataType
+                        {
+                            Id = "ref-data-as-pdf",
+                            Description = new LanguageString { { "nb", "I gui: ID er ref-data-as-pdf" } },
+                            AllowedContentTypes = null,
+                            AllowedContributors = null,
+                            AppLogic = null,
+                            TaskId = null,
+                            MaxSize = null,
+                            MaxCount = 0,
+                            MinCount = 0,
+                            Grouping = null,
+                            EnablePdfCreation = false,
+                            EnableFileScan = false,
+                            ValidationErrorOnPendingFileScan = false,
+                            EnabledFileAnalysers = null,
+                            EnabledFileValidators = null,
+                            AllowedKeysForUserDefinedMetadata = null
+                        },
+                        new DataType
+                        {
+                            Id = "app-logic",
+                            Description = new LanguageString { { "nb", "Ikke i Gui: AppLogic eksisterer" } },
+                            AllowedContentTypes = null,
+                            AllowedContributors = null,
+                            AppLogic = new ApplicationLogic
+                            {
+                                AutoCreate = false,
+                                ClassRef = "no.digdir.ClassRef",
+                                SchemaRef = "123",
+                                AllowAnonymousOnStateless = false,
+                                AutoDeleteOnProcessEnd = false,
+                                DisallowUserCreate = false,
+                                DisallowUserDelete = false,
+                                ShadowFields = null
+                            },
+                            TaskId = null,
+                            MaxSize = null,
+                            MaxCount = 0,
+                            MinCount = 0,
+                            Grouping = null,
+                            EnablePdfCreation = false,
+                            EnableFileScan = false,
+                            ValidationErrorOnPendingFileScan = false,
+                            EnabledFileAnalysers = null,
+                            EnabledFileValidators = null,
+                            AllowedKeysForUserDefinedMetadata = null
+                        },
+                        new DataType
+                        {
+                            Id = "app-owned",
+                            Description = new LanguageString { { "nb", "Ikke i Gui: app:owned contributor" } },
+                            AllowedContentTypes = null,
+                            AllowedContributors = ["app:owned"],
+                            AppLogic = null,
+                            TaskId = null,
+                            MaxSize = null,
+                            MaxCount = 0,
+                            MinCount = 0,
+                            Grouping = null,
+                            EnablePdfCreation = false,
+                            EnableFileScan = false,
+                            ValidationErrorOnPendingFileScan = false,
+                            EnabledFileAnalysers = null,
+                            EnabledFileValidators = null,
+                            AllowedKeysForUserDefinedMetadata = null
+                        },
+                        new DataType
+                        {
+                            Id = "not-excluded",
+                            Description = new LanguageString { { "nb", "I Gui: Matcher ingen regler" } },
+                            AllowedContentTypes = null,
+                            AllowedContributors = null,
+                            AppLogic = null,
+                            TaskId = null,
+                            MaxSize = null,
+                            MaxCount = 0,
+                            MinCount = 0,
+                            Grouping = null,
+                            EnablePdfCreation = false,
+                            EnableFileScan = false,
+                            ValidationErrorOnPendingFileScan = false,
+                            EnabledFileAnalysers = null,
+                            EnabledFileValidators = null,
+                            AllowedKeysForUserDefinedMetadata = null
+                        },
+                    ]
+                )
+                .Build(),
             ApplicationTexts: new ApplicationTexts
             {
                 Translations = new Dictionary<string, ApplicationTextsTranslation>()
@@ -1654,41 +1034,11 @@ public class StorageDialogportenDataMergerTest
             DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
             Events: new InstanceEventList
             {
-                InstanceEvents =
-                [
-                    new InstanceEvent
-                    {
-                        Id = Guid.Parse("019bc71b-eaf7-7fdf-a7ec-f85248d2293c"),
-                        Created = new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-                        EventType = nameof(InstanceEventType.Created),
-                        User = new PlatformUser
-                        {
-                            UserId = UserId1,
-                        },
-                    },
-                ]
+                InstanceEvents = [AltinnInstanceEventBuilder.NewCreatedByPlatformUserInstanceEvent(UserId1).Build()]
             },
-            Instance: new Instance
-            {
-                Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-                CreatedBy = "Me",
-                LastChanged = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
-                LastChangedBy = "Me",
-                Id = "id",
-                InstanceOwner = new InstanceOwner
-                {
-                    PartyId = "partyId",
-                },
-                AppId = "appid",
-                Org = "org",
-                SelfLinks = null,
-                DueBefore = null,
-                VisibleAfter = null,
-                Process = new ProcessState(),
-                Status = new InstanceStatus(),
-                CompleteConfirmations = [],
-                Data =
-                [
+            Instance: AltinnInstanceBuilder
+                .NewInProgressInstance()
+                .WithData([
                     new DataElement
                     {
                         Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
@@ -1874,366 +1224,284 @@ public class StorageDialogportenDataMergerTest
                             }
                         ]
                     },
-                ],
-                PresentationTexts = new Dictionary<string, string>(),
-                DataValues = new Dictionary<string, string>()
-            },
+                ])
+                .Build()
+            ,
             ExistingDialog: null,
             IsMigration: false
         );
 
         var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
 
-        using (new AssertionScope { FormattingOptions = { MaxLines = 500 } })
+        actualDialogDto.Should().BeEquivalentTo(new DialogDto
         {
-            actualDialogDto.Should().BeEquivalentTo(new DialogDto
-            {
-                Id = Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
-                IsApiOnly = false,
-                Revision = null,
-                ServiceResource = "urn:altinn:resource:app_appid",
-                Party = "urn:actor.by.party.id",
-                Progress = null,
-                ExtendedStatus = null,
-                ExternalReference = null,
-                VisibleFrom = null,
-                DueAt = null,
-                Process = null,
-                PrecedingProcess = null,
-                ExpiresAt = null,
-                CreatedAt = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-                UpdatedAt = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
-                Status = DialogStatus.Draft,
-                SystemLabel = SystemLabel.Default,
-                ServiceOwnerContext = new ServiceOwnerContext
+            Id = Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
+            IsApiOnly = false,
+            Revision = null,
+            ServiceResource = "urn:altinn:resource:app_urn:altinn:instance-id",
+            Party = "urn:actor.by.party.id.party1",
+            Progress = null,
+            ExtendedStatus = null,
+            ExternalReference = null,
+            VisibleFrom = null,
+            DueAt = null,
+            Process = null,
+            PrecedingProcess = null,
+            ExpiresAt = null,
+            CreatedAt = new DateTime(1000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+            UpdatedAt = new DateTime(1000, 2, 1, 1, 1, 1, DateTimeKind.Utc),
+            Status = DialogStatus.InProgress,
+            SystemLabel = SystemLabel.Default,
+            ServiceOwnerContext = Regulars.ServiceOwnerContexts.DefaultContext,
+            Content = Regulars.Content.ReadyForSubmission,
+            SearchTags = [],
+            Attachments =
+            [
+                new AttachmentDto
                 {
-                    ServiceOwnerLabels =
+                    Id = Guid.Parse("00dc6b07-88c8-74ed-8130-3a1ac8af3d91"),
+                    DisplayName =
                     [
-                        new ServiceOwnerLabel { Value = "urn:altinn:integration:storage:id" }
+                        new LocalizationDto
+                        {
+                            Value = "visible-because-of-missing-data-type",
+                            LanguageCode = "nb"
+                        }
+                    ],
+                    Urls =
+                    [
+                        new AttachmentUrlDto
+                        {
+                            Id = Guid.Parse("00dc6b07-88c8-74ed-8130-3a1ac8af3d91"),
+                            Url =
+                                "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Fplatform.localhost%3FdontChooseReportee%3Dtrue",
+                            MediaType = "application/pdf",
+                            ConsumerType = AttachmentUrlConsumerType.Gui
+                        }
                     ]
                 },
-                Content = new ContentDto
+                new AttachmentDto
                 {
-                    Summary = new ContentValueDto
-                    {
-                        Value =
-                        [
-                            new LocalizationDto
-                                { LanguageCode = "nb", Value = "Innsendingen er klar for å fylles ut." },
-                            new LocalizationDto
-                                { LanguageCode = "nn", Value = "Innsendinga er klar til å fyllast ut." },
-                            new LocalizationDto
-                                { LanguageCode = "en", Value = "The submission is ready to be filled out." }
-                        ],
-                        MediaType = "text/plain"
-                    },
-                    Title = new ContentValueDto
-                    {
-                        Value = [new LocalizationDto { Value = "title", LanguageCode = "nb" }],
-                        MediaType = "text/plain",
-                    },
-                    ExtendedStatus = null
-                },
-                SearchTags = [],
-                Attachments =
-                [
-                    new AttachmentDto
-                    {
-                        Id = Guid.Parse("00dc6b07-88c8-74ed-8130-3a1ac8af3d91"),
-                        DisplayName =
-                        [
-                            new LocalizationDto
-                            {
-                                Value = "visible-because-of-missing-data-type",
-                                LanguageCode = "nb"
-                            }
-                        ],
-                        Urls =
-                        [
-                            new AttachmentUrlDto
-                            {
-                                Id = Guid.Parse("00dc6b07-88c8-74ed-8130-3a1ac8af3d91"),
-                                Url =
-                                    "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Fplatform.localhost%3FdontChooseReportee%3Dtrue",
-                                MediaType = "application/pdf",
-                                ConsumerType = AttachmentUrlConsumerType.Gui
-                            }
-                        ]
-                    },
-                    new AttachmentDto
-                    {
-                        Id = Guid.Parse("00dc6b07-88c8-7a40-a823-7735059ef136"),
-                        DisplayName =
-                        [
-                            new LocalizationDto
-                            {
-                                Value = "visible-because-pdf-ref",
-                                LanguageCode = "nb"
-                            }
-                        ],
-                        Urls =
-                        [
-                            new AttachmentUrlDto
-                            {
-                                Id = Guid.Parse("00dc6b07-88c8-7a40-a823-7735059ef136"),
-                                Url =
-                                    "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Fplatform.localhost%3FdontChooseReportee%3Dtrue",
-                                MediaType = "application/pdf",
-                                ConsumerType = AttachmentUrlConsumerType.Gui
-                            }
-                        ]
-                    },
-                    new AttachmentDto
-                    {
-                        Id = Guid.Parse("00dc6b07-88c8-711d-b79f-835d26cd1a58"),
-                        DisplayName =
-                        [
-                            new LocalizationDto
-                            {
-                                Value = "not-visible-because-app-logic-exists",
-                                LanguageCode = "nb"
-                            }
-                        ],
-                        Urls =
-                        [
-                            new AttachmentUrlDto
-                            {
-                                Id = Guid.Parse("00dc6b07-88c8-711d-b79f-835d26cd1a58"),
-                                Url = "http://platform.localhost",
-                                MediaType = "application/pdf",
-                                ConsumerType = AttachmentUrlConsumerType.Api
-                            }
-                        ]
-                    },
-                    new AttachmentDto
-                    {
-                        Id = Guid.Parse("00dc6b07-88c8-79a8-9f37-3ef8f82b2d0b"),
-                        DisplayName =
-                        [
-                            new LocalizationDto
-                            {
-                                Value = "not-visible-because-app-owned",
-                                LanguageCode = "nb"
-                            }
-                        ],
-                        Urls =
-                        [
-                            new AttachmentUrlDto
-                            {
-                                Id = Guid.Parse("00dc6b07-88c8-79a8-9f37-3ef8f82b2d0b"),
-                                Url = "http://platform.localhost",
-                                MediaType = "application/pdf",
-                                ConsumerType = AttachmentUrlConsumerType.Api
-                            }
-                        ]
-                    },
-                    new AttachmentDto
-                    {
-                        Id = Guid.Parse("00dc6b07-88c8-7176-948e-79921affe066"),
-                        DisplayName =
-                        [
-                            new LocalizationDto
-                            {
-                                Value = "visible-not-excluded",
-                                LanguageCode = "nb"
-                            }
-                        ],
-                        Urls =
-                        [
-                            new AttachmentUrlDto
-                            {
-                                Id = Guid.Parse("00dc6b07-88c8-7176-948e-79921affe066"),
-                                Url =
-                                    "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Fplatform.localhost%3FdontChooseReportee%3Dtrue",
-                                MediaType = "application/pdf",
-                                ConsumerType = AttachmentUrlConsumerType.Gui
-                            }
-                        ]
-                    },
-                ],
-                Transmissions = [],
-                GuiActions =
-                [
-                    new GuiActionDto
-                    {
-                        Id = mergeDto.DialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.Delete),
-                        Action = "delete",
-                        Url = "http://adapter.localhost/api/v1/instance/id",
-                        AuthorizationAttribute = null,
-                        IsDeleteDialogAction = true,
-                        HttpMethod = HttpVerb.DELETE,
-                        Priority = DialogGuiActionPriority.Secondary,
-                        Title =
-                        [
-                            new LocalizationDto { LanguageCode = "nb", Value = "Slett" },
-                            new LocalizationDto { LanguageCode = "nn", Value = "Slett" },
-                            new LocalizationDto { LanguageCode = "en", Value = "Delete" }
-                        ],
-                        Prompt = null
-                    },
-                    new GuiActionDto
-                    {
-                        Id = mergeDto.DialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.GoTo),
-                        Action = "write",
-                        Url =
-                            "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Forg.apps.altinn.localhost%2Fappid%2F%3FdontChooseReportee%3Dtrue%23%2Finstance%2Fid",
-                        AuthorizationAttribute = null,
-                        IsDeleteDialogAction = false,
-                        HttpMethod = HttpVerb.GET,
-                        Priority = DialogGuiActionPriority.Primary,
-                        Title =
-                        [
-                            new LocalizationDto { LanguageCode = "nb", Value = "Gå til skjemautfylling" },
-                            new LocalizationDto { LanguageCode = "nn", Value = "Gå til skjemautfylling" },
-                            new LocalizationDto { LanguageCode = "en", Value = "Go to form completion" }
-                        ],
-                        Prompt = null
-                    }
-                ],
-                ApiActions = [],
-                Activities =
-                [
-                    new ActivityDto
-                    {
-                        Id = Guid.Parse("00e3c7df-10c8-7fdf-a7ec-f85248d2293c"),
-                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-                        ExtendedType = null,
-                        Type = DialogActivityType.DialogCreated,
-                        TransmissionId = null,
-                        PerformedBy = new ActorDto
+                    Id = Guid.Parse("00dc6b07-88c8-7a40-a823-7735059ef136"),
+                    DisplayName =
+                    [
+                        new LocalizationDto
                         {
-                            ActorType = ActorType.PartyRepresentative,
-                            ActorName = "Leif",
-                            ActorId = null
-                        },
-                        Description = []
-                    },
-                ],
-                Deleted = false
-            });
-        }
+                            Value = "visible-because-pdf-ref",
+                            LanguageCode = "nb"
+                        }
+                    ],
+                    Urls =
+                    [
+                        new AttachmentUrlDto
+                        {
+                            Id = Guid.Parse("00dc6b07-88c8-7a40-a823-7735059ef136"),
+                            Url =
+                                "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Fplatform.localhost%3FdontChooseReportee%3Dtrue",
+                            MediaType = "application/pdf",
+                            ConsumerType = AttachmentUrlConsumerType.Gui
+                        }
+                    ]
+                },
+                new AttachmentDto
+                {
+                    Id = Guid.Parse("00dc6b07-88c8-711d-b79f-835d26cd1a58"),
+                    DisplayName =
+                    [
+                        new LocalizationDto
+                        {
+                            Value = "not-visible-because-app-logic-exists",
+                            LanguageCode = "nb"
+                        }
+                    ],
+                    Urls =
+                    [
+                        new AttachmentUrlDto
+                        {
+                            Id = Guid.Parse("00dc6b07-88c8-711d-b79f-835d26cd1a58"),
+                            Url = "http://platform.localhost",
+                            MediaType = "application/pdf",
+                            ConsumerType = AttachmentUrlConsumerType.Api
+                        }
+                    ]
+                },
+                new AttachmentDto
+                {
+                    Id = Guid.Parse("00dc6b07-88c8-79a8-9f37-3ef8f82b2d0b"),
+                    DisplayName =
+                    [
+                        new LocalizationDto
+                        {
+                            Value = "not-visible-because-app-owned",
+                            LanguageCode = "nb"
+                        }
+                    ],
+                    Urls =
+                    [
+                        new AttachmentUrlDto
+                        {
+                            Id = Guid.Parse("00dc6b07-88c8-79a8-9f37-3ef8f82b2d0b"),
+                            Url = "http://platform.localhost",
+                            MediaType = "application/pdf",
+                            ConsumerType = AttachmentUrlConsumerType.Api
+                        }
+                    ]
+                },
+                new AttachmentDto
+                {
+                    Id = Guid.Parse("00dc6b07-88c8-7176-948e-79921affe066"),
+                    DisplayName =
+                    [
+                        new LocalizationDto
+                        {
+                            Value = "visible-not-excluded",
+                            LanguageCode = "nb"
+                        }
+                    ],
+                    Urls =
+                    [
+                        new AttachmentUrlDto
+                        {
+                            Id = Guid.Parse("00dc6b07-88c8-7176-948e-79921affe066"),
+                            Url =
+                                "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Fplatform.localhost%3FdontChooseReportee%3Dtrue",
+                            MediaType = "application/pdf",
+                            ConsumerType = AttachmentUrlConsumerType.Gui
+                        }
+                    ]
+                },
+            ],
+            Transmissions = [],
+            GuiActions =
+            [
+                Regulars.GuiActions.Delete(mergeDto.DialogId),
+                Regulars.GuiActions.Write(mergeDto.DialogId)
+            ],
+            ApiActions = [],
+            Activities = [],
+            Deleted = false
+        });
     }
 
     [Fact(DisplayName = "Given DataElements and disabled transmissions, DataElements should be mapped to Attachments")]
     public async Task Merge_WithOnlyAttachmentsAndDisabledTransmissions_MergesIntoAttachmentsAsExpected()
     {
         var mergeDto = new MergeDto(
-            Application: new Application
-            {
-                Title = new Dictionary<string, string> { { "nb", "title" } },
-                MessageBoxConfig = new MessageBoxConfig
+            Application: AltinnApplicationBuilder
+                .NewDefaultAltinnApplication()
+                .WithMessageBoxConfig(new MessageBoxConfig
                 {
                     SyncAdapterSettings = new SyncAdapterSettings { DisableAddTransmissions = true }
-                },
-                DataTypes =
-                [
-                    new DataType
-                    {
-                        Id = null,
-                        Description = new LanguageString { { "nb", "ikke i Gui: Uten ID" } },
-                        AllowedContentTypes = null,
-                        AllowedContributors = null,
-                        AppLogic = null,
-                        TaskId = null,
-                        MaxSize = null,
-                        MaxCount = 0,
-                        MinCount = 0,
-                        Grouping = null,
-                        EnablePdfCreation = false,
-                        EnableFileScan = false,
-                        ValidationErrorOnPendingFileScan = false,
-                        EnabledFileAnalysers = null,
-                        EnabledFileValidators = null,
-                        AllowedKeysForUserDefinedMetadata = null
-                    },
-                    new DataType
-                    {
-                        Id = "ref-data-as-pdf",
-                        Description = new LanguageString { { "nb", "I gui: ID er ref-data-as-pdf" } },
-                        AllowedContentTypes = null,
-                        AllowedContributors = null,
-                        AppLogic = null,
-                        TaskId = null,
-                        MaxSize = null,
-                        MaxCount = 0,
-                        MinCount = 0,
-                        Grouping = null,
-                        EnablePdfCreation = false,
-                        EnableFileScan = false,
-                        ValidationErrorOnPendingFileScan = false,
-                        EnabledFileAnalysers = null,
-                        EnabledFileValidators = null,
-                        AllowedKeysForUserDefinedMetadata = null
-                    },
-                    new DataType
-                    {
-                        Id = "app-logic",
-                        Description = new LanguageString { { "nb", "Ikke i Gui: AppLogic eksisterer" } },
-                        AllowedContentTypes = null,
-                        AllowedContributors = null,
-                        AppLogic = new ApplicationLogic
+                })
+                .WithDataTypes([
+                        new DataType
                         {
-                            AutoCreate = false,
-                            ClassRef = "no.digdir.ClassRef",
-                            SchemaRef = "123",
-                            AllowAnonymousOnStateless = false,
-                            AutoDeleteOnProcessEnd = false,
-                            DisallowUserCreate = false,
-                            DisallowUserDelete = false,
-                            ShadowFields = null
+                            Id = null,
+                            Description = new LanguageString { { "nb", "ikke i Gui: Uten ID" } },
+                            AllowedContentTypes = null,
+                            AllowedContributors = null,
+                            AppLogic = null,
+                            TaskId = null,
+                            MaxSize = null,
+                            MaxCount = 0,
+                            MinCount = 0,
+                            Grouping = null,
+                            EnablePdfCreation = false,
+                            EnableFileScan = false,
+                            ValidationErrorOnPendingFileScan = false,
+                            EnabledFileAnalysers = null,
+                            EnabledFileValidators = null,
+                            AllowedKeysForUserDefinedMetadata = null
                         },
-                        TaskId = null,
-                        MaxSize = null,
-                        MaxCount = 0,
-                        MinCount = 0,
-                        Grouping = null,
-                        EnablePdfCreation = false,
-                        EnableFileScan = false,
-                        ValidationErrorOnPendingFileScan = false,
-                        EnabledFileAnalysers = null,
-                        EnabledFileValidators = null,
-                        AllowedKeysForUserDefinedMetadata = null
-                    },
-                    new DataType
-                    {
-                        Id = "app-owned",
-                        Description = new LanguageString { { "nb", "Ikke i Gui: app:owned contributor" } },
-                        AllowedContentTypes = null,
-                        AllowedContributors = ["app:owned"],
-                        AppLogic = null,
-                        TaskId = null,
-                        MaxSize = null,
-                        MaxCount = 0,
-                        MinCount = 0,
-                        Grouping = null,
-                        EnablePdfCreation = false,
-                        EnableFileScan = false,
-                        ValidationErrorOnPendingFileScan = false,
-                        EnabledFileAnalysers = null,
-                        EnabledFileValidators = null,
-                        AllowedKeysForUserDefinedMetadata = null
-                    },
-                    new DataType
-                    {
-                        Id = "not-excluded",
-                        Description = new LanguageString { { "nb", "I Gui: Matcher ingen regler" } },
-                        AllowedContentTypes = null,
-                        AllowedContributors = null,
-                        AppLogic = null,
-                        TaskId = null,
-                        MaxSize = null,
-                        MaxCount = 0,
-                        MinCount = 0,
-                        Grouping = null,
-                        EnablePdfCreation = false,
-                        EnableFileScan = false,
-                        ValidationErrorOnPendingFileScan = false,
-                        EnabledFileAnalysers = null,
-                        EnabledFileValidators = null,
-                        AllowedKeysForUserDefinedMetadata = null
-                    },
-                ]
-            },
+                        new DataType
+                        {
+                            Id = "ref-data-as-pdf",
+                            Description = new LanguageString { { "nb", "I gui: ID er ref-data-as-pdf" } },
+                            AllowedContentTypes = null,
+                            AllowedContributors = null,
+                            AppLogic = null,
+                            TaskId = null,
+                            MaxSize = null,
+                            MaxCount = 0,
+                            MinCount = 0,
+                            Grouping = null,
+                            EnablePdfCreation = false,
+                            EnableFileScan = false,
+                            ValidationErrorOnPendingFileScan = false,
+                            EnabledFileAnalysers = null,
+                            EnabledFileValidators = null,
+                            AllowedKeysForUserDefinedMetadata = null
+                        },
+                        new DataType
+                        {
+                            Id = "app-logic",
+                            Description = new LanguageString { { "nb", "Ikke i Gui: AppLogic eksisterer" } },
+                            AllowedContentTypes = null,
+                            AllowedContributors = null,
+                            AppLogic = new ApplicationLogic
+                            {
+                                AutoCreate = false,
+                                ClassRef = "no.digdir.ClassRef",
+                                SchemaRef = "123",
+                                AllowAnonymousOnStateless = false,
+                                AutoDeleteOnProcessEnd = false,
+                                DisallowUserCreate = false,
+                                DisallowUserDelete = false,
+                                ShadowFields = null
+                            },
+                            TaskId = null,
+                            MaxSize = null,
+                            MaxCount = 0,
+                            MinCount = 0,
+                            Grouping = null,
+                            EnablePdfCreation = false,
+                            EnableFileScan = false,
+                            ValidationErrorOnPendingFileScan = false,
+                            EnabledFileAnalysers = null,
+                            EnabledFileValidators = null,
+                            AllowedKeysForUserDefinedMetadata = null
+                        },
+                        new DataType
+                        {
+                            Id = "app-owned",
+                            Description = new LanguageString { { "nb", "Ikke i Gui: app:owned contributor" } },
+                            AllowedContentTypes = null,
+                            AllowedContributors = ["app:owned"],
+                            AppLogic = null,
+                            TaskId = null,
+                            MaxSize = null,
+                            MaxCount = 0,
+                            MinCount = 0,
+                            Grouping = null,
+                            EnablePdfCreation = false,
+                            EnableFileScan = false,
+                            ValidationErrorOnPendingFileScan = false,
+                            EnabledFileAnalysers = null,
+                            EnabledFileValidators = null,
+                            AllowedKeysForUserDefinedMetadata = null
+                        },
+                        new DataType
+                        {
+                            Id = "not-excluded",
+                            Description = new LanguageString { { "nb", "I Gui: Matcher ingen regler" } },
+                            AllowedContentTypes = null,
+                            AllowedContributors = null,
+                            AppLogic = null,
+                            TaskId = null,
+                            MaxSize = null,
+                            MaxCount = 0,
+                            MinCount = 0,
+                            Grouping = null,
+                            EnablePdfCreation = false,
+                            EnableFileScan = false,
+                            ValidationErrorOnPendingFileScan = false,
+                            EnabledFileAnalysers = null,
+                            EnabledFileValidators = null,
+                            AllowedKeysForUserDefinedMetadata = null
+                        },
+                    ]
+                )
+                .Build(),
             ApplicationTexts: new ApplicationTexts
             {
                 Translations = new Dictionary<string, ApplicationTextsTranslation>()
@@ -2241,41 +1509,11 @@ public class StorageDialogportenDataMergerTest
             DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
             Events: new InstanceEventList
             {
-                InstanceEvents =
-                [
-                    new InstanceEvent
-                    {
-                        Id = Guid.Parse("019bc71b-eaf7-7fdf-a7ec-f85248d2293c"),
-                        Created = new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-                        EventType = nameof(InstanceEventType.Created),
-                        User = new PlatformUser
-                        {
-                            UserId = UserId1,
-                        },
-                    },
-                ]
+                InstanceEvents = [AltinnInstanceEventBuilder.NewCreatedByPlatformUserInstanceEvent(UserId1).Build()]
             },
-            Instance: new Instance
-            {
-                Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-                CreatedBy = "Me",
-                LastChanged = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
-                LastChangedBy = "Me",
-                Id = "id",
-                InstanceOwner = new InstanceOwner
-                {
-                    PartyId = "partyId",
-                },
-                AppId = "appid",
-                Org = "org",
-                SelfLinks = null,
-                DueBefore = null,
-                VisibleAfter = null,
-                Process = new ProcessState(),
-                Status = new InstanceStatus(),
-                CompleteConfirmations = [],
-                Data =
-                [
+            Instance: AltinnInstanceBuilder
+                .NewInProgressInstance()
+                .WithData([
                     new DataElement
                     {
                         Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
@@ -2461,220 +1699,139 @@ public class StorageDialogportenDataMergerTest
                             }
                         ]
                     },
-                ],
-                PresentationTexts = new Dictionary<string, string>(),
-                DataValues = new Dictionary<string, string>()
-            },
+                ])
+                .Build()
+            ,
             ExistingDialog: null,
             IsMigration: false
         );
         var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
 
-        using (new AssertionScope { FormattingOptions = { MaxLines = 500 } })
+        actualDialogDto.Should().BeEquivalentTo(new DialogDto
         {
-            actualDialogDto.Should().BeEquivalentTo(new DialogDto
-            {
-                Id = Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
-                IsApiOnly = false,
-                Revision = null,
-                ServiceResource = "urn:altinn:resource:app_appid",
-                Party = "urn:actor.by.party.id",
-                Progress = null,
-                ExtendedStatus = null,
-                ExternalReference = null,
-                VisibleFrom = null,
-                DueAt = null,
-                Process = null,
-                PrecedingProcess = null,
-                ExpiresAt = null,
-                CreatedAt = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-                UpdatedAt = new DateTime(2000, 1, 1, 1, 1, 2, DateTimeKind.Utc),
-                Status = DialogStatus.Draft,
-                SystemLabel = SystemLabel.Default,
-                ServiceOwnerContext = new ServiceOwnerContext
+            Id = Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
+            IsApiOnly = false,
+            Revision = null,
+            ServiceResource = "urn:altinn:resource:app_urn:altinn:instance-id",
+            Party = "urn:actor.by.party.id.party1",
+            Progress = null,
+            ExtendedStatus = null,
+            ExternalReference = null,
+            VisibleFrom = null,
+            DueAt = null,
+            Process = null,
+            PrecedingProcess = null,
+            ExpiresAt = null,
+            CreatedAt = new DateTime(1000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+            UpdatedAt = new DateTime(1000, 2, 1, 1, 1, 1, DateTimeKind.Utc),
+            Status = DialogStatus.InProgress,
+            SystemLabel = SystemLabel.Default,
+            ServiceOwnerContext = Regulars.ServiceOwnerContexts.DefaultContext,
+            Content = Regulars.Content.ReadyForSubmission,
+            SearchTags = [],
+            Attachments =
+            [
+                new AttachmentDto
                 {
-                    ServiceOwnerLabels =
+                    Id = Guid.Parse("00dc6b07-88c8-74ed-8130-3a1ac8af3d91"),
+                    DisplayName =
                     [
-                        new ServiceOwnerLabel { Value = "urn:altinn:integration:storage:id" }
+                        new LocalizationDto
+                        {
+                            Value = "visible-because-of-missing-data-type",
+                            LanguageCode = "nb"
+                        }
+                    ],
+                    Urls =
+                    [
+                        new AttachmentUrlDto
+                        {
+                            Id = Guid.Parse("00dc6b07-88c8-74ed-8130-3a1ac8af3d91"),
+                            Url =
+                                "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Fplatform.localhost%3FdontChooseReportee%3Dtrue",
+                            MediaType = "application/pdf",
+                            ConsumerType = AttachmentUrlConsumerType.Gui
+                        }
                     ]
                 },
-                Content = new ContentDto
+                new AttachmentDto
                 {
-                    Summary = new ContentValueDto
-                    {
-                        Value =
-                        [
-                            new LocalizationDto
-                                { LanguageCode = "nb", Value = "Innsendingen er klar for å fylles ut." },
-                            new LocalizationDto
-                                { LanguageCode = "nn", Value = "Innsendinga er klar til å fyllast ut." },
-                            new LocalizationDto
-                                { LanguageCode = "en", Value = "The submission is ready to be filled out." }
-                        ],
-                        MediaType = "text/plain"
-                    },
-                    Title = new ContentValueDto
-                    {
-                        Value = [new LocalizationDto { Value = "title", LanguageCode = "nb" }],
-                        MediaType = "text/plain",
-                    },
-                    ExtendedStatus = null
-                },
-                SearchTags = [],
-                Attachments =
-                [
-                    new AttachmentDto
-                    {
-                        Id = Guid.Parse("00dc6b07-88c8-74ed-8130-3a1ac8af3d91"),
-                        DisplayName =
-                        [
-                            new LocalizationDto
-                            {
-                                Value = "visible-because-of-missing-data-type",
-                                LanguageCode = "nb"
-                            }
-                        ],
-                        Urls =
-                        [
-                            new AttachmentUrlDto
-                            {
-                                Id = Guid.Parse("00dc6b07-88c8-74ed-8130-3a1ac8af3d91"),
-                                Url =
-                                    "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Fplatform.localhost%3FdontChooseReportee%3Dtrue",
-                                MediaType = "application/pdf",
-                                ConsumerType = AttachmentUrlConsumerType.Gui
-                            }
-                        ]
-                    },
-                    new AttachmentDto
-                    {
-                        Id = Guid.Parse("00dc6b07-88c8-711d-b79f-835d26cd1a58"),
-                        DisplayName =
-                        [
-                            new LocalizationDto
-                            {
-                                Value = "not-visible-because-app-logic-exists",
-                                LanguageCode = "nb"
-                            }
-                        ],
-                        Urls =
-                        [
-                            new AttachmentUrlDto
-                            {
-                                Id = Guid.Parse("00dc6b07-88c8-711d-b79f-835d26cd1a58"),
-                                Url = "http://platform.localhost",
-                                MediaType = "application/pdf",
-                                ConsumerType = AttachmentUrlConsumerType.Api
-                            }
-                        ]
-                    },
-                    new AttachmentDto
-                    {
-                        Id = Guid.Parse("00dc6b07-88c8-79a8-9f37-3ef8f82b2d0b"),
-                        DisplayName =
-                        [
-                            new LocalizationDto
-                            {
-                                Value = "not-visible-because-app-owned",
-                                LanguageCode = "nb"
-                            }
-                        ],
-                        Urls =
-                        [
-                            new AttachmentUrlDto
-                            {
-                                Id = Guid.Parse("00dc6b07-88c8-79a8-9f37-3ef8f82b2d0b"),
-                                Url = "http://platform.localhost",
-                                MediaType = "application/pdf",
-                                ConsumerType = AttachmentUrlConsumerType.Api
-                            }
-                        ]
-                    },
-                    new AttachmentDto
-                    {
-                        Id = Guid.Parse("00dc6b07-88c8-7176-948e-79921affe066"),
-                        DisplayName =
-                        [
-                            new LocalizationDto
-                            {
-                                Value = "visible-not-excluded",
-                                LanguageCode = "nb"
-                            }
-                        ],
-                        Urls =
-                        [
-                            new AttachmentUrlDto
-                            {
-                                Id = Guid.Parse("00dc6b07-88c8-7176-948e-79921affe066"),
-                                Url =
-                                    "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Fplatform.localhost%3FdontChooseReportee%3Dtrue",
-                                MediaType = "application/pdf",
-                                ConsumerType = AttachmentUrlConsumerType.Gui
-                            }
-                        ]
-                    },
-                ],
-                Transmissions = [],
-                GuiActions =
-                [
-                    new GuiActionDto
-                    {
-                        Id = mergeDto.DialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.Delete),
-                        Action = "delete",
-                        Url = "http://adapter.localhost/api/v1/instance/id",
-                        AuthorizationAttribute = null,
-                        IsDeleteDialogAction = true,
-                        HttpMethod = HttpVerb.DELETE,
-                        Priority = DialogGuiActionPriority.Secondary,
-                        Title =
-                        [
-                            new LocalizationDto { LanguageCode = "nb", Value = "Slett" },
-                            new LocalizationDto { LanguageCode = "nn", Value = "Slett" },
-                            new LocalizationDto { LanguageCode = "en", Value = "Delete" }
-                        ],
-                        Prompt = null
-                    },
-                    new GuiActionDto
-                    {
-                        Id = mergeDto.DialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.GoTo),
-                        Action = "write",
-                        Url =
-                            "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Forg.apps.altinn.localhost%2Fappid%2F%3FdontChooseReportee%3Dtrue%23%2Finstance%2Fid",
-                        AuthorizationAttribute = null,
-                        IsDeleteDialogAction = false,
-                        HttpMethod = HttpVerb.GET,
-                        Priority = DialogGuiActionPriority.Primary,
-                        Title =
-                        [
-                            new LocalizationDto { LanguageCode = "nb", Value = "Gå til skjemautfylling" },
-                            new LocalizationDto { LanguageCode = "nn", Value = "Gå til skjemautfylling" },
-                            new LocalizationDto { LanguageCode = "en", Value = "Go to form completion" }
-                        ],
-                        Prompt = null
-                    }
-                ],
-                ApiActions = [],
-                Activities =
-                [
-                    new ActivityDto
-                    {
-                        Id = Guid.Parse("00e3c7df-10c8-7fdf-a7ec-f85248d2293c"),
-                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-                        ExtendedType = null,
-                        Type = DialogActivityType.DialogCreated,
-                        TransmissionId = null,
-                        PerformedBy = new ActorDto
+                    Id = Guid.Parse("00dc6b07-88c8-711d-b79f-835d26cd1a58"),
+                    DisplayName =
+                    [
+                        new LocalizationDto
                         {
-                            ActorType = ActorType.PartyRepresentative,
-                            ActorName = "Leif",
-                            ActorId = null
-                        },
-                        Description = []
-                    },
-                ],
-                Deleted = false
-            });
-        }
+                            Value = "not-visible-because-app-logic-exists",
+                            LanguageCode = "nb"
+                        }
+                    ],
+                    Urls =
+                    [
+                        new AttachmentUrlDto
+                        {
+                            Id = Guid.Parse("00dc6b07-88c8-711d-b79f-835d26cd1a58"),
+                            Url = "http://platform.localhost",
+                            MediaType = "application/pdf",
+                            ConsumerType = AttachmentUrlConsumerType.Api
+                        }
+                    ]
+                },
+                new AttachmentDto
+                {
+                    Id = Guid.Parse("00dc6b07-88c8-79a8-9f37-3ef8f82b2d0b"),
+                    DisplayName =
+                    [
+                        new LocalizationDto
+                        {
+                            Value = "not-visible-because-app-owned",
+                            LanguageCode = "nb"
+                        }
+                    ],
+                    Urls =
+                    [
+                        new AttachmentUrlDto
+                        {
+                            Id = Guid.Parse("00dc6b07-88c8-79a8-9f37-3ef8f82b2d0b"),
+                            Url = "http://platform.localhost",
+                            MediaType = "application/pdf",
+                            ConsumerType = AttachmentUrlConsumerType.Api
+                        }
+                    ]
+                },
+                new AttachmentDto
+                {
+                    Id = Guid.Parse("00dc6b07-88c8-7176-948e-79921affe066"),
+                    DisplayName =
+                    [
+                        new LocalizationDto
+                        {
+                            Value = "visible-not-excluded",
+                            LanguageCode = "nb"
+                        }
+                    ],
+                    Urls =
+                    [
+                        new AttachmentUrlDto
+                        {
+                            Id = Guid.Parse("00dc6b07-88c8-7176-948e-79921affe066"),
+                            Url =
+                                "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Fplatform.localhost%3FdontChooseReportee%3Dtrue",
+                            MediaType = "application/pdf",
+                            ConsumerType = AttachmentUrlConsumerType.Gui
+                        }
+                    ]
+                },
+            ],
+            Transmissions = [],
+            GuiActions =
+            [
+                Regulars.GuiActions.Delete(mergeDto.DialogId),
+                Regulars.GuiActions.Write(mergeDto.DialogId)
+            ],
+            ApiActions = [],
+            Activities = [],
+            Deleted = false
+        });
     }
 
     [Fact(DisplayName =
@@ -2682,70 +1839,69 @@ public class StorageDialogportenDataMergerTest
     public async Task Merge_WithAttachmentsAndTransmissions_MergesIntoAttachmentsAndTransmissionsAsExpected()
     {
         var mergeDto = new MergeDto(
-            Application: new Application
-            {
-                Title = new Dictionary<string, string> { { "nb", "title" } },
-                DataTypes =
-                [
-                    new DataType
-                    {
-                        Id = "png-0",
-                        Description = new LanguageString { { "nb", "Ikke i transmission: Ikke i med activity" } },
-                        AllowedContentTypes = null,
-                        AllowedContributors = null,
-                        AppLogic = null,
-                        TaskId = null,
-                        MaxSize = null,
-                        MaxCount = 0,
-                        MinCount = 0,
-                        Grouping = null,
-                        EnablePdfCreation = false,
-                        EnableFileScan = false,
-                        ValidationErrorOnPendingFileScan = false,
-                        EnabledFileAnalysers = null,
-                        EnabledFileValidators = null,
-                        AllowedKeysForUserDefinedMetadata = null
-                    },
-                    new DataType
-                    {
-                        Id = "png-1",
-                        Description = new LanguageString { { "nb", "I gui: ID er ref-data-as-pdf" } },
-                        AllowedContentTypes = null,
-                        AllowedContributors = null,
-                        AppLogic = null,
-                        TaskId = null,
-                        MaxSize = null,
-                        MaxCount = 0,
-                        MinCount = 0,
-                        Grouping = null,
-                        EnablePdfCreation = false,
-                        EnableFileScan = false,
-                        ValidationErrorOnPendingFileScan = false,
-                        EnabledFileAnalysers = null,
-                        EnabledFileValidators = null,
-                        AllowedKeysForUserDefinedMetadata = null
-                    },
-                    new DataType
-                    {
-                        Id = "png-2",
-                        Description = new LanguageString { { "nb", "I gui: ID er ref-data-as-pdf" } },
-                        AllowedContentTypes = null,
-                        AllowedContributors = null,
-                        AppLogic = null,
-                        TaskId = null,
-                        MaxSize = null,
-                        MaxCount = 0,
-                        MinCount = 0,
-                        Grouping = null,
-                        EnablePdfCreation = false,
-                        EnableFileScan = false,
-                        ValidationErrorOnPendingFileScan = false,
-                        EnabledFileAnalysers = null,
-                        EnabledFileValidators = null,
-                        AllowedKeysForUserDefinedMetadata = null
-                    },
-                ]
-            },
+            Application: AltinnApplicationBuilder
+                .NewDefaultAltinnApplication()
+                .WithDataTypes([
+                        new DataType
+                        {
+                            Id = "png-0",
+                            Description = new LanguageString { { "nb", "Ikke i transmission: Ikke i med activity" } },
+                            AllowedContentTypes = null,
+                            AllowedContributors = null,
+                            AppLogic = null,
+                            TaskId = null,
+                            MaxSize = null,
+                            MaxCount = 0,
+                            MinCount = 0,
+                            Grouping = null,
+                            EnablePdfCreation = false,
+                            EnableFileScan = false,
+                            ValidationErrorOnPendingFileScan = false,
+                            EnabledFileAnalysers = null,
+                            EnabledFileValidators = null,
+                            AllowedKeysForUserDefinedMetadata = null
+                        },
+                        new DataType
+                        {
+                            Id = "png-1",
+                            Description = new LanguageString { { "nb", "I gui: ID er ref-data-as-pdf" } },
+                            AllowedContentTypes = null,
+                            AllowedContributors = null,
+                            AppLogic = null,
+                            TaskId = null,
+                            MaxSize = null,
+                            MaxCount = 0,
+                            MinCount = 0,
+                            Grouping = null,
+                            EnablePdfCreation = false,
+                            EnableFileScan = false,
+                            ValidationErrorOnPendingFileScan = false,
+                            EnabledFileAnalysers = null,
+                            EnabledFileValidators = null,
+                            AllowedKeysForUserDefinedMetadata = null
+                        },
+                        new DataType
+                        {
+                            Id = "png-2",
+                            Description = new LanguageString { { "nb", "I gui: ID er ref-data-as-pdf" } },
+                            AllowedContentTypes = null,
+                            AllowedContributors = null,
+                            AppLogic = null,
+                            TaskId = null,
+                            MaxSize = null,
+                            MaxCount = 0,
+                            MinCount = 0,
+                            Grouping = null,
+                            EnablePdfCreation = false,
+                            EnableFileScan = false,
+                            ValidationErrorOnPendingFileScan = false,
+                            EnabledFileAnalysers = null,
+                            EnabledFileValidators = null,
+                            AllowedKeysForUserDefinedMetadata = null
+                        },
+                    ]
+                )
+                .Build(),
             ApplicationTexts: new ApplicationTexts
             {
                 Translations = new Dictionary<string, ApplicationTextsTranslation>()
@@ -2787,27 +1943,9 @@ public class StorageDialogportenDataMergerTest
                     },
                 ]
             },
-            Instance: new Instance
-            {
-                Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-                CreatedBy = "Me",
-                LastChanged = new DateTime(2000, 2, 1, 1, 1, 1, DateTimeKind.Utc),
-                LastChangedBy = "Me",
-                Id = "id",
-                InstanceOwner = new InstanceOwner
-                {
-                    PartyId = "partyId",
-                },
-                AppId = "appid",
-                Org = "org",
-                SelfLinks = null,
-                DueBefore = null,
-                VisibleAfter = null,
-                Process = new ProcessState(),
-                Status = new InstanceStatus(),
-                CompleteConfirmations = [],
-                Data =
-                [
+            Instance: AltinnInstanceBuilder
+                .NewInProgressInstance()
+                .WithData([
                     new DataElement
                     {
                         Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
@@ -2919,359 +2057,233 @@ public class StorageDialogportenDataMergerTest
                             }
                         ]
                     },
-                ],
-                PresentationTexts = new Dictionary<string, string>(),
-                DataValues = new Dictionary<string, string>()
-            },
+                ])
+                .Build()
+            ,
             ExistingDialog: null,
             IsMigration: false
         );
 
         var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
 
-        using (new AssertionScope { FormattingOptions = { MaxLines = 500 } })
+        actualDialogDto.Should().BeEquivalentTo(new DialogDto
         {
-            actualDialogDto.Should().BeEquivalentTo(new DialogDto
-            {
-                Id = Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
-                IsApiOnly = false,
-                Revision = null,
-                ServiceResource = "urn:altinn:resource:app_appid",
-                Party = "urn:actor.by.party.id",
-                Progress = null,
-                ExtendedStatus = null,
-                ExternalReference = null,
-                VisibleFrom = null,
-                DueAt = null,
-                Process = null,
-                PrecedingProcess = null,
-                ExpiresAt = null,
-                CreatedAt = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-                UpdatedAt = new DateTime(2000, 2, 1, 1, 1, 1, DateTimeKind.Utc),
-                Status = DialogStatus.Draft,
-                SystemLabel = SystemLabel.Default,
-                ServiceOwnerContext = new ServiceOwnerContext
+            Id = Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
+            IsApiOnly = false,
+            Revision = null,
+            ServiceResource = "urn:altinn:resource:app_urn:altinn:instance-id",
+            Party = "urn:actor.by.party.id.party1",
+            Progress = null,
+            ExtendedStatus = null,
+            ExternalReference = null,
+            VisibleFrom = null,
+            DueAt = null,
+            Process = null,
+            PrecedingProcess = null,
+            ExpiresAt = null,
+            CreatedAt = new DateTime(1000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+            UpdatedAt = new DateTime(1000, 2, 1, 1, 1, 1, DateTimeKind.Utc),
+            Status = DialogStatus.Draft,
+            SystemLabel = SystemLabel.Default,
+            ServiceOwnerContext = Regulars.ServiceOwnerContexts.DefaultContext,
+            Content = Regulars.Content.ReadyForSubmission,
+            SearchTags = [],
+            Attachments =
+            [
+                new AttachmentDto
                 {
-                    ServiceOwnerLabels =
+                    Id = Guid.Parse("00dc6b07-88c8-74ed-8130-3a1ac8af3d91"),
+                    DisplayName =
                     [
-                        new ServiceOwnerLabel { Value = "urn:altinn:integration:storage:id" }
+                        new LocalizationDto
+                        {
+                            Value = "outside-transmission",
+                            LanguageCode = "nb"
+                        }
+                    ],
+                    Urls =
+                    [
+                        new AttachmentUrlDto
+                        {
+                            Id = Guid.Parse("00dc6b07-88c8-74ed-8130-3a1ac8af3d91"),
+                            Url =
+                                "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Fplatform.localhost%3FdontChooseReportee%3Dtrue",
+                            MediaType = "application/pdf",
+                            ConsumerType = AttachmentUrlConsumerType.Gui
+                        }
                     ]
                 },
-                Content = new ContentDto
+            ],
+            Transmissions =
+            [
+                new TransmissionDto
                 {
-                    Summary = new ContentValueDto
+                    Id = Guid.Parse("00e46784-34c8-7fdf-a7ec-f85248d2293c"),
+                    CreatedAt = new DateTime(2001, 2, 1, 1, 1, 1, DateTimeKind.Utc),
+                    AuthorizationAttribute = null,
+                    ExtendedType = null,
+                    RelatedTransmissionId = null,
+                    Type = DialogTransmissionType.Submission,
+                    Sender = new ActorDto
                     {
-                        Value =
-                        [
-                            new LocalizationDto
-                                { LanguageCode = "nb", Value = "Innsendingen er klar for å fylles ut." },
-                            new LocalizationDto
-                                { LanguageCode = "nn", Value = "Innsendinga er klar til å fyllast ut." },
-                            new LocalizationDto
-                                { LanguageCode = "en", Value = "The submission is ready to be filled out." }
-                        ],
-                        MediaType = "text/plain"
+                        ActorType = ActorType.PartyRepresentative,
+                        ActorName = "Leif",
+                        ActorId = null
                     },
-                    Title = new ContentValueDto
+                    Content = new TransmissionContentDto
                     {
-                        Value = [new LocalizationDto { Value = "title", LanguageCode = "nb" }],
-                        MediaType = "text/plain",
+                        Title = new ContentValueDto
+                        {
+                            Value =
+                            [
+                                new LocalizationDto { Value = "Innsending #1", LanguageCode = "nb" },
+                                new LocalizationDto { Value = "Innsending #1", LanguageCode = "nn" },
+                                new LocalizationDto { Value = "Submission #1", LanguageCode = "en" }
+                            ],
+                            MediaType = "text/plain"
+                        },
+                        Summary = null,
+                        ContentReference = null
                     },
-                    ExtendedStatus = null
+                    Attachments =
+                    [
+                        new TransmissionAttachmentDto
+                        {
+                            Id = Guid.Parse("00e3c7df-10c8-7ed4-8a0e-eec48f079b01"),
+                            DisplayName =
+                            [
+                                new LocalizationDto
+                                {
+                                    Value = "in-transmission-as-1",
+                                    LanguageCode = "nb"
+                                }
+                            ],
+                            Urls =
+                            [
+                                new TransmissionAttachmentUrlDto
+                                {
+                                    Url =
+                                        "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Fplatform.localhost%3FdontChooseReportee%3Dtrue",
+                                    MediaType = "application/pdf",
+                                    ConsumerType = AttachmentUrlConsumerType.Gui
+                                }
+                            ]
+                        },
+                        Regulars.Transmission.Attachment.Receipt(Guid.Parse("00e46784-34c8-70a1-9c93-8d4b2160d3a0"))
+                    ]
                 },
-                SearchTags = [],
-                Attachments =
-                [
-                    new AttachmentDto
+                new TransmissionDto
+                {
+                    Id = Guid.Parse("00ebbf35-60c8-7fdf-a7ec-f85248d2293c"),
+                    CreatedAt = new DateTime(2002, 2, 1, 1, 1, 1, DateTimeKind.Utc),
+                    AuthorizationAttribute = null,
+                    ExtendedType = null,
+                    RelatedTransmissionId = null,
+                    Type = DialogTransmissionType.Submission,
+                    Sender = new ActorDto
                     {
-                        Id = Guid.Parse("00dc6b07-88c8-74ed-8130-3a1ac8af3d91"),
-                        DisplayName =
-                        [
-                            new LocalizationDto
-                            {
-                                Value = "outside-transmission",
-                                LanguageCode = "nb"
-                            }
-                        ],
-                        Urls =
-                        [
-                            new AttachmentUrlDto
-                            {
-                                Id = Guid.Parse("00dc6b07-88c8-74ed-8130-3a1ac8af3d91"),
-                                Url =
-                                    "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Fplatform.localhost%3FdontChooseReportee%3Dtrue",
-                                MediaType = "application/pdf",
-                                ConsumerType = AttachmentUrlConsumerType.Gui
-                            }
-                        ]
+                        ActorType = ActorType.PartyRepresentative,
+                        ActorName = "Leif",
+                        ActorId = null
                     },
-                ],
-                Transmissions =
-                [
-                    new TransmissionDto
+                    Content = new TransmissionContentDto
                     {
-                        Id = Guid.Parse("00e46784-34c8-7fdf-a7ec-f85248d2293c"),
-                        CreatedAt = new DateTime(2001, 2, 1, 1, 1, 1, DateTimeKind.Utc),
-                        AuthorizationAttribute = null,
-                        ExtendedType = null,
-                        RelatedTransmissionId = null,
-                        Type = DialogTransmissionType.Submission,
-                        Sender = new ActorDto
+                        Title = new ContentValueDto
                         {
-                            ActorType = ActorType.PartyRepresentative,
-                            ActorName = "Leif",
-                            ActorId = null
+                            Value =
+                            [
+                                new LocalizationDto { Value = "Innsending #2", LanguageCode = "nb" },
+                                new LocalizationDto { Value = "Innsending #2", LanguageCode = "nn" },
+                                new LocalizationDto { Value = "Submission #2", LanguageCode = "en" }
+                            ],
+                            MediaType = "text/plain"
                         },
-                        Content = new TransmissionContentDto
-                        {
-                            Title = new ContentValueDto
-                            {
-                                Value =
-                                [
-                                    new LocalizationDto { Value = "Innsending #1", LanguageCode = "nb" },
-                                    new LocalizationDto { Value = "Innsending #1", LanguageCode = "nn" },
-                                    new LocalizationDto { Value = "Submission #1", LanguageCode = "en" }
-                                ],
-                                MediaType = "text/plain"
-                            },
-                            Summary = null,
-                            ContentReference = null
-                        },
-                        Attachments =
-                        [
-                            new TransmissionAttachmentDto
-                            {
-                                Id = Guid.Parse("00e3c7df-10c8-7ed4-8a0e-eec48f079b01"),
-                                DisplayName =
-                                [
-                                    new LocalizationDto
-                                    {
-                                        Value = "in-transmission-as-1",
-                                        LanguageCode = "nb"
-                                    }
-                                ],
-                                Urls =
-                                [
-                                    new TransmissionAttachmentUrlDto
-                                    {
-                                        Url =
-                                            "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Fplatform.localhost%3FdontChooseReportee%3Dtrue",
-                                        MediaType = "application/pdf",
-                                        ConsumerType = AttachmentUrlConsumerType.Gui
-                                    }
-                                ]
-                            },
-                            new TransmissionAttachmentDto
-                            {
-                                Id = Guid.Parse("00e46784-34c8-70a1-9c93-8d4b2160d3a0"),
-                                DisplayName =
-                                [
-                                    new LocalizationDto
-                                    {
-                                        Value = "Kvittering",
-                                        LanguageCode = "nb"
-                                    },
-                                    new LocalizationDto
-                                    {
-                                        Value = "Kvittering",
-                                        LanguageCode = "nn"
-                                    },
-                                    new LocalizationDto
-                                    {
-                                        Value = "Receipt",
-                                        LanguageCode = "en"
-                                    },
-                                ],
-                                Urls =
-                                [
-                                    new TransmissionAttachmentUrlDto
-                                    {
-                                        Url =
-                                            "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Fplatform.altinn.localhost%2Freceipt%2Fid%3FdontChooseReportee%3Dtrue",
-                                        MediaType = "text/html",
-                                        ConsumerType = AttachmentUrlConsumerType.Gui
-                                    }
-                                ]
-                            },
-                        ]
+                        Summary = null,
+                        ContentReference = null
                     },
-                    new TransmissionDto
-                    {
-                        Id = Guid.Parse("00ebbf35-60c8-7fdf-a7ec-f85248d2293c"),
-                        CreatedAt = new DateTime(2002, 2, 1, 1, 1, 1, DateTimeKind.Utc),
-                        AuthorizationAttribute = null,
-                        ExtendedType = null,
-                        RelatedTransmissionId = null,
-                        Type = DialogTransmissionType.Submission,
-                        Sender = new ActorDto
+                    Attachments =
+                    [
+                        new TransmissionAttachmentDto
                         {
-                            ActorType = ActorType.PartyRepresentative,
-                            ActorName = "Leif",
-                            ActorId = null
+                            Id = Guid.Parse("00eb1f90-3cc8-796f-bb0b-b7ad01e5e0d5"),
+                            DisplayName =
+                            [
+                                new LocalizationDto
+                                {
+                                    Value = "in-transmission-as-2",
+                                    LanguageCode = "nb"
+                                }
+                            ],
+                            Urls =
+                            [
+                                new TransmissionAttachmentUrlDto
+                                {
+                                    Url =
+                                        "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Fplatform.localhost%3FdontChooseReportee%3Dtrue",
+                                    MediaType = "application/pdf",
+                                    ConsumerType = AttachmentUrlConsumerType.Gui
+                                }
+                            ]
                         },
-                        Content = new TransmissionContentDto
-                        {
-                            Title = new ContentValueDto
-                            {
-                                Value =
-                                [
-                                    new LocalizationDto { Value = "Innsending #2", LanguageCode = "nb" },
-                                    new LocalizationDto { Value = "Innsending #2", LanguageCode = "nn" },
-                                    new LocalizationDto { Value = "Submission #2", LanguageCode = "en" }
-                                ],
-                                MediaType = "text/plain"
-                            },
-                            Summary = null,
-                            ContentReference = null
-                        },
-                        Attachments =
-                        [
-                            new TransmissionAttachmentDto
-                            {
-                                Id = Guid.Parse("00eb1f90-3cc8-796f-bb0b-b7ad01e5e0d5"),
-                                DisplayName =
-                                [
-                                    new LocalizationDto
-                                    {
-                                        Value = "in-transmission-as-2",
-                                        LanguageCode = "nb"
-                                    }
-                                ],
-                                Urls =
-                                [
-                                    new TransmissionAttachmentUrlDto
-                                    {
-                                        Url =
-                                            "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Fplatform.localhost%3FdontChooseReportee%3Dtrue",
-                                        MediaType = "application/pdf",
-                                        ConsumerType = AttachmentUrlConsumerType.Gui
-                                    }
-                                ]
-                            },
-                            new TransmissionAttachmentDto
-                            {
-                                Id = Guid.Parse("00ebbf35-60c8-7938-809d-550d82c654fc"),
-                                DisplayName =
-                                [
-                                    new LocalizationDto
-                                    {
-                                        Value = "Kvittering",
-                                        LanguageCode = "nb"
-                                    },
-                                    new LocalizationDto
-                                    {
-                                        Value = "Kvittering",
-                                        LanguageCode = "nn"
-                                    },
-                                    new LocalizationDto
-                                    {
-                                        Value = "Receipt",
-                                        LanguageCode = "en"
-                                    },
-                                ],
-                                Urls =
-                                [
-                                    new TransmissionAttachmentUrlDto
-                                    {
-                                        Url =
-                                            "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Fplatform.altinn.localhost%2Freceipt%2Fid%3FdontChooseReportee%3Dtrue",
-                                        MediaType = "text/html",
-                                        ConsumerType = AttachmentUrlConsumerType.Gui
-                                    }
-                                ]
-                            }
-                        ]
-                    }
-                ],
-                GuiActions =
-                [
-                    new GuiActionDto
+                        Regulars.Transmission.Attachment.Receipt(Guid.Parse("00ebbf35-60c8-7938-809d-550d82c654fc"))
+                    ]
+                }
+            ],
+            GuiActions =
+            [
+                Regulars.GuiActions.Delete(mergeDto.DialogId),
+                Regulars.GuiActions.Write(mergeDto.DialogId),
+            ],
+            ApiActions = [],
+            Activities =
+            [
+                new ActivityDto
+                {
+                    Id = Guid.Parse("00e3c7df-10c8-7fdf-a7ec-f85248d2293c"),
+                    CreatedAt = new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+                    ExtendedType = null,
+                    Type = DialogActivityType.DialogCreated,
+                    TransmissionId = null,
+                    PerformedBy = new ActorDto
                     {
-                        Id = mergeDto.DialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.Delete),
-                        Action = "delete",
-                        Url = "http://adapter.localhost/api/v1/instance/id",
-                        AuthorizationAttribute = null,
-                        IsDeleteDialogAction = true,
-                        HttpMethod = HttpVerb.DELETE,
-                        Priority = DialogGuiActionPriority.Secondary,
-                        Title =
-                        [
-                            new LocalizationDto { LanguageCode = "nb", Value = "Slett" },
-                            new LocalizationDto { LanguageCode = "nn", Value = "Slett" },
-                            new LocalizationDto { LanguageCode = "en", Value = "Delete" }
-                        ],
-                        Prompt = null
+                        ActorType = ActorType.PartyRepresentative,
+                        ActorName = "Leif",
+                        ActorId = null
                     },
-                    new GuiActionDto
+                    Description = []
+                },
+                new ActivityDto
+                {
+                    Id = Guid.Parse("00e46784-34c8-7fdf-a7ec-f85248d2293c"),
+                    CreatedAt = new DateTime(2001, 2, 1, 1, 1, 1, DateTimeKind.Utc),
+                    ExtendedType = null,
+                    Type = DialogActivityType.FormSubmitted,
+                    TransmissionId = null,
+                    PerformedBy = new ActorDto
                     {
-                        Id = mergeDto.DialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.GoTo),
-                        Action = "write",
-                        Url =
-                            "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Forg.apps.altinn.localhost%2Fappid%2F%3FdontChooseReportee%3Dtrue%23%2Finstance%2Fid",
-                        AuthorizationAttribute = null,
-                        IsDeleteDialogAction = false,
-                        HttpMethod = HttpVerb.GET,
-                        Priority = DialogGuiActionPriority.Primary,
-                        Title =
-                        [
-                            new LocalizationDto { LanguageCode = "nb", Value = "Gå til skjemautfylling" },
-                            new LocalizationDto { LanguageCode = "nn", Value = "Gå til skjemautfylling" },
-                            new LocalizationDto { LanguageCode = "en", Value = "Go to form completion" }
-                        ],
-                        Prompt = null
-                    }
-                ],
-                ApiActions = [],
-                Activities =
-                [
-                    new ActivityDto
-                    {
-                        Id = Guid.Parse("00e3c7df-10c8-7fdf-a7ec-f85248d2293c"),
-                        CreatedAt = new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-                        ExtendedType = null,
-                        Type = DialogActivityType.DialogCreated,
-                        TransmissionId = null,
-                        PerformedBy = new ActorDto
-                        {
-                            ActorType = ActorType.PartyRepresentative,
-                            ActorName = "Leif",
-                            ActorId = null
-                        },
-                        Description = []
+                        ActorType = ActorType.PartyRepresentative,
+                        ActorName = "Leif",
+                        ActorId = null
                     },
-                    new ActivityDto
+                    Description = []
+                },
+                new ActivityDto
+                {
+                    Id = Guid.Parse("00ebbf35-60c8-7fdf-a7ec-f85248d2293c"),
+                    CreatedAt = new DateTime(2002, 2, 1, 1, 1, 1, DateTimeKind.Utc),
+                    ExtendedType = null,
+                    Type = DialogActivityType.FormSubmitted,
+                    TransmissionId = null,
+                    PerformedBy = new ActorDto
                     {
-                        Id = Guid.Parse("00e46784-34c8-7fdf-a7ec-f85248d2293c"),
-                        CreatedAt = new DateTime(2001, 2, 1, 1, 1, 1, DateTimeKind.Utc),
-                        ExtendedType = null,
-                        Type = DialogActivityType.FormSubmitted,
-                        TransmissionId = null,
-                        PerformedBy = new ActorDto
-                        {
-                            ActorType = ActorType.PartyRepresentative,
-                            ActorName = "Leif",
-                            ActorId = null
-                        },
-                        Description = []
+                        ActorType = ActorType.PartyRepresentative,
+                        ActorName = "Leif",
+                        ActorId = null
                     },
-                    new ActivityDto
-                    {
-                        Id = Guid.Parse("00ebbf35-60c8-7fdf-a7ec-f85248d2293c"),
-                        CreatedAt = new DateTime(2002, 2, 1, 1, 1, 1, DateTimeKind.Utc),
-                        ExtendedType = null,
-                        Type = DialogActivityType.FormSubmitted,
-                        TransmissionId = null,
-                        PerformedBy = new ActorDto
-                        {
-                            ActorType = ActorType.PartyRepresentative,
-                            ActorName = "Leif",
-                            ActorId = null
-                        },
-                        Description = []
-                    },
-                ],
-                Deleted = false
-            });
-        }
+                    Description = []
+                },
+            ],
+            Deleted = false
+        });
     }
 }
