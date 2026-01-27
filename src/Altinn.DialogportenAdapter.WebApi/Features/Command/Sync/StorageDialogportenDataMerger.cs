@@ -239,7 +239,7 @@ internal sealed class StorageDialogportenDataMerger
 
         var dataElementQueue = new Queue<DataElement>(data
             .Where(x => !IsPerformedBySo(x) && x.DataType != PdfType)
-            .OrderBy(x => x.Created.Value));
+            .OrderBy(x => x.Created!.Value));
 
         // A2 Instances cant have more than 1 submission
         // so we take all attachments into a single transmission.
@@ -325,7 +325,7 @@ internal sealed class StorageDialogportenDataMerger
 
         return new()
         {
-            Id = Guid.Parse(data.Id).ToVersion7(data.Created.Value),
+            Id = Guid.Parse(data.Id).ToVersion7(data.Created!.Value),
             DisplayName = [new() { LanguageCode = "nb", Value = data.Filename ?? data.DataType }],
             Urls =
             [
@@ -385,7 +385,7 @@ internal sealed class StorageDialogportenDataMerger
 
     private static (InstanceDerivedStatus, DialogStatus) GetStatus(Instance instance, InstanceEventList events)
     {
-        var instanceDerivedStatus = instance.Process?.CurrentTask?.AltinnTaskType?.ToLower() switch
+        var instanceDerivedStatus = instance.Process?.CurrentTask?.AltinnTaskType?.ToLowerInvariant() switch
         {
             _ when instance.Status.IsArchived => IsConsideredConfirmed(instance)
                 ? InstanceDerivedStatus.ArchivedConfirmed
@@ -421,7 +421,7 @@ internal sealed class StorageDialogportenDataMerger
 
         return (instanceDerivedStatus, dialogStatus);
     }
-    private List<LocalizationDto> GetSummary(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
+    private static List<LocalizationDto> GetSummary(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
     {
         var summary = ApplicationTextParser.GetLocalizationsFromApplicationTexts(nameof(DialogDto.Content.Summary), instance, applicationTexts, instanceDerivedStatus);
         return summary.Count > 0
@@ -652,7 +652,7 @@ internal sealed class StorageDialogportenDataMerger
         };
     }
 
-    private string GetXacmlActionForGoToAction(InstanceDerivedStatus instanceDerivedStatus) =>
+    private static string GetXacmlActionForGoToAction(InstanceDerivedStatus instanceDerivedStatus) =>
         instanceDerivedStatus switch
         {
             InstanceDerivedStatus.ArchivedConfirmed or InstanceDerivedStatus.ArchivedUnconfirmed => ReadAction,

@@ -1,12 +1,11 @@
 using System.Collections.ObjectModel;
-using System.Globalization;
 using System.Reflection;
 using Altinn.DialogportenAdapter.EventSimulator.Common.Extensions;
 using Azure.Data.Tables;
 
 namespace Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Persistance;
 
-internal sealed class MigrationPartitionRepository : IMigrationPartitionRepository
+internal sealed partial class MigrationPartitionRepository : IMigrationPartitionRepository
 {
     private readonly TableClient _tableClient;
     private readonly ILogger<MigrationPartitionRepository> _logger;
@@ -56,7 +55,7 @@ internal sealed class MigrationPartitionRepository : IMigrationPartitionReposito
         return result.AsReadOnly();
     }
 
-    public async Task<MigrationPartitionEntity?> Get(DateOnly partition, string organization, CancellationToken cancellationToken)
+    public async Task<MigrationPartitionEntity?> GetMigrationPartition(DateOnly partition, string organization, CancellationToken cancellationToken)
     {
         var entity = await _tableClient.GetEntityIfExistsAsync<MigrationPartitionEntity>(
             partitionKey: partition.ToPartitionKey(),
@@ -115,13 +114,11 @@ internal sealed class MigrationPartitionRepository : IMigrationPartitionReposito
                         }
                     }
 
-                    _logger.LogError(ex,
-                        "Batch {BatchIndex} FAILED. Status: {Status}, ErrorCode: {ErrorCode}, FailedIndex: {FailedIndex}, Action: {Action}, PK: {FailedPK}, RK: {FailedRK}, Properties: {Properties}",
-                        batchIndex, ex.Status, ex.ErrorCode, failedIndex, actionType, failedPk, failedRk, properties);
+                    LogBatchIndexFailed(batchIndex, ex.Status, ex.ErrorCode!, failedIndex, actionType, failedPk, failedRk, properties, ex);
 
                     if (failedIndex < 0 || failedIndex >= actions.Count)
                     {
-                        _logger.LogWarning("No valid failed index provided — failure may be at the changeset level.");
+                        LogNoValidFailedIndexProvidedFailureMayBeAtTheChangesetLevel();
                     }
 
                     throw; // preserve existing behavior
@@ -166,7 +163,7 @@ internal sealed class MigrationPartitionRepository : IMigrationPartitionReposito
         }
 
         await Task.WhenAll(deleteTasks);
-        _logger.LogInformation("Truncate completed.");
+        LogTruncateCompleted();
     }
 
     // ------- Helpers (ILogger-based) -------
@@ -223,4 +220,13 @@ internal sealed class MigrationPartitionRepository : IMigrationPartitionReposito
             DateTimeOffset dto => dto.ToString("o"),
             _ => v.ToString() ?? "<null>"
         };
+
+    [LoggerMessage(LogLevel.Information, "Truncate completed.")]
+    partial void LogTruncateCompleted();
+
+    [LoggerMessage(LogLevel.Error, "Batch {BatchIndex} FAILED. Status: {Status}, ErrorCode: {ErrorCode}, FailedIndex: {FailedIndex}, Action: {Action}, PK: {FailedPK}, RK: {FailedRK}, Properties: {Properties}")]
+    partial void LogBatchIndexFailed(int batchIndex, int status, string errorCode, int failedIndex, string action, string failedPk, string failedRk, string properties, TableTransactionFailedException tableTransactionFailedException);
+
+    [LoggerMessage(LogLevel.Warning, "No valid failed index provided — failure may be at the changeset level.")]
+    partial void LogNoValidFailedIndexProvidedFailureMayBeAtTheChangesetLevel();
 }

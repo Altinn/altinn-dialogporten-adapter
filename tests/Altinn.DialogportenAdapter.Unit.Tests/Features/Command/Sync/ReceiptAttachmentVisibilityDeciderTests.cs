@@ -1,5 +1,3 @@
-using System;
-
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.Platform.Storage.Interface.Models;
