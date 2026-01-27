@@ -41,7 +41,7 @@ public class AltinnApplicationBuilder(Application application)
                     {
                         Id = "presentation-field-id",
                         Path = "/path",
-                        DataTypeId = "presentaiton-field-data-type-id"
+                        DataTypeId = "presentation-field-data-type-id"
                     }
                 ],
                 DataFields = [],
