@@ -284,7 +284,7 @@ public class AltinnApplicationBuilder
 
     public AltinnApplicationBuilder WithDisallowUserInstantiation(bool disallowUserInstantiation)
     {
-        _messageBoxConfig = new MessageBoxConfig{};
+        _disallowUserInstantiation = disallowUserInstantiation;
         return this;
     }
 
