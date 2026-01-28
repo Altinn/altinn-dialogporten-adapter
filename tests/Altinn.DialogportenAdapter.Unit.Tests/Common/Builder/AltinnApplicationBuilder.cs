@@ -274,7 +274,13 @@ public class AltinnApplicationBuilder(Application application)
             MessageBoxConfig = application.MessageBoxConfig != null
                 ? new MessageBoxConfig
                 {
-                    HideSettings = application.MessageBoxConfig.HideSettings,
+                    HideSettings = application.MessageBoxConfig.HideSettings != null
+                        ? new HideSettings
+                        {
+                            HideAlways = application.MessageBoxConfig.HideSettings.HideAlways,
+                            HideOnTask = application.MessageBoxConfig.HideSettings.HideOnTask,
+                        }
+                        : null,
                     SyncAdapterSettings = application.MessageBoxConfig.SyncAdapterSettings != null
                         ? new SyncAdapterSettings
                         {
