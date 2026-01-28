@@ -45,7 +45,7 @@ internal static class SpanExtensions
             );
         }
 
-        if (text.IsEmpty || text.IsWhiteSpace() || text.Length <= maxLength)
+        if (text.IsEmpty || text.Length <= maxLength)
         {
             return text.ToString();
         }
