@@ -12,7 +12,7 @@ public interface IMigrationPartitionRepository
         List<MigrationPartitionEntity> partitions,
         CancellationToken cancellationToken);
 
-    Task<MigrationPartitionEntity?> Get(DateOnly partition, string organization, CancellationToken cancellationToken);
+    Task<MigrationPartitionEntity?> GetMigrationPartition(DateOnly partition, string organization, CancellationToken cancellationToken);
     Task Upsert(List<MigrationPartitionEntity> partitionEntities, CancellationToken cancellationToken);
     Task Truncate(CancellationToken cancellationToken = default);
 }
@@ -32,7 +32,7 @@ public sealed class MigrationPartitionEntity : ITableEntity
     public DateOnly Partition { get; private set; }
 
     [IgnoreDataMember]
-    public string Organization { get; private set; }
+    public string Organization { get; private set; } = null!;
 
     public DateTimeOffset? Checkpoint { get; set; }
 

@@ -4,7 +4,7 @@ using Wolverine;
 
 namespace Altinn.DialogportenAdapter.EventSimulator.Features.UpdateStream;
 
-internal sealed class InstanceUpdateStreamBackgroundService : BackgroundService
+internal sealed partial class InstanceUpdateStreamBackgroundService : BackgroundService
 {
     private readonly IOrganizationRepository _organizationRepository;
     private readonly IInstanceStreamer _instanceStreamer;
@@ -30,12 +30,12 @@ internal sealed class InstanceUpdateStreamBackgroundService : BackgroundService
     {
         if (!_settings.DialogportenAdapter.EventSimulator.EnableUpdateStream)
         {
-            _logger.LogDebug("Update stream processing is disabled.");
+            LogUpdateStreamProcessingIsDisabled();
             return;
         }
 
         var orgs = await _organizationRepository.GetOrganizations(cancellationToken);
-        _logger.LogInformation("Found {OrgCount} orgs.", orgs.Count);
+        LogFoundOrgcountOrgs(orgs.Count);
         if (orgs is null || orgs.Count == 0)
         {
             throw new InvalidOperationException("No orgs were found.");
@@ -65,9 +65,18 @@ internal sealed class InstanceUpdateStreamBackgroundService : BackgroundService
             catch (OperationCanceledException) { /* Swallow by design */ }
             catch (Exception e)
             {
-                _logger.LogError(e, "Error while consuming instance update stream for org {org}. Attempting to reset stream in 5 seconds.", org);
+                LogErrorWhileConsumingInstanceUpdateStreamForOrgOrgAttemptingToResetStreamInSeconds(org, e);
                 await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
             }
         }
     }
+
+    [LoggerMessage(LogLevel.Debug, "Update stream processing is disabled.")]
+    partial void LogUpdateStreamProcessingIsDisabled();
+
+    [LoggerMessage(LogLevel.Information, "Found {OrgCount} orgs.")]
+    partial void LogFoundOrgcountOrgs(int orgCount);
+
+    [LoggerMessage(LogLevel.Error, "Error while consuming instance update stream for org {org}. Attempting to reset stream in 5 seconds.")]
+    partial void LogErrorWhileConsumingInstanceUpdateStreamForOrgOrgAttemptingToResetStreamInSeconds(string org, Exception exception);
 }

@@ -14,7 +14,7 @@ public interface ISyncInstanceToDialogService
     Task Sync(SyncInstanceCommand dto, CancellationToken cancellationToken = default);
 }
 
-internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
+internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialogService
 {
     private readonly IStorageApi _storageApi;
     private readonly IDialogportenApi _dialogportenApi;
@@ -62,11 +62,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
 
         if (instance is null && existingDialog is null)
         {
-            _logger.LogWarning("No dialog or instance found for request. {PartyId},{InstanceId},{InstanceCreatedAt},{IsMigration}.",
-                dto.PartyId,
-                dto.InstanceId,
-                dto.InstanceCreatedAt,
-                dto.IsMigration);
+            LogNoOpWarning(dto.PartyId, dto.InstanceId, dto.InstanceCreatedAt, dto.IsMigration);
             return;
         }
 
@@ -88,9 +84,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         var shouldDeleteAfterCreate = false;
         if (InstanceSoftDeletedAndDialogNotExisting(instance, existingDialog))
         {
-            _logger.LogInformation(
-                "Instance id={Id} is soft-deleted in storage and does not exist in Dialogporten. Creating and deleting immediately afterwards.",
-                instance?.Id);
+            LogCreateDialogInSoftDeleteState(instance!.Id);
             forceSilentUpsert = true;
             shouldDeleteAfterCreate = true;
         }
@@ -314,4 +308,10 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
             }
         }, cancellationToken);
     }
+
+    [LoggerMessage(LogLevel.Warning, "No dialog or instance found for request. {PartyId},{InstanceId},{InstanceCreatedAt},{IsMigration}.")]
+    partial void LogNoOpWarning(string partyId, Guid instanceId, DateTimeOffset instanceCreatedAt, bool isMigration);
+
+    [LoggerMessage(LogLevel.Information, "Instance id={Id} is soft-deleted in storage and does not exist in Dialogporten. Creating and deleting immediately afterwards.")]
+    partial void LogCreateDialogInSoftDeleteState(string id);
 }
