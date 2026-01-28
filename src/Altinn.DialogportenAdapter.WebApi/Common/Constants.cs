@@ -7,6 +7,7 @@ namespace Altinn.DialogportenAdapter.WebApi.Common;
 internal static class Constants
 {
     public const int DefaultMaxStringLength = 255;
+    public const int ExtendedStatusMaxStringLength = 25;
 
     public const string InstanceDataValueDialogIdKey = "dialog.id";
     public const string InstanceDataValueDisableSyncKey = "dialog.disableAutomaticSync";
@@ -53,5 +54,13 @@ internal static class Constants
         public const string Copy = "DialogGuiActionCopy";
 
         public static readonly List<string> Keys = [ GoTo, Delete, Copy ];
+    }
+    internal static class GuidScope
+    {
+        internal static class Transmission
+        {
+            public const string Attachment = "TransmissionAttachment";
+            public const string Receipt = "TransmissionReceipt";
+        }
     }
 }

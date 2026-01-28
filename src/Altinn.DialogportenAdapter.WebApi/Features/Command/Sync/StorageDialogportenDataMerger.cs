@@ -59,9 +59,13 @@ internal sealed class StorageDialogportenDataMerger
                 ? null!
                 : storageDialog.Content.Summary;
 
-            storageDialog.Content.AdditionalInfo = syncAdapterSettings.DisableSyncContentSummary // FIXME! Change with correct setting when available
+            storageDialog.Content.AdditionalInfo = syncAdapterSettings.DisableSyncContentSummary // TODO: Introduce feature flag
                 ? null!
                 : storageDialog.Content.AdditionalInfo;
+
+            storageDialog.Content.ExtendedStatus = false // TODO: Introduce feature flag
+                ? null!
+                : storageDialog.Content.ExtendedStatus;
 
             storageDialog.Activities = syncAdapterSettings.DisableAddActivities
                 ? []
@@ -108,10 +112,14 @@ internal sealed class StorageDialogportenDataMerger
             ? existing.Content.Summary
             : storageDialog.Content.Summary;
 
-        existing.Content.AdditionalInfo = syncAdapterSettings.DisableSyncContentSummary // FIXME! Change with correct setting when available
+        existing.Content.AdditionalInfo = syncAdapterSettings.DisableSyncContentSummary // TODO: Introduce feature flag
             ? existing.Content.AdditionalInfo
             : storageDialog.Content.AdditionalInfo;
 
+        existing.Content.ExtendedStatus = false // TODO: Introduce feature flag
+            ? existing.Content.ExtendedStatus
+            : storageDialog.Content.ExtendedStatus;
+            
         existing.Attachments = syncAdapterSettings.DisableSyncAttachments
             ? existing.Attachments
             : storageDialog.Attachments;
@@ -154,7 +162,6 @@ internal sealed class StorageDialogportenDataMerger
 
         var (attachments, transmissions) = GetAttachmentAndTransmissions(dto, activities);
         var primaryAction = CreateGoToAction(dto.DialogId, dto.Instance, dto.ApplicationTexts, instanceDerivedStatus);
-
 
         List<GuiActionDto> guiActions =
         [
@@ -202,14 +209,14 @@ internal sealed class StorageDialogportenDataMerger
                 {
                     MediaType = MediaTypes.PlainText,
                     Value = GetSummary(dto.Instance, dto.ApplicationTexts, instanceDerivedStatus)
-                }
+                },
+                ExtendedStatus = GetExtendedStatus(dto)
             },
             GuiActions = guiActions,
             Transmissions = transmissions,
             Attachments = attachments,
             Activities = activities
         };
-
 
         var additionalInfo = GetAdditionalInfo(dto.Instance, dto.ApplicationTexts, instanceDerivedStatus);
         if (additionalInfo.Count > 0)
@@ -286,7 +293,9 @@ internal sealed class StorageDialogportenDataMerger
         transmissions.ForEach(x => x.Attachments.Add(
             new()
             {
-                Id = x.Id, // Make sure each has a unique id
+                Id = x.Id!.Value
+                    .ToVersion7(x.CreatedAt)
+                    .CreateDeterministicSubUuidV7(Constants.GuidScope.Transmission.Receipt),
                 DisplayName =
                 [
                     new LocalizationDto { Value = "Kvittering", LanguageCode = "nb" },
@@ -355,7 +364,9 @@ internal sealed class StorageDialogportenDataMerger
         {
             // Ensure unique IDs when the same DataElement appears as both TransmissionAttachment and Attachment
             // This prevents ID collisions that would cause conflicts in Dialogporten
-            Id = Guid.CreateVersion7(data.Created!.Value),
+            Id = Guid.Parse(data.Id)
+                .ToVersion7(data.Created!.Value)
+                .CreateDeterministicSubUuidV7(Constants.GuidScope.Transmission.Attachment),
             DisplayName = [new() { LanguageCode = "nb", Value = data.Filename ?? data.DataType }],
             Urls =
             [
@@ -367,6 +378,30 @@ internal sealed class StorageDialogportenDataMerger
                 }
             ]
         };
+    }
+
+    private static ContentValueDto? GetExtendedStatus(MergeDto dto)
+    {
+        var label = dto.Instance.Status.Substatus?.Label;
+
+        if (string.IsNullOrWhiteSpace(label)) return null;
+
+        var labelLocalized = dto.ApplicationTexts
+            .Translations
+            .Where(t => t.Texts.ContainsKey(label))
+            .Select(t => new LocalizationDto
+            {
+                LanguageCode = t.Language,
+                Value = t.Texts[label].AsSpan().TruncateEllipsis(Constants.ExtendedStatusMaxStringLength)
+            })
+            .DefaultIfEmpty(new LocalizationDto
+            {
+                LanguageCode = "nb",
+                Value = label.AsSpan().TruncateEllipsis(Constants.ExtendedStatusMaxStringLength)
+            })
+            .ToList();
+
+        return new ContentValueDto { Value = labelLocalized, MediaType = MediaTypes.PlainText };
     }
 
     private static bool IsPerformedBySo(DataElement data)
