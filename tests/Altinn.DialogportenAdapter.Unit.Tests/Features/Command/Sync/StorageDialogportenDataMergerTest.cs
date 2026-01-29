@@ -8,7 +8,7 @@ using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
-using FluentAssertions;
+using AwesomeAssertions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 
@@ -27,9 +27,6 @@ public class StorageDialogportenDataMergerTest
 
     public StorageDialogportenDataMergerTest()
     {
-        AssertionOptions.FormattingOptions.MaxLines = 500;
-        AssertionOptions.FormattingOptions.MaxDepth = 10;
-
         var options = Substitute.For<IOptionsSnapshot<Settings>>();
         options.Value.Returns(new Settings
         {
