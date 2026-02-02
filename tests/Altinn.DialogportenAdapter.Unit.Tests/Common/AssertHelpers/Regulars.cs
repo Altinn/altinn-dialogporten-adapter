@@ -2,7 +2,7 @@ using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 
-namespace Altinn.DialogportenAdapter.Unit.Tests.Common.Assert;
+namespace Altinn.DialogportenAdapter.Unit.Tests.Common.AssertHelpers;
 
 public static class Regulars
 {
