@@ -275,10 +275,10 @@ static void BuildAndRun(string[] args)
 
     v1Route.MapPost("syncDialog", async (
         [FromBody] SyncInstanceCommand request,
-        [FromServices] ISyncInstanceToDialogService syncService,
+        [FromServices] IMessageBus messageBus,
         CancellationToken cancellationToken) =>
     {
-        await syncService.Sync(request, cancellationToken);
+        await messageBus.InvokeAsync(request, cancellationToken);
         return Results.NoContent();
     })
     .RequireAuthorization();
@@ -287,8 +287,8 @@ static void BuildAndRun(string[] args)
             [FromRoute] string partyId,
             [FromRoute] Guid instanceGuid,
             [FromQuery] bool? isMigration,
-            [FromServices] ISyncInstanceToDialogService syncService,
             [FromServices] IStorageApi storageApi,
+            [FromServices] IMessageBus messageBus,
             CancellationToken cancellationToken) =>
         {
             var instance = await storageApi
@@ -300,7 +300,7 @@ static void BuildAndRun(string[] args)
             }
 
             var request = new SyncInstanceCommand(instance.AppId, partyId, instanceGuid, instance.Created!.Value, isMigration ?? false);
-            await syncService.Sync(request, cancellationToken);
+            await messageBus.InvokeAsync(request, cancellationToken);
             return Results.NoContent();
         })
         .RequireAuthorization()
