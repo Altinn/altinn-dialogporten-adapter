@@ -63,9 +63,7 @@ internal sealed class StorageDialogportenDataMerger
                 ? null!
                 : storageDialog.Content.AdditionalInfo;
 
-            storageDialog.Content.ExtendedStatus = false // TODO: Introduce feature flag
-                ? null!
-                : storageDialog.Content.ExtendedStatus;
+            storageDialog.Content.ExtendedStatus = storageDialog.Content.ExtendedStatus; // TODO: Introduce feature flag
 
             storageDialog.Activities = syncAdapterSettings.DisableAddActivities
                 ? []
@@ -116,9 +114,7 @@ internal sealed class StorageDialogportenDataMerger
             ? existing.Content.AdditionalInfo
             : storageDialog.Content.AdditionalInfo;
 
-        existing.Content.ExtendedStatus = false // TODO: Introduce feature flag
-            ? existing.Content.ExtendedStatus
-            : storageDialog.Content.ExtendedStatus;
+        existing.Content.ExtendedStatus = storageDialog.Content.ExtendedStatus; // TODO: Introduce feature flag
             
         existing.Attachments = syncAdapterSettings.DisableSyncAttachments
             ? existing.Attachments
