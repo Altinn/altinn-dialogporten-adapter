@@ -3,8 +3,20 @@ using Altinn.Platform.Storage.Interface.Models;
 
 namespace Altinn.DialogportenAdapter.Unit.Tests.Common.Builder;
 
-public class AltinnInstanceEventBuilder(InstanceEvent instanceEvent)
+public class AltinnInstanceEventBuilder
 {
+    private readonly InstanceEvent _instanceEvent;
+
+    private AltinnInstanceEventBuilder(InstanceEvent instanceEvent)
+    {
+        _instanceEvent = instanceEvent;
+    }
+
+    public static AltinnInstanceEventBuilder From(InstanceEvent instanceEvent)
+    {
+        return new AltinnInstanceEventBuilder(instanceEvent.DeepClone());
+    }
+
     public static AltinnInstanceEventBuilder NewCreatedByPlatformUserInstanceEvent(int userId) =>
         new(
             new InstanceEvent
@@ -59,111 +71,66 @@ public class AltinnInstanceEventBuilder(InstanceEvent instanceEvent)
 
     public AltinnInstanceEventBuilder WithId(Guid id)
     {
-        instanceEvent.Id = id;
+        _instanceEvent.Id = id;
         return this;
     }
 
     public AltinnInstanceEventBuilder WithInstanceId(string instanceId)
     {
-        instanceEvent.InstanceId = instanceId;
+        _instanceEvent.InstanceId = instanceId;
         return this;
     }
 
     public AltinnInstanceEventBuilder WithDataId(string dataId)
     {
-        instanceEvent.DataId = dataId;
+        _instanceEvent.DataId = dataId;
         return this;
     }
 
     public AltinnInstanceEventBuilder WithCreated(DateTime created)
     {
-        instanceEvent.Created = created;
+        _instanceEvent.Created = created;
         return this;
     }
 
     public AltinnInstanceEventBuilder WithEventType(string eventType)
     {
-        instanceEvent.EventType = eventType;
+        _instanceEvent.EventType = eventType;
         return this;
     }
 
     public AltinnInstanceEventBuilder WithInstanceOwnerPartyId(string partyId)
     {
-        instanceEvent.InstanceOwnerPartyId = partyId;
+        _instanceEvent.InstanceOwnerPartyId = partyId;
         return this;
     }
 
     public AltinnInstanceEventBuilder WithUser(PlatformUser user)
     {
-        instanceEvent.User = user;
+        _instanceEvent.User = user;
         return this;
     }
 
     public AltinnInstanceEventBuilder WithRelatedUser(PlatformUser relatedUser)
     {
-        instanceEvent.RelatedUser = relatedUser;
+        _instanceEvent.RelatedUser = relatedUser;
         return this;
     }
 
     public AltinnInstanceEventBuilder WithProcessInfo(ProcessState processInfo)
     {
-        instanceEvent.ProcessInfo = processInfo;
+        _instanceEvent.ProcessInfo = processInfo;
         return this;
     }
 
     public AltinnInstanceEventBuilder WithAdditionalInfo(string info)
     {
-        instanceEvent.AdditionalInfo = info;
+        _instanceEvent.AdditionalInfo = info;
         return this;
     }
 
     public InstanceEvent Build()
     {
-        return new InstanceEvent
-        {
-            Id = instanceEvent.Id,
-            InstanceId = instanceEvent.InstanceId,
-            DataId = instanceEvent.DataId,
-            Created = instanceEvent.Created,
-            EventType = instanceEvent.EventType,
-            InstanceOwnerPartyId = instanceEvent.InstanceOwnerPartyId,
-            User = instanceEvent.User != null
-                ? new PlatformUser
-                {
-                    UserId = instanceEvent.User.UserId,
-                    OrgId = instanceEvent.User.OrgId,
-                    AuthenticationLevel = instanceEvent.User.AuthenticationLevel,
-                    EndUserSystemId = instanceEvent.User.EndUserSystemId,
-                    NationalIdentityNumber = instanceEvent.User.NationalIdentityNumber,
-                    SystemUserId = instanceEvent.User.SystemUserId,
-                    SystemUserOwnerOrgNo = instanceEvent.User.SystemUserOwnerOrgNo,
-                    SystemUserName = instanceEvent.User.SystemUserName,
-                }
-                : null,
-            RelatedUser = instanceEvent.RelatedUser != null
-                ? new PlatformUser
-                {
-                    UserId = instanceEvent.RelatedUser.UserId,
-                    OrgId = instanceEvent.RelatedUser.OrgId,
-                    AuthenticationLevel = instanceEvent.RelatedUser.AuthenticationLevel,
-                    EndUserSystemId = instanceEvent.RelatedUser.EndUserSystemId,
-                    NationalIdentityNumber = instanceEvent.RelatedUser.NationalIdentityNumber,
-                    SystemUserId = instanceEvent.RelatedUser.SystemUserId,
-                    SystemUserOwnerOrgNo = instanceEvent.RelatedUser.SystemUserOwnerOrgNo,
-                    SystemUserName = instanceEvent.RelatedUser.SystemUserName,
-                }
-                : null,
-            ProcessInfo = instanceEvent.ProcessInfo != null
-                ? new ProcessState
-                {
-                    Started = instanceEvent.ProcessInfo.Started,
-                    StartEvent = instanceEvent.ProcessInfo.StartEvent,
-                    CurrentTask = instanceEvent.ProcessInfo.CurrentTask,
-                    Ended = instanceEvent.ProcessInfo.Ended,
-                    EndEvent = instanceEvent.ProcessInfo.EndEvent
-                }
-                : null,
-            AdditionalInfo = instanceEvent.AdditionalInfo
-        };
+        return _instanceEvent.DeepClone();
     }
 }

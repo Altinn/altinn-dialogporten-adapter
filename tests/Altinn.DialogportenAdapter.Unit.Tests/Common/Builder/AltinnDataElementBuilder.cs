@@ -3,8 +3,20 @@ using Altinn.Platform.Storage.Interface.Models;
 
 namespace Altinn.DialogportenAdapter.Unit.Tests.Common.Builder;
 
-public class AltinnDataElementBuilder(DataElement dataElement)
+public class AltinnDataElementBuilder
 {
+    private readonly DataElement _dataElement;
+
+    private AltinnDataElementBuilder(DataElement dataElement)
+    {
+        _dataElement = dataElement;
+    }
+
+    public static AltinnDataElementBuilder From(DataElement dataElement)
+    {
+        return new AltinnDataElementBuilder(dataElement.DeepClone());
+    }
+
     public static AltinnDataElementBuilder NewDefaultDataElementBuilder()
     {
         return new AltinnDataElementBuilder
@@ -50,187 +62,138 @@ public class AltinnDataElementBuilder(DataElement dataElement)
 
     public AltinnDataElementBuilder WithCreated(DateTime created)
     {
-        dataElement.Created = created;
+        _dataElement.Created = created;
         return this;
     }
 
     public AltinnDataElementBuilder WithCreatedBy(string createdBy)
     {
-        dataElement.CreatedBy = createdBy;
+        _dataElement.CreatedBy = createdBy;
         return this;
     }
 
     public AltinnDataElementBuilder WithLastChanged(DateTime lastChanged)
     {
-        dataElement.LastChanged = lastChanged;
+        _dataElement.LastChanged = lastChanged;
         return this;
     }
 
     public AltinnDataElementBuilder WithLastChangedBy(string lastChangedBy)
     {
-        dataElement.LastChangedBy = lastChangedBy;
+        _dataElement.LastChangedBy = lastChangedBy;
         return this;
     }
 
     public AltinnDataElementBuilder WithId(string id)
     {
-        dataElement.Id = id;
+        _dataElement.Id = id;
         return this;
     }
 
     public AltinnDataElementBuilder WithInstanceGuid(string instanceGuid)
     {
-        dataElement.InstanceGuid = instanceGuid;
+        _dataElement.InstanceGuid = instanceGuid;
         return this;
     }
 
     public AltinnDataElementBuilder WithDataType(string dataType)
     {
-        dataElement.DataType = dataType;
+        _dataElement.DataType = dataType;
         return this;
     }
 
     public AltinnDataElementBuilder WithFilename(string filename)
     {
-        dataElement.Filename = filename;
+        _dataElement.Filename = filename;
         return this;
     }
 
     public AltinnDataElementBuilder WithContentType(string contentType)
     {
-        dataElement.ContentType = contentType;
+        _dataElement.ContentType = contentType;
         return this;
     }
 
     public AltinnDataElementBuilder WithBlobStoragePath(string blobStoragePath)
     {
-        dataElement.BlobStoragePath = blobStoragePath;
+        _dataElement.BlobStoragePath = blobStoragePath;
         return this;
     }
 
     public AltinnDataElementBuilder WithSelfLinks(ResourceLinks selfLinks)
     {
-        dataElement.SelfLinks = selfLinks;
+        _dataElement.SelfLinks = selfLinks;
         return this;
     }
 
     public AltinnDataElementBuilder WithSize(long size)
     {
-        dataElement.Size = size;
+        _dataElement.Size = size;
         return this;
     }
 
     public AltinnDataElementBuilder WithContentHash(string contentHash)
     {
-        dataElement.ContentHash = contentHash;
+        _dataElement.ContentHash = contentHash;
         return this;
     }
 
     public AltinnDataElementBuilder WithLocked(bool locked)
     {
-        dataElement.Locked = locked;
+        _dataElement.Locked = locked;
         return this;
     }
 
     public AltinnDataElementBuilder WithRefs(List<Guid> refs)
     {
-        dataElement.Refs = refs;
+        _dataElement.Refs = refs;
         return this;
     }
 
     public AltinnDataElementBuilder WithIsRead(bool isRead)
     {
-        dataElement.IsRead = isRead;
+        _dataElement.IsRead = isRead;
         return this;
     }
 
     public AltinnDataElementBuilder WithTags(List<string> tags)
     {
-        dataElement.Tags = tags;
+        _dataElement.Tags = tags;
         return this;
     }
 
     public AltinnDataElementBuilder WithUserDefinedMetadata(List<KeyValueEntry> userDefinedMetadata)
     {
-        dataElement.UserDefinedMetadata = userDefinedMetadata;
+        _dataElement.UserDefinedMetadata = userDefinedMetadata;
         return this;
     }
 
     public AltinnDataElementBuilder WithMetadata(List<KeyValueEntry> metadata)
     {
-        dataElement.Metadata = metadata;
+        _dataElement.Metadata = metadata;
         return this;
     }
 
     public AltinnDataElementBuilder WithDeleteStatus(DeleteStatus deleteStatus)
     {
-        dataElement.DeleteStatus = deleteStatus;
+        _dataElement.DeleteStatus = deleteStatus;
         return this;
     }
 
     public AltinnDataElementBuilder WithFileScanResult(FileScanResult fileScanResult)
     {
-        dataElement.FileScanResult = fileScanResult;
+        _dataElement.FileScanResult = fileScanResult;
         return this;
     }
 
     public AltinnDataElementBuilder WithReferences(List<Reference> references)
     {
-        dataElement.References = references;
+        _dataElement.References = references;
         return this;
     }
 
     public DataElement Build()
     {
-        return new DataElement
-        {
-            Created = dataElement.Created,
-            CreatedBy = dataElement.CreatedBy,
-            LastChanged = dataElement.LastChanged,
-            LastChangedBy = dataElement.LastChangedBy,
-            Id = dataElement.Id,
-            InstanceGuid = dataElement.InstanceGuid,
-            DataType = dataElement.DataType,
-            Filename = dataElement.Filename,
-            ContentType = dataElement.ContentType,
-            BlobStoragePath = dataElement.BlobStoragePath,
-            SelfLinks = dataElement.SelfLinks != null
-                ? new ResourceLinks
-                {
-                    Apps = dataElement.SelfLinks.Apps,
-                    Platform = dataElement.SelfLinks.Platform,
-                }
-                : null,
-            Size = dataElement.Size,
-            ContentHash = dataElement.ContentHash,
-            Locked = dataElement.Locked,
-            Refs = dataElement.Refs?.ToList(),
-            IsRead = dataElement.IsRead,
-            Tags = dataElement.Tags?.Select(r => r).ToList(),
-            UserDefinedMetadata = dataElement.UserDefinedMetadata?.Select(md => new KeyValueEntry
-            {
-                Key = md.Key,
-                Value = md.Value
-            }).ToList(),
-            Metadata = dataElement.Metadata?.Select(md => new KeyValueEntry
-            {
-                Key = md.Key,
-                Value = md.Value
-            }).ToList(),
-            DeleteStatus = dataElement.DeleteStatus != null
-                ? new DeleteStatus
-                {
-                    IsHardDeleted = dataElement.DeleteStatus.IsHardDeleted,
-                    HardDeleted = dataElement.DeleteStatus.HardDeleted,
-                }
-                : null,
-            FileScanResult = dataElement.FileScanResult,
-            References = dataElement.References?.Select(r => new Reference
-            {
-                Value = r.Value,
-                Relation = r.Relation,
-                ValueType = r.ValueType
-            }).ToList()
-        };
+        return _dataElement.DeepClone();
     }
 }

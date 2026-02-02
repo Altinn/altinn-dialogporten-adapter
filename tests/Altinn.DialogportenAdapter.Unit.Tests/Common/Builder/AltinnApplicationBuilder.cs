@@ -10,10 +10,10 @@ public class AltinnApplicationBuilder
     {
         _application = application;
     }
-    
+
     public static AltinnApplicationBuilder From(Application application) => new(application.DeepClone());
 
-    public static AltinnApplicationBuilder NewDefaultAltinnApplication() => new(new Application 
+    public static AltinnApplicationBuilder NewDefaultAltinnApplication() => new(new Application
     {
         CreatedBy = "you",
         Created = new DateTime(1000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
@@ -216,110 +216,6 @@ public class AltinnApplicationBuilder
 
     public Application Build()
     {
-        return new Application
-        {
-            Created = _application.Created,
-            CreatedBy = _application.CreatedBy,
-            LastChanged = _application.LastChanged,
-            LastChangedBy = _application.LastChangedBy,
-            Id = _application.Id,
-            VersionId = _application.VersionId,
-            Org = _application.Org,
-            Title = _application.Title,
-            ValidFrom = _application.ValidFrom,
-            ValidTo = _application.ValidTo,
-            ProcessId = _application.ProcessId,
-            DataTypes = _application.DataTypes?.Select(d => new AltinnDataTypeBuilder(d).Build()).ToList(),
-            PartyTypesAllowed = _application.PartyTypesAllowed != null
-                ? new PartyTypesAllowed
-                {
-                    BankruptcyEstate = _application.PartyTypesAllowed.BankruptcyEstate,
-                    Organisation = _application.PartyTypesAllowed.Organisation,
-                    Person = _application.PartyTypesAllowed.Person,
-                    SubUnit = _application.PartyTypesAllowed.SubUnit
-                }
-                : null,
-            AutoDeleteOnProcessEnd = _application.AutoDeleteOnProcessEnd,
-            PreventInstanceDeletionForDays = _application.PreventInstanceDeletionForDays,
-            PresentationFields = _application.PresentationFields?.Select(p => new DataField
-            {
-                Id = p.Id,
-                Path = p.Path,
-                DataTypeId = p.DataTypeId
-            }).ToList(),
-            DataFields = _application.DataFields?.Select(p => new DataField
-            {
-                Id = p.Id,
-                Path = p.Path,
-                DataTypeId = p.DataTypeId
-            }).ToList(),
-            EFormidling = _application.EFormidling != null
-                ? new EFormidlingContract
-                {
-                    ServiceId = _application.EFormidling.ServiceId,
-                    DPFShipmentType = _application.EFormidling.DPFShipmentType,
-                    Receiver = _application.EFormidling.Receiver,
-                    SendAfterTaskId = _application.EFormidling.SendAfterTaskId,
-                    Process = _application.EFormidling.Process,
-                    Standard = _application.EFormidling.Standard,
-                    TypeVersion = _application.EFormidling.TypeVersion,
-                    Type = _application.EFormidling.Type,
-                    SecurityLevel = _application.EFormidling.SecurityLevel,
-                    DataTypes = _application.EFormidling.DataTypes?.ToList()
-                }
-                : null,
-            OnEntry = _application.OnEntry != null
-                ? new OnEntryConfig
-                {
-                    Show = _application.OnEntry.Show,
-                }
-                : null,
-            MessageBoxConfig = _application.MessageBoxConfig != null
-                ? new MessageBoxConfig
-                {
-                    HideSettings = _application.MessageBoxConfig.HideSettings != null
-                        ? new HideSettings
-                        {
-                            HideAlways = _application.MessageBoxConfig.HideSettings.HideAlways,
-                            HideOnTask = _application.MessageBoxConfig.HideSettings.HideOnTask,
-                        }
-                        : null,
-                    SyncAdapterSettings = _application.MessageBoxConfig.SyncAdapterSettings != null
-                        ? new SyncAdapterSettings
-                        {
-                            DisableSync = _application.MessageBoxConfig.SyncAdapterSettings.DisableSync,
-                            DisableCreate = _application.MessageBoxConfig.SyncAdapterSettings.DisableCreate,
-                            DisableDelete = _application.MessageBoxConfig.SyncAdapterSettings.DisableDelete,
-                            DisableAddActivities =
-                                _application.MessageBoxConfig.SyncAdapterSettings.DisableAddActivities,
-                            DisableAddTransmissions =
-                                _application.MessageBoxConfig.SyncAdapterSettings.DisableAddTransmissions,
-                            DisableSyncDueAt = _application.MessageBoxConfig.SyncAdapterSettings.DisableSyncDueAt,
-                            DisableSyncStatus = _application.MessageBoxConfig.SyncAdapterSettings.DisableSyncStatus,
-                            DisableSyncContentTitle =
-                                _application.MessageBoxConfig.SyncAdapterSettings.DisableSyncContentTitle,
-                            DisableSyncContentSummary = _application.MessageBoxConfig.SyncAdapterSettings
-                                .DisableSyncContentSummary,
-                            DisableSyncAttachments =
-                                _application.MessageBoxConfig.SyncAdapterSettings.DisableSyncAttachments,
-                            DisableSyncApiActions =
-                                _application.MessageBoxConfig.SyncAdapterSettings.DisableSyncApiActions,
-                            DisableSyncGuiActions =
-                                _application.MessageBoxConfig.SyncAdapterSettings.DisableSyncGuiActions
-                        }
-                        : null,
-                }
-                : null,
-            CopyInstanceSettings = _application.CopyInstanceSettings != null
-                ? new CopyInstanceSettings
-                {
-                    Enabled = _application.CopyInstanceSettings.Enabled,
-                    ExcludedDataTypes = _application.CopyInstanceSettings.ExcludedDataTypes,
-                    ExcludedDataFields = _application.CopyInstanceSettings.ExcludedDataFields
-                }
-                : null,
-            StorageAccountNumber = _application.StorageAccountNumber,
-            DisallowUserInstantiation = _application.DisallowUserInstantiation,
-        };
+        return _application.DeepClone();
     }
 }
