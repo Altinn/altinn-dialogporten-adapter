@@ -17,31 +17,30 @@ public class AltinnInstanceEventBuilder
         return new AltinnInstanceEventBuilder(instanceEvent.DeepClone());
     }
 
-    public static AltinnInstanceEventBuilder NewCreatedByPlatformUserInstanceEvent(int userId) =>
-        new(
-            new InstanceEvent
+    public static AltinnInstanceEventBuilder NewCreatedByPlatformUserInstanceEvent(int userId) => new(
+        new InstanceEvent
+        {
+            Id = Guid.Parse("7488c4f3-1012-4487-b575-d38b01688da0"),
+            InstanceId = "instance-id",
+            DataId = "data-id",
+            Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+            EventType = nameof(InstanceEventType.Created),
+            InstanceOwnerPartyId = "instance-owner-party-id",
+            User = new PlatformUser
             {
-                Id = Guid.Parse("7488c4f3-1012-4487-b575-d38b01688da0"),
-                InstanceId = "instance-id",
-                DataId = "data-id",
-                Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-                EventType = nameof(InstanceEventType.Created),
-                InstanceOwnerPartyId = "instance-owner-party-id",
-                User = new PlatformUser
-                {
-                    UserId = userId,
-                    OrgId = "org",
-                    AuthenticationLevel = 0,
-                    EndUserSystemId = null,
-                    NationalIdentityNumber = null,
-                    SystemUserId = null,
-                    SystemUserOwnerOrgNo = null,
-                    SystemUserName = null
-                },
-                RelatedUser = null,
-                ProcessInfo = null,
-                AdditionalInfo = null
-            });
+                UserId = userId,
+                OrgId = "org",
+                AuthenticationLevel = 0,
+                EndUserSystemId = null,
+                NationalIdentityNumber = null,
+                SystemUserId = null,
+                SystemUserOwnerOrgNo = null,
+                SystemUserName = null
+            },
+            RelatedUser = null,
+            ProcessInfo = null,
+            AdditionalInfo = null
+        });
 
     public static AltinnInstanceEventBuilder NewSubmittedByPlatformUserInstanceEvent(int userId) =>
         new(

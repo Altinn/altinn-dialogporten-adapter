@@ -17,48 +17,44 @@ public class AltinnDataElementBuilder
         return new AltinnDataElementBuilder(dataElement.DeepClone());
     }
 
-    public static AltinnDataElementBuilder NewDefaultDataElementBuilder()
-    {
-        return new AltinnDataElementBuilder
-        (
-            new DataElement
+    public static AltinnDataElementBuilder NewDefaultDataElementBuilder() => new(
+        new DataElement
+        {
+            Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+            CreatedBy = "me",
+            LastChanged = new DateTime(2000, 2, 1, 1, 1, 1, DateTimeKind.Utc),
+            LastChangedBy = "123456789",
+            Id = "019bd57e-ce5e-74ed-8130-3a1ac8af3d91",
+            InstanceGuid = "019bd57f-7146-73fa-9292-e6401d8ef5e8",
+            DataType = null,
+            Filename = "filename",
+            ContentType = "image/jpg",
+            BlobStoragePath = "/images",
+            SelfLinks = new ResourceLinks
             {
-                Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-                CreatedBy = "me",
-                LastChanged = new DateTime(2000, 2, 1, 1, 1, 1, DateTimeKind.Utc),
-                LastChangedBy = "123456789",
-                Id = "019bd57e-ce5e-74ed-8130-3a1ac8af3d91",
-                InstanceGuid = "019bd57f-7146-73fa-9292-e6401d8ef5e8",
-                DataType = null,
-                Filename = "filename",
-                ContentType = "image/jpg",
-                BlobStoragePath = "/images",
-                SelfLinks = new ResourceLinks
+                Apps = null,
+                Platform = "http://platform.localhost"
+            },
+            Size = 1024,
+            ContentHash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            Locked = false,
+            Refs = [Guid.Parse("019bd582-ef52-7850-a483-94ba72e9bba5")],
+            IsRead = false,
+            Tags = ["Viktig", "Konfidensiell"],
+            UserDefinedMetadata = [new KeyValueEntry { Key = "eier", Value = "Trond" }],
+            Metadata = [new KeyValueEntry { Key = "versjon", Value = "2" }],
+            DeleteStatus = null,
+            FileScanResult = FileScanResult.NotApplicable,
+            References =
+            [
+                new Reference
                 {
-                    Apps = null,
-                    Platform = "http://platform.localhost"
-                },
-                Size = 1024,
-                ContentHash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-                Locked = false,
-                Refs = [Guid.Parse("019bd582-ef52-7850-a483-94ba72e9bba5")],
-                IsRead = false,
-                Tags = ["Viktig", "Konfidensiell"],
-                UserDefinedMetadata = [new KeyValueEntry { Key = "eier", Value = "Trond" }],
-                Metadata = [new KeyValueEntry { Key = "versjon", Value = "2" }],
-                DeleteStatus = null,
-                FileScanResult = FileScanResult.NotApplicable,
-                References =
-                [
-                    new Reference
-                    {
-                        Value = "https://localhost",
-                        Relation = RelationType.GeneratedFrom,
-                        ValueType = ReferenceType.DataElement
-                    }
-                ],
-            });
-    }
+                    Value = "https://localhost",
+                    Relation = RelationType.GeneratedFrom,
+                    ValueType = ReferenceType.DataElement
+                }
+            ],
+        });
 
     public AltinnDataElementBuilder WithCreated(DateTime created)
     {

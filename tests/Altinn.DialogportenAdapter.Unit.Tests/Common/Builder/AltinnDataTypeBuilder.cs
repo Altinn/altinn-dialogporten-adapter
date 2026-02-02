@@ -16,35 +16,31 @@ public class AltinnDataTypeBuilder
         return new AltinnDataTypeBuilder(appLogic.DeepClone());
     }
 
-    public static AltinnDataTypeBuilder NewDefaultDataType()
-    {
-        return new AltinnDataTypeBuilder
-        (
-            new DataType
+    public static AltinnDataTypeBuilder NewDefaultDataType() => new(
+        new DataType
+        {
+            Id = "png-1",
+            Description = new LanguageString
             {
-                Id = "png-1",
-                Description = new LanguageString
                 {
-                    {
-                        "nb", "I gui: ID er ref-data-as-pdf"
-                    }
-                },
-                AllowedContentTypes = [],
-                AllowedContributors = [],
-                AppLogic = null,
-                TaskId = null,
-                MaxSize = null,
-                MaxCount = 0,
-                MinCount = 0,
-                Grouping = null,
-                EnablePdfCreation = false,
-                EnableFileScan = false,
-                ValidationErrorOnPendingFileScan = false,
-                EnabledFileAnalysers = null,
-                EnabledFileValidators = null,
-                AllowedKeysForUserDefinedMetadata = null
-            });
-    }
+                    "nb", "I gui: ID er ref-data-as-pdf"
+                }
+            },
+            AllowedContentTypes = [],
+            AllowedContributors = [],
+            AppLogic = null,
+            TaskId = null,
+            MaxSize = null,
+            MaxCount = 0,
+            MinCount = 0,
+            Grouping = null,
+            EnablePdfCreation = false,
+            EnableFileScan = false,
+            ValidationErrorOnPendingFileScan = false,
+            EnabledFileAnalysers = null,
+            EnabledFileValidators = null,
+            AllowedKeysForUserDefinedMetadata = null
+        });
 
     public AltinnDataTypeBuilder WithId(string id)
     {

@@ -16,37 +16,33 @@ public class AltinnInstanceBuilder
         return new AltinnInstanceBuilder(instance.DeepClone());
     }
 
-    public static AltinnInstanceBuilder NewInProgressInstance()
-    {
-        return new AltinnInstanceBuilder
-        (
-            new Instance
+    public static AltinnInstanceBuilder NewInProgressInstance() => new(
+        new Instance
+        {
+            Created = new DateTime(1000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+            CreatedBy = "me",
+            LastChanged = new DateTime(1000, 2, 1, 1, 1, 1, DateTimeKind.Utc),
+            LastChangedBy = "you",
+            Id = "instance-id",
+            InstanceOwner = new InstanceOwner
             {
-                Created = new DateTime(1000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
-                CreatedBy = "me",
-                LastChanged = new DateTime(1000, 2, 1, 1, 1, 1, DateTimeKind.Utc),
-                LastChangedBy = "you",
-                Id = "instance-id",
-                InstanceOwner = new InstanceOwner
-                {
-                    PartyId = "party-1",
-                },
-                AppId = "urn:altinn:instance-id",
-                Org = "org",
-                SelfLinks = null,
-                DueBefore = null,
-                VisibleAfter = null,
-                Process = new ProcessState(),
-                Status = new InstanceStatus(),
-                CompleteConfirmations =
-                [
-                    new CompleteConfirmation()
-                ],
-                Data = [],
-                PresentationTexts = new Dictionary<string, string>(),
-                DataValues = new Dictionary<string, string>()
-            });
-    }
+                PartyId = "party-1",
+            },
+            AppId = "urn:altinn:instance-id",
+            Org = "org",
+            SelfLinks = null,
+            DueBefore = null,
+            VisibleAfter = null,
+            Process = new ProcessState(),
+            Status = new InstanceStatus(),
+            CompleteConfirmations =
+            [
+                new CompleteConfirmation()
+            ],
+            Data = [],
+            PresentationTexts = new Dictionary<string, string>(),
+            DataValues = new Dictionary<string, string>()
+        });
 
     public static AltinnInstanceBuilder NewArchivedAltinnInstance()
     {
