@@ -269,7 +269,7 @@ internal sealed class StorageDialogportenDataMerger
                     }
                 },
                 Attachments = dataElementQueue
-                    .DequeueWhile(e => e.LastChanged <= a.CreatedAt || isA2)
+                    .DequeueWhile(e => e.Created <= a.CreatedAt || isA2)
                     .Select(e => CreateTransmissionAttachmentDto(e, attachmentVisibility))
                     .ToList()
             })
