@@ -294,7 +294,6 @@ internal sealed class StorageDialogportenDataMerger
             new()
             {
                 Id = x.Id!.Value
-                    .ToVersion7(x.CreatedAt)
                     .CreateDeterministicSubUuidV7(Constants.GuidScope.Transmission.Receipt),
                 DisplayName =
                 [
