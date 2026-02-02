@@ -1,5 +1,5 @@
 using Altinn.ApiClients.Maskinporten.Config;
-using Altinn.DialogportenAdapter.Unit.Tests.Common.Assert;
+using Altinn.DialogportenAdapter.Unit.Tests.Common.AssertHelpers;
 using Altinn.DialogportenAdapter.Unit.Tests.Common.Builder;
 using Altinn.DialogportenAdapter.WebApi;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
@@ -357,7 +357,9 @@ public class StorageDialogportenDataMergerTest
             }).Build(),
             ExistingDialog: null,
             IsMigration: false);
+
         var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
+
         actualDialogDto.Should().BeEquivalentTo(new DialogDto
         {
             Id = Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
