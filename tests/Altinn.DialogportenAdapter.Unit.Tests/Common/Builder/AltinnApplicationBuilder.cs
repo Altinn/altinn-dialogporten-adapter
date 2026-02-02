@@ -144,7 +144,7 @@ public class AltinnApplicationBuilder
 
     public AltinnApplicationBuilder WithDataTypes(params DataType[] dataTypes)
     {
-        _application.DataTypes = new List<DataType>(dataTypes);
+        _application.DataTypes = [.. dataTypes];
         return this;
     }
 
@@ -168,13 +168,13 @@ public class AltinnApplicationBuilder
 
     public AltinnApplicationBuilder WithPresentationFields(params DataField[] fields)
     {
-        _application.PresentationFields = new List<DataField>(fields);
+        _application.PresentationFields = [.. fields];
         return this;
     }
 
     public AltinnApplicationBuilder WithDataFields(params DataField[] fields)
     {
-        _application.DataFields = new List<DataField>(fields);
+        _application.DataFields = [.. fields];
         return this;
     }
 

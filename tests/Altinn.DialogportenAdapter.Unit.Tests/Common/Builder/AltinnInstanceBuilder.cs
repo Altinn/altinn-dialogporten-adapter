@@ -40,8 +40,8 @@ public class AltinnInstanceBuilder
                 new CompleteConfirmation()
             ],
             Data = [],
-            PresentationTexts = new Dictionary<string, string>(),
-            DataValues = new Dictionary<string, string>()
+            PresentationTexts = [],
+            DataValues = []
         });
 
     public static AltinnInstanceBuilder NewArchivedAltinnInstance()
@@ -90,8 +90,8 @@ public class AltinnInstanceBuilder
                 new CompleteConfirmation()
             ],
             Data = [],
-            PresentationTexts = new Dictionary<string, string>(),
-            DataValues = new Dictionary<string, string>()
+            PresentationTexts = [],
+            DataValues = []
         });
     }
 
