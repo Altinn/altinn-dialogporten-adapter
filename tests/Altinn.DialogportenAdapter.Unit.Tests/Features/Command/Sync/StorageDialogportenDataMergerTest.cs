@@ -357,7 +357,9 @@ public class StorageDialogportenDataMergerTest
             }).Build(),
             ExistingDialog: null,
             IsMigration: false);
+
         var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
+
         actualDialogDto.Should().BeEquivalentTo(new DialogDto
         {
             Id = Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
