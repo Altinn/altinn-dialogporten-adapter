@@ -709,22 +709,26 @@ internal sealed class StorageDialogportenDataMerger
 
     private ApiActionDto CreateGetSourceApiActionDto(Guid dialogId, Instance instance)
     {
-        var appBaseUri = _settings.DialogportenAdapter.Altinn
-            .GetAppUriForOrg(instance.Org, instance.AppId)
+        var platformBaseUri = _settings.DialogportenAdapter.Altinn
+            .GetPlatformUri()
             .ToString()
             .TrimEnd('/');
 
-        var path = $"{appBaseUri}/instances/{instance.InstanceOwner.PartyId}/{instance.Id}";
+        var path = $"{platformBaseUri}/instances/{instance.InstanceOwner.PartyId}/{instance.Id}";
+        var apiActionId = dialogId.CreateDeterministicSubUuidV7(Constants.ApiAction.Read);
+
         var endpointDto = new ApiActionEndpointDto
         {
-            Url = ToPortalUri(path),
+            Id = apiActionId.CreateDeterministicSubUuidV7("0"),
+            Version = "1.0",
+            Url = path,
             HttpMethod = HttpVerb.GET,
             Deprecated =  false
         };
 
         var apiActionDto = new ApiActionDto
         {
-            Id = dialogId.CreateDeterministicSubUuidV7(Constants.ApiAction.Read),
+            Id = apiActionId,
             Action = ReadAction,
             Endpoints = [endpointDto]
         };
