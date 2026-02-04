@@ -65,6 +65,7 @@ internal sealed class RegisterRepository : IRegisterRepository
             // Use externalUrn if presented by Register
             { ExternalUrn: not null and var externalUrn } => (registerUrn, externalUrn),
             { PersonIdentifier: not null and var personId } => (registerUrn, Constants.PersonUrnPrefix + personId),
+            { OrganizationIdentifier: not null and var organizationId } => (registerUrn, Constants.OrganizationUrnPrefix + organizationId),
             { DisplayName: not null and var displayName, PartyType: "self-identified-user" } => (registerUrn, Constants.SiUserUrnPrefix + displayName),
             // The below is to handle legacy enterprise users and system ids
             { DisplayName: not null and var displayName } => (registerUrn, Constants.DisplayNameUrnPrefix + displayName),
