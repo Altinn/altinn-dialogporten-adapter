@@ -62,11 +62,12 @@ internal sealed class RegisterRepository : IRegisterRepository
         return results.Data.FirstOrDefault() switch
         {
             null => (registerUrn, null),
-            { OrganizationIdentifier: { } organizationId } => (registerUrn, Constants.OrganizationUrnPrefix + organizationId),
-            { PersonIdentifier: { } personId } => (registerUrn, Constants.PersonUrnPrefix + personId),
-            { DisplayName: { } displayName, PartyType: "self-identified-user" } => (registerUrn, Constants.SiUserUrnPrefix + displayName),
+            // Use externalUrn if presented by Register
+            { ExternalUrn: not null and var externalUrn } => (registerUrn, externalUrn),
+            { PersonIdentifier: not null and var personId } => (registerUrn, Constants.PersonUrnPrefix + personId),
+            { DisplayName: not null and var displayName, PartyType: "self-identified-user" } => (registerUrn, Constants.SiUserUrnPrefix + displayName),
             // The below is to handle legacy enterprise users and system ids
-            { DisplayName: { } displayName } => (registerUrn, Constants.DisplayNameUrnPrefix + displayName),
+            { DisplayName: not null and var displayName } => (registerUrn, Constants.DisplayNameUrnPrefix + displayName),
             _ => throw new UnreachableException("Invalid response from register.")
         };
     }
