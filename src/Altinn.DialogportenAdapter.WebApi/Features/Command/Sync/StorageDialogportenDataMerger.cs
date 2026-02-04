@@ -714,7 +714,7 @@ internal sealed class StorageDialogportenDataMerger
             .ToString()
             .TrimEnd('/');
 
-        var path = $"{platformBaseUri}/instances/{instance.InstanceOwner.PartyId}/{instance.Id}";
+        var path = $"{platformBaseUri}/storage/api/v1/instances/{instance.Id}";
         var apiActionId = dialogId.CreateDeterministicSubUuidV7(Constants.ApiAction.Read);
 
         var endpointDto = new ApiActionEndpointDto
