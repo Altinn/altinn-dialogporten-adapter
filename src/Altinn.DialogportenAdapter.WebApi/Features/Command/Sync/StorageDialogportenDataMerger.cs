@@ -155,7 +155,6 @@ internal sealed class StorageDialogportenDataMerger
         var (attachments, transmissions) = GetAttachmentAndTransmissions(dto, activities);
         var primaryAction = CreateGoToAction(dto.DialogId, dto.Instance, dto.ApplicationTexts, instanceDerivedStatus);
 
-
         List<GuiActionDto> guiActions =
         [
             CreateDeleteAction(dto.DialogId, dto.Instance, dto.ApplicationTexts, instanceDerivedStatus),
@@ -166,6 +165,11 @@ internal sealed class StorageDialogportenDataMerger
         {
             guiActions.Add(primaryAction);
         }
+
+        List<ApiActionDto> apiActions =
+        [
+            CreateGetSourceApiActionDto(dto.DialogId, dto.Instance)
+        ];
 
         var dialog = new DialogDto
         {
@@ -205,6 +209,7 @@ internal sealed class StorageDialogportenDataMerger
                 }
             },
             GuiActions = guiActions,
+            ApiActions = apiActions,
             Transmissions = transmissions,
             Attachments = attachments,
             Activities = activities
@@ -700,6 +705,34 @@ internal sealed class StorageDialogportenDataMerger
             Url = ToPortalUri($"{appBaseUri}/legacy/instances/{instance.Id}/copy"),
             HttpMethod = HttpVerb.GET
         };
+    }
+
+    private ApiActionDto CreateGetSourceApiActionDto(Guid dialogId, Instance instance)
+    {
+        var platformBaseUri = _settings.DialogportenAdapter.Altinn
+            .GetPlatformUri()
+            .ToString()
+            .TrimEnd('/');
+
+        var path = $"{platformBaseUri}/storage/api/v1/instances/{instance.Id}";
+        var apiActionId = dialogId.CreateDeterministicSubUuidV7(Constants.ApiAction.Read);
+
+        var endpointDto = new ApiActionEndpointDto
+        {
+            Id = apiActionId.CreateDeterministicSubUuidV7("0"),
+            Version = "1.0",
+            Url = path,
+            HttpMethod = HttpVerb.GET,
+            Deprecated =  false
+        };
+
+        var apiActionDto = new ApiActionDto
+        {
+            Id = apiActionId,
+            Action = ReadAction,
+            Endpoints = [endpointDto]
+        };
+        return apiActionDto;
     }
 
     private static string ToServiceResource(ReadOnlySpan<char> appId)
