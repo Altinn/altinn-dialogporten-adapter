@@ -7,7 +7,7 @@ internal interface IOrganizationRepository
     ValueTask<List<string>> GetOrganizations(CancellationToken cancellationToken);
 }
 
-internal class OrganizationRepository : IOrganizationRepository
+internal sealed class OrganizationRepository : IOrganizationRepository
 {
     private static readonly AsyncNonKeyedLocker Lock = new(1);
 

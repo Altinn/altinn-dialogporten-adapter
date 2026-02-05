@@ -57,9 +57,9 @@ public static class ApplicationTextParser
         int maxLength = DefaultMaxLength)
     {
         var keysToCheck = new List<string>(4);
-        var prefix = $"dp.{contentType.ToLower()}";
+        var prefix = $"dp.{contentType.ToLowerInvariant()}";
         var instanceTask = instance.Process?.CurrentTask?.ElementId;
-        var instanceDerivedStatusString = instanceDerivedStatus.ToString().ToLower();
+        var instanceDerivedStatusString = instanceDerivedStatus.ToString().ToLowerInvariant();
         if (instanceTask is not null)
         {
             keysToCheck.Add($"{prefix}.{instanceTask}.{instanceDerivedStatusString}");

@@ -14,7 +14,7 @@ public interface ISyncInstanceToDialogService
     Task Sync(SyncInstanceCommand dto, CancellationToken cancellationToken = default);
 }
 
-internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
+internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialogService
 {
     private readonly IStorageApi _storageApi;
     private readonly IDialogportenApi _dialogportenApi;
@@ -62,11 +62,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
 
         if (instance is null && existingDialog is null)
         {
-            _logger.LogWarning("No dialog or instance found for request. {PartyId},{InstanceId},{InstanceCreatedAt},{IsMigration}.",
-                dto.PartyId,
-                dto.InstanceId,
-                dto.InstanceCreatedAt,
-                dto.IsMigration);
+            LogNoOpWarning(dto.PartyId, dto.InstanceId, dto.InstanceCreatedAt, dto.IsMigration);
             return;
         }
 
@@ -79,16 +75,6 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
             await UpdateInstanceWithDialogId(dto, dialogId, cancellationToken);
         }
 
-        if (InstanceOwnerIsSelfIdentified(instance))
-        {
-            // We skip these for now as we do not have a good way to identify the user in dialogporten
-            _logger.LogWarning("Skipping sync for self-identified instance owner on id={Id} username={Username} appid={AppId}.",
-                instance?.Id,
-                instance?.InstanceOwner.Username,
-                instance?.AppId);
-            return;
-        }
-
         if (BothIsDeleted(instance, existingDialog))
         {
             return;
@@ -98,9 +84,7 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         var shouldDeleteAfterCreate = false;
         if (InstanceSoftDeletedAndDialogNotExisting(instance, existingDialog))
         {
-            _logger.LogInformation(
-                "Instance id={Id} is soft-deleted in storage and does not exist in Dialogporten. Creating and deleting immediately afterwards.",
-                instance?.Id);
+            LogCreateDialogInSoftDeleteState(instance!.Id);
             forceSilentUpsert = true;
             shouldDeleteAfterCreate = true;
         }
@@ -157,15 +141,6 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
                 isSilentUpdate: true,
                 cancellationToken: cancellationToken);
         }
-    }
-
-    private static bool InstanceOwnerIsSelfIdentified(Instance? instance)
-    {
-        return instance is not null
-         && instance.InstanceOwner.OrganisationNumber is null
-         && instance.InstanceOwner.PersonNumber is null
-         && instance.InstanceOwner.PartyId is not null
-         && instance.InstanceOwner.Username is not null;
     }
 
     private static void EnsureNotNull(
@@ -333,4 +308,10 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
             }
         }, cancellationToken);
     }
+
+    [LoggerMessage(LogLevel.Warning, "No dialog or instance found for request. {PartyId},{InstanceId},{InstanceCreatedAt},{IsMigration}.")]
+    partial void LogNoOpWarning(string partyId, Guid instanceId, DateTimeOffset instanceCreatedAt, bool isMigration);
+
+    [LoggerMessage(LogLevel.Information, "Instance id={Id} is soft-deleted in storage and does not exist in Dialogporten. Creating and deleting immediately afterwards.")]
+    partial void LogCreateDialogInSoftDeleteState(string id);
 }

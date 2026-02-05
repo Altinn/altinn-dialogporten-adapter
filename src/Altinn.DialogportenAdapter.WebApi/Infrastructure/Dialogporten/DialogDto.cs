@@ -765,8 +765,6 @@ public sealed class TransmissionAttachmentUrlDto
 
 public sealed class LocalizationDto
 {
-    private readonly string _languageCode = null!;
-
     /// <summary>
     /// The localized text or URI reference.
     /// </summary>
