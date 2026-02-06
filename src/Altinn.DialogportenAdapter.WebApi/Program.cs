@@ -85,6 +85,16 @@ static void BuildAndRun(string[] args)
             .ProcessInline());
         opts.Policies.AllSenders(x => x.SendInline());
 
+        // Handle 409s, which may be caused by conflicting creates with same IDs. Retry
+        // a few times with jitter before moving to error queue for manual inspection.
+        // This may happen during migrations when the same instance is attempted created
+        // multiple times.
+        opts.Policies
+            .OnException<ApiException>(ex => ex.StatusCode
+                is HttpStatusCode.Conflict)
+            .RetryWithJitteredCooldown(1.Seconds(), 3.Seconds(), 5.Seconds())
+            .Then.MoveToErrorQueue();
+
         // Handle 410, which we get when trying to DELETE an already deleted dialog. Just discard.
         opts.Policies
             .OnException<ApiException>(ex => ex.StatusCode is HttpStatusCode.Gone)
