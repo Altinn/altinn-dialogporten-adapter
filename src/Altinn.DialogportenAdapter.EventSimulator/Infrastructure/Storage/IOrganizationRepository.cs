@@ -1,3 +1,5 @@
+using AsyncKeyedLock;
+
 namespace Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
 
 internal interface IOrganizationRepository
@@ -7,7 +9,7 @@ internal interface IOrganizationRepository
 
 internal sealed class OrganizationRepository : IOrganizationRepository
 {
-    private static readonly SemaphoreSlim Semaphore = new(1, 1);
+    private static readonly AsyncNonKeyedLocker Lock = new(1);
 
     private readonly IStorageApi _storageApi;
     private static List<string>? _cachedOrganizations;
@@ -23,23 +25,16 @@ internal sealed class OrganizationRepository : IOrganizationRepository
         {
             return _cachedOrganizations;
         }
-        await Semaphore.WaitAsync(cancellationToken);
-        try
+        using var _ = await Lock.LockAsync(cancellationToken);
+        if (_cachedOrganizations is not null)
         {
-            if (_cachedOrganizations is not null)
-            {
-                return _cachedOrganizations;
-            }
+            return _cachedOrganizations;
+        }
 
-            var apps = await _storageApi.GetApplications(cancellationToken);
-            return _cachedOrganizations = apps.Applications
-                .Select(x => x.Org)
-                .Distinct()
-                .ToList();
-        }
-        finally
-        {
-            Semaphore.Release();
-        }
+        var apps = await _storageApi.GetApplications(cancellationToken);
+        return _cachedOrganizations = apps.Applications
+            .Select(x => x.Org)
+            .Distinct()
+            .ToList();
     }
 }
