@@ -287,8 +287,8 @@ static void BuildAndRun(string[] args)
             [FromRoute] string partyId,
             [FromRoute] Guid instanceGuid,
             [FromQuery] bool? isMigration,
-            [FromServices] IStorageApi storageApi,
             [FromServices] ISyncInstanceToDialogService syncService,
+            [FromServices] IStorageApi storageApi,
             CancellationToken cancellationToken) =>
         {
             var instance = await storageApi
