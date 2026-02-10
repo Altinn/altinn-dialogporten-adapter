@@ -1,5 +1,4 @@
-@instanceId = 53438648/9dede982-a826-48d3-9fef-3a53c4317427
-
+@instanceId = 51530262/4130a805-e227-47c3-862e-50131b37952e
 ### Log into maskinporten
 // @no-log
 GET  https://altinn-testtools-token-generator.azurewebsites.net/api/GetEnterpriseToken?org=digdir&env={{env}}&scopes=altinn:storage/instances.syncadapter&ttl=86400
