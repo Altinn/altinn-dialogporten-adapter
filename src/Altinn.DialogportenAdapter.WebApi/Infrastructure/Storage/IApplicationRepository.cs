@@ -1,3 +1,4 @@
+using System.Net;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.Platform.Storage.Interface.Models;
 using ZiggyCreatures.Caching.Fusion;
@@ -39,12 +40,14 @@ internal sealed class ApplicationRepository(IApplicationsApi applicationsApi, IF
         {
             throw new ArgumentException($"Expected appId in 'org/app' format, got '{appId}'.", nameof(appId));
         }
-        var tasks = predefinedLanguages.Select(lang => applicationsApi.GetApplicationTexts(orgApp[0], orgApp[1], lang, cancellationToken));
+
+        var tasks = predefinedLanguages.Select(lang =>
+            applicationsApi.GetApplicationTexts(orgApp[0], orgApp[1], lang, cancellationToken));
         var responses = await Task.WhenAll(tasks);
 
         var textResources = responses
-            .Where(response => response.IsSuccessful)
-            .Select(response => response.Content!)
+            .Where(response => response.StatusCode != HttpStatusCode.NotFound)
+            .Select(response => response.IsSuccessful ? response.Content! : throw response.Error)
             .ToList();
 
         return new ApplicationTexts

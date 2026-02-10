@@ -16,6 +16,7 @@ internal sealed record PartyIdentifier(
     int? PartyId,
     string PartyType,
     string DisplayName,
+    string? ExternalUrn,
     string? PersonIdentifier,
     string? OrganizationIdentifier
 );
