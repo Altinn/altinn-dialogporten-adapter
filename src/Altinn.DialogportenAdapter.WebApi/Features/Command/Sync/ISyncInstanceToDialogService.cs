@@ -52,14 +52,12 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
         var dialogId = dto.InstanceId.ToVersion7(dto.InstanceCreatedAt);
 
         // Fetch events, application, instance and existing dialog in parallel
-        var (existingDialog, application, applicationTexts, instance, events) = await (
+        var (existingDialog, application, instance, events) = await (
                 _dialogportenApi.Get(dialogId, cancellationToken).ContentOrDefault(),
                 _applicationRepository.GetApplication(dto.AppId, cancellationToken),
-                _applicationRepository.GetApplicationTexts(dto.AppId, cancellationToken),
                 _storageApi.GetInstance(dto.PartyId, dto.InstanceId, cancellationToken).ContentOrDefault(),
                 _storageApi.GetInstanceEvents(dto.PartyId, dto.InstanceId, Constants.SupportedEventTypes, cancellationToken).ContentOrDefault()
             );
-
         if (instance is null && existingDialog is null)
         {
             LogNoOpWarning(dto.PartyId, dto.InstanceId, dto.InstanceCreatedAt, dto.IsMigration);
@@ -127,6 +125,8 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
         }
 
         EnsureNotNull(application, instance, events);
+
+        var applicationTexts = await _applicationRepository.GetApplicationTexts(dto.AppId, application.VersionId, cancellationToken);
 
         // Create or update the dialog with the fetched data
         var mergeDto = new MergeDto(dialogId, existingDialog, application, applicationTexts, instance, events, dto.IsMigration || forceSilentUpsert);
