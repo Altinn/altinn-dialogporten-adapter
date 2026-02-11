@@ -55,6 +55,12 @@ internal static class Constants
 
         public static readonly List<string> Keys = [ GoTo, Delete, Copy ];
     }
+
+    internal static class ApiAction
+    {
+        public const string Read = "DialogApiActionRead";
+    }
+
     internal static class GuidScope
     {
         internal static class Transmission

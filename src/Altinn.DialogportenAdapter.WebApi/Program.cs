@@ -1,4 +1,3 @@
-using System.Net;
 using Altinn.ApiClients.Dialogporten;
 using Altinn.ApiClients.Maskinporten.Extensions;
 using Altinn.ApiClients.Maskinporten.Services;
@@ -21,10 +20,12 @@ using Microsoft.IdentityModel.Tokens;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Refit;
+using System.Net;
 using Wolverine;
 using Wolverine.AzureServiceBus;
 using Wolverine.ErrorHandling;
 using ZiggyCreatures.Caching.Fusion;
+using ZiggyCreatures.Caching.Fusion.Locking.AsyncKeyed;
 using Constants = Altinn.DialogportenAdapter.WebApi.Common.Constants;
 using ContractConstants = Altinn.DialogportenAdapter.Contracts.Constants;
 
@@ -84,6 +85,16 @@ static void BuildAndRun(string[] args)
         opts.Policies.AllListeners(x => x
             .ProcessInline());
         opts.Policies.AllSenders(x => x.SendInline());
+
+        // Handle 409s, which may be caused by conflicting creates with same IDs. Retry
+        // a few times with jitter before moving to error queue for manual inspection.
+        // This may happen during migrations when the same instance is attempted created
+        // multiple times.
+        opts.Policies
+            .OnException<ApiException>(ex => ex.StatusCode
+                is HttpStatusCode.Conflict)
+            .RetryWithJitteredCooldown(1.Seconds(), 3.Seconds(), 5.Seconds())
+            .Then.MoveToErrorQueue();
 
         // Handle 410, which we get when trying to DELETE an already deleted dialog. Just discard.
         opts.Policies
@@ -155,6 +166,7 @@ static void BuildAndRun(string[] args)
 
     builder.Services.AddMemoryCache();
     builder.Services.AddFusionCache()
+        .WithMemoryLocker(new AsyncKeyedMemoryLocker())
         .WithDefaultEntryOptions(x =>
         {
             x.Duration = TimeSpan.FromMinutes(5);

@@ -10,13 +10,13 @@
         <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.2" />
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.2" />
         <PackageReference Include="Refit.HttpClientFactory" Version="9.0.2" />
-        <PackageReference Include="UUIDNext" Version="4.2.3" />
-        <PackageReference Include="WolverineFx.AzureServiceBus" Version="5.12.1" />
-        <PackageReference Include="ZiggyCreatures.FusionCache" Version="2.5.0" />
+        <PackageReference Include="DeterministicGuids" Version="1.0.10" />
+        <PackageReference Include="WolverineFx.AzureServiceBus" Version="5.13.0" />
+        <PackageReference Include="ZiggyCreatures.FusionCache.Locking.AsyncKeyed" Version="2.5.0" />
     </ItemGroup>
 
-    <ItemGroup>
-      <ProjectReference Include="..\Altinn.DialogportenAdapter.Contracts\Altinn.DialogportenAdapter.Contracts.csproj" />
-    </ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\Altinn.DialogportenAdapter.Contracts\Altinn.DialogportenAdapter.Contracts.csproj" />
+	</ItemGroup>
 
 </Project>
