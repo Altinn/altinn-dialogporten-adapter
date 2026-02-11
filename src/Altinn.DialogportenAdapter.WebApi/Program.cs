@@ -1,4 +1,3 @@
-using System.Net;
 using Altinn.ApiClients.Dialogporten;
 using Altinn.ApiClients.Maskinporten.Extensions;
 using Altinn.ApiClients.Maskinporten.Services;
@@ -21,10 +20,12 @@ using Microsoft.IdentityModel.Tokens;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Refit;
+using System.Net;
 using Wolverine;
 using Wolverine.AzureServiceBus;
 using Wolverine.ErrorHandling;
 using ZiggyCreatures.Caching.Fusion;
+using ZiggyCreatures.Caching.Fusion.Locking.AsyncKeyed;
 using Constants = Altinn.DialogportenAdapter.WebApi.Common.Constants;
 using ContractConstants = Altinn.DialogportenAdapter.Contracts.Constants;
 
@@ -165,6 +166,7 @@ static void BuildAndRun(string[] args)
 
     builder.Services.AddMemoryCache();
     builder.Services.AddFusionCache()
+        .WithMemoryLocker(new AsyncKeyedMemoryLocker())
         .WithDefaultEntryOptions(x =>
         {
             x.Duration = TimeSpan.FromMinutes(5);
