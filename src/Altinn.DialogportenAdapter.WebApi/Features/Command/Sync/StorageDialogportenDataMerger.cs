@@ -153,23 +153,6 @@ internal sealed class StorageDialogportenDataMerger
             );
 
         var (attachments, transmissions) = GetAttachmentAndTransmissions(dto, activities);
-        var primaryAction = CreateGoToAction(dto.DialogId, dto.Instance, dto.ApplicationTexts, instanceDerivedStatus);
-
-        List<GuiActionDto> guiActions =
-        [
-            CreateDeleteAction(dto.DialogId, dto.Instance, dto.ApplicationTexts, instanceDerivedStatus),
-            ..CreateCopyAction(dto.DialogId, dto.Instance, dto.Application, dto.ApplicationTexts, instanceDerivedStatus)
-        ];
-
-        if (primaryAction is not null)
-        {
-            guiActions.Add(primaryAction);
-        }
-
-        List<ApiActionDto> apiActions =
-        [
-            CreateGetSourceApiActionDto(dto.DialogId, dto.Instance)
-        ];
 
         var dialog = new DialogDto
         {
@@ -208,8 +191,16 @@ internal sealed class StorageDialogportenDataMerger
                     Value = GetSummary(dto.Instance, dto.ApplicationTexts, instanceDerivedStatus)
                 }
             },
-            GuiActions = guiActions,
-            ApiActions = apiActions,
+            GuiActions = 
+            [
+                CreateGoToAction(dto.DialogId, dto.Instance, dto.ApplicationTexts, instanceDerivedStatus),
+                CreateDeleteAction(dto.DialogId, dto.Instance, dto.ApplicationTexts, instanceDerivedStatus),
+                ..CreateCopyAction(dto.DialogId, dto.Instance, dto.Application, dto.ApplicationTexts, instanceDerivedStatus)
+            ],
+            ApiActions = 
+            [
+                CreateGetSourceApiActionDto(dto.DialogId, dto.Instance)
+            ],
             Transmissions = transmissions,
             Attachments = attachments,
             Activities = activities
@@ -236,20 +227,29 @@ internal sealed class StorageDialogportenDataMerger
         var appSettings = dto.Application.GetSyncAdapterSettings();
         var data = dto.Instance.Data;
         var attachmentVisibility = ReceiptAttachmentVisibilityDecider.Create(dto.Application);
-        if (appSettings.DisableAddTransmissions ||
-            !_settings.DialogportenAdapter.Adapter.FeatureFlag.EnableSubmissionTransmissions)
-        {
-            return (data.Where(x => x.DataType != PdfType).Select(d => CreateAttachmentDto(d, attachmentVisibility)).ToList(), []);
-        }
-
-        var dataElementQueue = new Queue<DataElement>(data
-            .Where(x => !IsPerformedBySo(x) && x.DataType != PdfType)
-            .OrderBy(x => x.Created!.Value));
 
         // A2 Instances cant have more than 1 submission
         // so we take all attachments into a single transmission.
         var isA2 = IsA2Instance(dto.Instance);
 
+        var filteredData = data
+            .Where(x => x.DataType != PdfType || isA2 || dto.IsMigration)
+            .ToList();
+        
+        if (appSettings.DisableAddTransmissions ||
+            !_settings.DialogportenAdapter.Adapter.FeatureFlag.EnableSubmissionTransmissions)
+        {
+            return 
+            (
+                filteredData.Select(d => CreateAttachmentDto(d, attachmentVisibility))
+                    .ToList(), 
+                []
+            );
+        }
+
+        var potentialTransmissionData = new Queue<DataElement>(filteredData
+            .Where(x => !IsPerformedBySo(x))
+            .OrderBy(x => x.Created!.Value));
 
         var transmissions = activities
             .Where(x => x.Type is DialogActivityType.FormSubmitted)
@@ -273,46 +273,16 @@ internal sealed class StorageDialogportenDataMerger
                         MediaType = "text/plain"
                     }
                 },
-                Attachments = dataElementQueue
+                Attachments = potentialTransmissionData
                     .DequeueWhile(e => e.Created <= a.CreatedAt || isA2)
                     .Select(e => CreateTransmissionAttachmentDto(e, attachmentVisibility))
                     .ToList()
             })
             .ToList();
 
-        var platformBaseUri = _settings.DialogportenAdapter.Altinn
-            .GetPlatformUri()
-            .ToString()
-            .TrimEnd('/');
-
-        var gotoUrl = ToPortalUri($"{platformBaseUri}/receipt/{dto.Instance.Id}");
-        // There is only 1 instance but in theory many submissions.
-        // When multiple submissions are supported, a way to add a different receipt for each transmission might be needed.
-        transmissions.ForEach(x => x.Attachments.Add(
-            new()
-            {
-                Id = x.Id, // Make sure each has a unique id
-                DisplayName =
-                [
-                    new LocalizationDto { Value = "Kvittering", LanguageCode = "nb" },
-                    new LocalizationDto { Value = "Kvittering", LanguageCode = "nn" },
-                    new LocalizationDto { Value = "Receipt", LanguageCode = "en" }
-                ],
-                Urls =
-                [
-                    new TransmissionAttachmentUrlDto
-                    {
-                        Url = gotoUrl,
-                        MediaType = "text/html",
-                        ConsumerType = AttachmentUrlConsumerType.Gui
-                    }
-                ]
-            })
-        );
-
-        var attachments = data
+        var attachments = filteredData
             .Where(IsPerformedBySo)
-            .Concat(dataElementQueue) // any remaining attachments not already included in transmissions
+            .Concat(potentialTransmissionData) // any remaining attachments not already included in transmissions
             .Select(d => CreateAttachmentDto(d, attachmentVisibility))
             .ToList();
 
@@ -627,29 +597,41 @@ internal sealed class StorageDialogportenDataMerger
         };
     }
 
-    private GuiActionDto? CreateGoToAction(Guid dialogId, Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
+    private GuiActionDto CreateGoToAction(Guid dialogId, Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
     {
         var goToActionId = dialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.GoTo);
-
-        if (GetXacmlActionForGoToAction(instanceDerivedStatus) == ReadAction) return null;
+        var xacmlAction = GetXacmlActionForGoToAction(instanceDerivedStatus);
 
         // CurrentTask may be null (ex. instance id 51499006/907c12e2-041a-4275-9d33-67620cdf15b6 tt02),
         // in which case we have no other option than to not set an authorization attribute.
         var authorizationAttribute = instance.Process?.CurrentTask?.ElementId is not null
             ? "urn:altinn:task:" + instance.Process.CurrentTask.ElementId
             : null;
+        
+        string gotoUrl;
+        if (xacmlAction == ReadAction)
+        {
+            var platformBaseUri = _settings.DialogportenAdapter.Altinn
+                .GetPlatformUri()
+                .ToString()
+                .TrimEnd('/');
 
-        var appBaseUri = _settings.DialogportenAdapter.Altinn
-            .GetAppUriForOrg(instance.Org, instance.AppId)
-            .ToString()
-            .TrimEnd('/');
-
-        var gotoUrl = ToPortalUri($"{appBaseUri}/#/instance/{instance.Id}");
+            gotoUrl = ToPortalUri($"{platformBaseUri}/receipt/{instance.Id}");
+        }
+        else
+        {
+            var appBaseUri = _settings.DialogportenAdapter.Altinn
+                .GetAppUriForOrg(instance.Org, instance.AppId)
+                .ToString()
+                .TrimEnd('/');
+            
+            gotoUrl = ToPortalUri($"{appBaseUri}/#/instance/{instance.Id}");
+        }
 
         return new GuiActionDto
         {
             Id = goToActionId,
-            Action = GetXacmlActionForGoToAction(instanceDerivedStatus),
+            Action = xacmlAction,
             AuthorizationAttribute = authorizationAttribute,
             Priority = DialogGuiActionPriority.Primary,
             Title = GetPrimaryActionLabel(instance, applicationTexts, instanceDerivedStatus),
