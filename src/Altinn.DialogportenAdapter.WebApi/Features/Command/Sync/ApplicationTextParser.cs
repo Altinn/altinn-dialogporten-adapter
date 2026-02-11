@@ -87,6 +87,11 @@ public static class ApplicationTextParser
                     continue;
                 }
 
+                if (textResource.AsSpan().IsWhiteSpace())
+                {
+                    continue;
+                }
+
                 if (textResource.Length > maxLength)
                 {
                     textResource = TruncateText(textResource, maxLength);
