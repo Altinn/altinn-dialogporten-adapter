@@ -140,7 +140,7 @@ public class StorageDialogportenDataMergerTest
                 Regulars.GuiActions.Delete(mergeDto.DialogId),
                 Regulars.GuiActions.Write(mergeDto.DialogId),
             ],
-            ApiActions = [],
+            ApiActions = [Regulars.ApiActions.SourceApiAction(mergeDto.DialogId)],
             Activities = [],
             Deleted = false
         });
@@ -403,7 +403,7 @@ public class StorageDialogportenDataMergerTest
                 Regulars.GuiActions.Delete(mergeDto.DialogId),
                 Regulars.GuiActions.Write(mergeDto.DialogId)
             ],
-            ApiActions = [],
+            ApiActions = [Regulars.ApiActions.SourceApiAction(mergeDto.DialogId)],
             Activities = [],
             Deleted = false
         });
@@ -478,7 +478,7 @@ public class StorageDialogportenDataMergerTest
                 Regulars.GuiActions.Delete(mergeDto.DialogId),
                 Regulars.GuiActions.Write(mergeDto.DialogId)
             ],
-            ApiActions = [],
+            ApiActions = [Regulars.ApiActions.SourceApiAction(mergeDto.DialogId)],
             Activities = [],
             Deleted = false
         });
@@ -538,7 +538,7 @@ public class StorageDialogportenDataMergerTest
                 Regulars.GuiActions.Delete(mergeDto.DialogId),
                 Regulars.GuiActions.Write(mergeDto.DialogId)
             ],
-            ApiActions = [],
+            ApiActions = [Regulars.ApiActions.SourceApiAction(mergeDto.DialogId)],
             Activities = [],
             Deleted = false
         });
@@ -598,7 +598,7 @@ public class StorageDialogportenDataMergerTest
                 Regulars.GuiActions.Delete(mergeDto.DialogId),
                 Regulars.GuiActions.Write(mergeDto.DialogId)
             ],
-            ApiActions = [],
+            ApiActions = [Regulars.ApiActions.SourceApiAction(mergeDto.DialogId)],
             Activities = [],
             Deleted = false
         });
@@ -754,7 +754,7 @@ public class StorageDialogportenDataMergerTest
                 Regulars.GuiActions.Delete(mergeDto.DialogId),
                 Regulars.GuiActions.Write(mergeDto.DialogId)
             ],
-            ApiActions = [],
+            ApiActions = [Regulars.ApiActions.SourceApiAction(mergeDto.DialogId)],
             Activities =
             [
                 new ActivityDto
@@ -1363,7 +1363,7 @@ public class StorageDialogportenDataMergerTest
                 Regulars.GuiActions.Delete(mergeDto.DialogId),
                 Regulars.GuiActions.Write(mergeDto.DialogId)
             ],
-            ApiActions = [],
+            ApiActions = [Regulars.ApiActions.SourceApiAction(mergeDto.DialogId)],
             Activities = [],
             Deleted = false
         });
@@ -1814,7 +1814,7 @@ public class StorageDialogportenDataMergerTest
                 Regulars.GuiActions.Delete(mergeDto.DialogId),
                 Regulars.GuiActions.Write(mergeDto.DialogId)
             ],
-            ApiActions = [],
+            ApiActions = [Regulars.ApiActions.SourceApiAction(mergeDto.DialogId)],
             Activities = [],
             Deleted = false
         });
@@ -2220,7 +2220,7 @@ public class StorageDialogportenDataMergerTest
                 Regulars.GuiActions.Delete(mergeDto.DialogId),
                 Regulars.GuiActions.Write(mergeDto.DialogId),
             ],
-            ApiActions = [],
+            ApiActions = [Regulars.ApiActions.SourceApiAction(mergeDto.DialogId)],
             Activities =
             [
                 new ActivityDto

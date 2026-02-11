@@ -267,7 +267,7 @@ public class StorageDialogportenDataMergerUpdateTest
                 Regulars.GuiActions.Delete(dialogId),
                 Regulars.GuiActions.Write(dialogId, "urn:altinn:task:element-id"),
             ],
-            ApiActions = [],
+            ApiActions = [Regulars.ApiActions.SourceApiAction(mergeDto.DialogId)],
             Activities = [],
             Deleted = false
         });
@@ -407,7 +407,7 @@ public class StorageDialogportenDataMergerUpdateTest
                 },
             ],
             GuiActions = [Regulars.GuiActions.Delete(dialogId)],
-            ApiActions = [],
+            ApiActions = [Regulars.ApiActions.SourceApiAction(mergeDto.DialogId)],
             Activities =
             [
                 new ActivityDto
@@ -644,7 +644,7 @@ public class StorageDialogportenDataMergerUpdateTest
                 Regulars.GuiActions.Delete(dialogId),
                 Regulars.GuiActions.Write(dialogId),
             ],
-            ApiActions = [],
+            ApiActions = [Regulars.ApiActions.SourceApiAction(mergeDto.DialogId)],
             Activities =
             [
                 new ActivityDto
