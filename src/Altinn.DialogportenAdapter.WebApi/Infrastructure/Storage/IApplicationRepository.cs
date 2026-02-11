@@ -26,12 +26,17 @@ internal sealed class ApplicationRepository(IApplicationsApi applicationsApi, IF
         return maybeApplication.HasValue ? (true, maybeApplication.Value) : (false, null);
     }
 
-    public Task<ApplicationTexts> GetApplicationTexts(string appId, string version, CancellationToken cancellationToken) =>
-        cache.GetOrSetAsync(
+    public Task<ApplicationTexts>
+        GetApplicationTexts(string appId, string version, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(appId);
+        ArgumentNullException.ThrowIfNull(version);
+
+        return cache.GetOrSetAsync(
             key: $"{nameof(ApplicationTexts)}:{appId}@{version}",
             factory: (ct) => FetchApplicationTexts(appId, ct),
             token: cancellationToken).AsTask();
-
+    }
     private async Task<ApplicationTexts> FetchApplicationTexts(string appId, CancellationToken cancellationToken)
     {
         string[] predefinedLanguages = ["nb", "nn", "en"];
