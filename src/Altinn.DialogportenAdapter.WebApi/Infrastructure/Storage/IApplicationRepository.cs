@@ -29,8 +29,8 @@ internal sealed class ApplicationRepository(IApplicationsApi applicationsApi, IF
     public Task<ApplicationTexts>
         GetApplicationTexts(string appId, string version, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(appId);
-        ArgumentNullException.ThrowIfNull(version);
+        ArgumentException.ThrowIfNullOrEmpty(appId);
+        ArgumentException.ThrowIfNullOrEmpty(version);
 
         return cache.GetOrSetAsync(
             key: $"{nameof(ApplicationTexts)}:{appId}@{version}",
