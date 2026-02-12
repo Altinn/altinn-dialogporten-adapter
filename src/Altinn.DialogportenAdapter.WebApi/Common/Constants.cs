@@ -60,13 +60,4 @@ internal static class Constants
     {
         public const string Read = "DialogApiActionRead";
     }
-
-    internal static class GuidScope
-    {
-        internal static class Transmission
-        {
-            public const string Attachment = "TransmissionAttachment";
-            public const string Receipt = "TransmissionReceipt";
-        }
-    }
 }
