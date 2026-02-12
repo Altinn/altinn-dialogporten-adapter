@@ -84,6 +84,27 @@ public static class Regulars
 
     public static class GuiActions
     {
+        public static GuiActionDto GoTo(Guid dialogId)
+        {
+            return new GuiActionDto
+            {
+                Id = dialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.GoTo),
+                Action = "read",
+                Url = "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Fplatform.altinn.localhost%2Freceipt%2Finstance-id%3FdontChooseReportee%3Dtrue",
+                AuthorizationAttribute = null,
+                IsDeleteDialogAction = false,
+                HttpMethod = HttpVerb.GET,
+                Priority = DialogGuiActionPriority.Primary,
+                Title =
+                [
+                    new LocalizationDto { LanguageCode = "nb", Value = "Se innsendt skjema" },
+                    new LocalizationDto { LanguageCode = "nn", Value = "Sjå innsendt skjema" },
+                    new LocalizationDto { LanguageCode = "en", Value = "See submitted form" }
+                ],
+                Prompt = null
+            };
+        }
+
         public static GuiActionDto Delete(Guid dialogId)
         {
             return new GuiActionDto
@@ -153,48 +174,6 @@ public static class Regulars
                     }
                 ]
             };
-        }
-    }
-
-    public static class Transmission
-    {
-        public static class Attachment
-        {
-            public static TransmissionAttachmentDto Receipt(Guid id)
-            {
-                return new TransmissionAttachmentDto
-                {
-                    Id = id,
-                    DisplayName =
-                    [
-                        new LocalizationDto
-                        {
-                            Value = "Kvittering",
-                            LanguageCode = "nb"
-                        },
-                        new LocalizationDto
-                        {
-                            Value = "Kvittering",
-                            LanguageCode = "nn"
-                        },
-                        new LocalizationDto
-                        {
-                            Value = "Receipt",
-                            LanguageCode = "en"
-                        },
-                    ],
-                    Urls =
-                    [
-                        new TransmissionAttachmentUrlDto
-                        {
-                            Url =
-                                "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Fplatform.altinn.localhost%2Freceipt%2Finstance-id%3FdontChooseReportee%3Dtrue",
-                            MediaType = "text/html",
-                            ConsumerType = AttachmentUrlConsumerType.Gui
-                        }
-                    ]
-                };
-            }
         }
     }
 }

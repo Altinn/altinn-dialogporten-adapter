@@ -1268,29 +1268,6 @@ public class StorageDialogportenDataMergerTest
                 },
                 new AttachmentDto
                 {
-                    Id = Guid.Parse("00dc6b07-88c8-7a40-a823-7735059ef136"),
-                    DisplayName =
-                    [
-                        new LocalizationDto
-                        {
-                            Value = "visible-because-pdf-ref",
-                            LanguageCode = "nb"
-                        }
-                    ],
-                    Urls =
-                    [
-                        new AttachmentUrlDto
-                        {
-                            Id = Guid.Parse("00dc6b07-88c8-7a40-a823-7735059ef136"),
-                            Url =
-                                "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Fplatform.localhost%3FdontChooseReportee%3Dtrue",
-                            MediaType = "application/pdf",
-                            ConsumerType = AttachmentUrlConsumerType.Gui
-                        }
-                    ]
-                },
-                new AttachmentDto
-                {
                     Id = Guid.Parse("00dc6b07-88c8-711d-b79f-835d26cd1a58"),
                     DisplayName =
                     [
@@ -2135,7 +2112,7 @@ public class StorageDialogportenDataMergerTest
                     [
                         new TransmissionAttachmentDto
                         {
-                            Id = Guid.Parse("00e3c7df-10c8-7ed4-8a0e-eec48f079b01"),
+                            Id = Guid.Parse("00e46784-34c8-7fd5-a2a8-de1ddce7c2a2"),
                             DisplayName =
                             [
                                 new LocalizationDto
@@ -2155,7 +2132,6 @@ public class StorageDialogportenDataMergerTest
                                 }
                             ]
                         },
-                        Regulars.Transmission.Attachment.Receipt(Guid.Parse("00e46784-34c8-70a1-9c93-8d4b2160d3a0"))
                     ]
                 },
                 new TransmissionDto
@@ -2191,7 +2167,7 @@ public class StorageDialogportenDataMergerTest
                     [
                         new TransmissionAttachmentDto
                         {
-                            Id = Guid.Parse("00eb1f90-3cc8-796f-bb0b-b7ad01e5e0d5"),
+                            Id = Guid.Parse("00ebbf35-60c8-79b5-b54c-98dd6d154c63"),
                             DisplayName =
                             [
                                 new LocalizationDto
@@ -2211,7 +2187,6 @@ public class StorageDialogportenDataMergerTest
                                 }
                             ]
                         },
-                        Regulars.Transmission.Attachment.Receipt(Guid.Parse("00ebbf35-60c8-7938-809d-550d82c654fc"))
                     ]
                 }
             ],

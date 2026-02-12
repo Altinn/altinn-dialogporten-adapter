@@ -403,13 +403,13 @@ public class StorageDialogportenDataMergerUpdateTest
                         Summary = null!,
                         ContentReference = null
                     },
-                    Attachments =
-                    [
-                        Regulars.Transmission.Attachment.Receipt(Guid.Parse("00e46784-34c8-7604-8854-78b655d2a377"))
-                    ]
+                    Attachments = []
                 },
             ],
-            GuiActions = [Regulars.GuiActions.Delete(dialogId)],
+            GuiActions = [
+                Regulars.GuiActions.GoTo(dialogId),
+                Regulars.GuiActions.Delete(dialogId)
+            ],
             ApiActions = [new ApiActionDto
             {
                 Id = apiActionId,
@@ -636,7 +636,7 @@ public class StorageDialogportenDataMergerUpdateTest
                     [
                         new TransmissionAttachmentDto
                         {
-                            Id = Guid.Parse("00dc6b07-88c8-7cdd-8fae-97f63b3922d7"),
+                            Id = Guid.Parse("00e46784-34c8-7f88-b8f5-5fa21ea3043a"),
                             DisplayName =
                             [
                                 new LocalizationDto
@@ -656,7 +656,6 @@ public class StorageDialogportenDataMergerUpdateTest
                                 }
                             ]
                         },
-                        Regulars.Transmission.Attachment.Receipt(Guid.Parse("00e46784-34c8-7d41-ae89-8734b51a97ab")),
                     ]
                 },
             ],
