@@ -64,7 +64,7 @@ internal sealed class StorageDialogportenDataMerger
                 ? null!
                 : storageDialog.Content.AdditionalInfo;
 
-            // TODO: Introduce feature flag
+            // TODO: Introduce feature flag for storageDialog.Content.ExtendedStatus
 
             storageDialog.Activities = syncAdapterSettings.DisableAddActivities
                 ? []
