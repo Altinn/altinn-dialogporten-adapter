@@ -289,7 +289,7 @@ internal sealed class StorageDialogportenDataMerger
                 ]
             };
         }
-        TransmissionAttachmentDto CreateTransmissionAttachmentDto(DataElement element)
+        TransmissionAttachmentDto CreateTransmissionAttachmentDto(DataElement element, Guid transmissionId)
         {
             var consumerType = attachmentVisibility.GetConsumerType(element);
             var platformUrl = element.SelfLinks.Platform;
@@ -302,7 +302,7 @@ internal sealed class StorageDialogportenDataMerger
             {
                 // Ensure unique IDs when the same DataElement appears as both TransmissionAttachment and Attachment
                 // This prevents ID collisions that would cause conflicts in Dialogporten
-                Id = Guid.CreateVersion7(element.Created!.Value),
+                Id = transmissionId.CreateDeterministicSubUuidV7(element.Id),
                 DisplayName = [new() { LanguageCode = "nb", Value = element.Filename ?? element.DataType }],
                 Urls =
                 [
@@ -320,9 +320,10 @@ internal sealed class StorageDialogportenDataMerger
             // A2 Instances cant have more than 1 submission
             // so we take all attachments into a single transmission.
             var isA2 = IsA2Instance(dto.Instance);
+            var transmissionId = activityDto.Id!.Value.ToVersion7(activityDto.CreatedAt!.Value);
             return new TransmissionDto
             {
-                Id = activityDto.Id!.Value.ToVersion7(activityDto.CreatedAt!.Value),
+                Id = transmissionId,
                 CreatedAt = activityDto.CreatedAt.Value,
                 Type = DialogTransmissionType.Submission,
                 Sender = activityDto.PerformedBy,
@@ -341,7 +342,7 @@ internal sealed class StorageDialogportenDataMerger
                 },
                 Attachments = userDataElements
                     .DequeueWhile(e => e.Created <= activityDto.CreatedAt || isA2)
-                    .Select(CreateTransmissionAttachmentDto)
+                    .Select(x => CreateTransmissionAttachmentDto(x, transmissionId))
                     .ToList()
             };
         }
