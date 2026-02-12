@@ -611,26 +611,6 @@ internal sealed class StorageDialogportenDataMerger
         var authorizationAttribute = instance.Process?.CurrentTask?.ElementId is not null
             ? "urn:altinn:task:" + instance.Process.CurrentTask.ElementId
             : null;
-        
-        string gotoUrl;
-        if (xacmlAction == ReadAction)
-        {
-            var platformBaseUri = _settings.DialogportenAdapter.Altinn
-                .GetPlatformUri()
-                .ToString()
-                .TrimEnd('/');
-
-            gotoUrl = ToPortalUri($"{platformBaseUri}/receipt/{instance.Id}");
-        }
-        else
-        {
-            var appBaseUri = _settings.DialogportenAdapter.Altinn
-                .GetAppUriForOrg(instance.Org, instance.AppId)
-                .ToString()
-                .TrimEnd('/');
-            
-            gotoUrl = ToPortalUri($"{appBaseUri}/#/instance/{instance.Id}");
-        }
 
         return new GuiActionDto
         {
@@ -639,8 +619,24 @@ internal sealed class StorageDialogportenDataMerger
             AuthorizationAttribute = authorizationAttribute,
             Priority = DialogGuiActionPriority.Primary,
             Title = GetPrimaryActionLabel(instance, applicationTexts, instanceDerivedStatus),
-            Url = gotoUrl
+            Url = CreateGoToUrl()
         };
+
+        string CreateGoToUrl()
+        {
+            var url = instanceDerivedStatus is InstanceDerivedStatus.ArchivedConfirmed or InstanceDerivedStatus.ArchivedUnconfirmed
+                ? _settings.DialogportenAdapter.Altinn
+                      .GetPlatformUri()
+                      .ToString()
+                      .TrimEnd('/')
+                  + $"/receipt/{instance.Id}"
+                : _settings.DialogportenAdapter.Altinn
+                      .GetAppUriForOrg(instance.Org, instance.AppId)
+                      .ToString()
+                      .TrimEnd('/')
+                  + $"/#/instance/{instance.Id}";
+            return ToPortalUri(url);
+        }
     }
 
     private GuiActionDto CreateDeleteAction(Guid dialogId, Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
