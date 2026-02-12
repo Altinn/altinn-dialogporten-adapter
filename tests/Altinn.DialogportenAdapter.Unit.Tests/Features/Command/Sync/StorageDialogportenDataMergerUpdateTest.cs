@@ -2,6 +2,8 @@ using Altinn.ApiClients.Maskinporten.Config;
 using Altinn.DialogportenAdapter.Unit.Tests.Common.AssertHelpers;
 using Altinn.DialogportenAdapter.Unit.Tests.Common.Builder;
 using Altinn.DialogportenAdapter.WebApi;
+using Altinn.DialogportenAdapter.WebApi.Common;
+using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
@@ -267,7 +269,7 @@ public class StorageDialogportenDataMergerUpdateTest
                 Regulars.GuiActions.Delete(dialogId),
                 Regulars.GuiActions.Write(dialogId, "urn:altinn:task:element-id"),
             ],
-            ApiActions = [Regulars.ApiActions.SourceApiAction(mergeDto.DialogId)],
+            ApiActions = [Regulars.ApiActions.GetSourceApiAction(mergeDto.DialogId)],
             Activities = [],
             Deleted = false
         });
@@ -280,7 +282,7 @@ public class StorageDialogportenDataMergerUpdateTest
      * - GuiActions
      */
     [Fact(DisplayName =
-        "Given Status moving from InProgress -> Archived, should update Content.Summary and remove Gui Write Action")]
+        "Given Status moving from InProgress -> Archived, should update Content.Summary, remove Gui Write Action and change getSource apiAction url")]
     public async Task Merge_StatusInprogressToArchived_ShouldUpdateContentSummaryAndRemoveTheGuiWriteAction()
     {
         var dialogId = Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f");
@@ -345,6 +347,7 @@ public class StorageDialogportenDataMergerUpdateTest
         );
 
         var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
+        var apiActionId = dialogId.CreateDeterministicSubUuidV7(Constants.ApiAction.Read);
 
         actualDialogDto.Should().BeEquivalentTo(new DialogDto
         {
@@ -407,7 +410,25 @@ public class StorageDialogportenDataMergerUpdateTest
                 },
             ],
             GuiActions = [Regulars.GuiActions.Delete(dialogId)],
-            ApiActions = [Regulars.ApiActions.SourceApiAction(mergeDto.DialogId)],
+            ApiActions = [new ApiActionDto
+            {
+                Id = apiActionId,
+                Action = "read",
+                AuthorizationAttribute = null,
+                Endpoints = [new ApiActionEndpointDto
+                    {
+                        Id = apiActionId.CreateDeterministicSubUuidV7("0"),
+                        Version = "1.0",
+                        Url = "http://platform.altinn.localhost/storage/api/v1/instances/instance-id",
+                        HttpMethod = HttpVerb.GET,
+                        DocumentationUrl = null,
+                        RequestSchema = null,
+                        ResponseSchema = null,
+                        Deprecated = false,
+                        SunsetAt = null
+                    }
+                ]
+            }],
             Activities =
             [
                 new ActivityDto
@@ -644,7 +665,7 @@ public class StorageDialogportenDataMergerUpdateTest
                 Regulars.GuiActions.Delete(dialogId),
                 Regulars.GuiActions.Write(dialogId),
             ],
-            ApiActions = [Regulars.ApiActions.SourceApiAction(mergeDto.DialogId)],
+            ApiActions = [Regulars.ApiActions.GetSourceApiAction(mergeDto.DialogId)],
             Activities =
             [
                 new ActivityDto

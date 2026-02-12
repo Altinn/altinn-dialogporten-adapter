@@ -131,7 +131,31 @@ public static class Regulars
 
     public static class ApiActions
     {
-        public static ApiActionDto SourceApiAction(Guid dialogId)
+        public static ApiActionDto GetSourceApiAction(Guid dialogId)
+        {
+            var apiActionId = dialogId.CreateDeterministicSubUuidV7(Constants.ApiAction.Read);
+            return new ApiActionDto
+            {
+                Id = apiActionId,
+                Action = "read",
+                AuthorizationAttribute = null,
+                Endpoints = [new ApiActionEndpointDto
+                    {
+                        Id = apiActionId.CreateDeterministicSubUuidV7("0"),
+                        Version = "1.0",
+                        Url = "http://org.apps.altinn.localhost/urn:altinn:instance-id/instances/instance-id",
+                        HttpMethod = HttpVerb.GET,
+                        DocumentationUrl = null,
+                        RequestSchema = null,
+                        ResponseSchema = null,
+                        Deprecated = false,
+                        SunsetAt = null
+                    }
+                ]
+            };
+        }
+
+        public static ApiActionDto GetSourceApiActionForArchivedInstance(Guid dialogId)
         {
             var apiActionId = dialogId.CreateDeterministicSubUuidV7(Constants.ApiAction.Read);
             return new ApiActionDto
