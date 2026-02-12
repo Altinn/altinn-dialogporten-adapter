@@ -154,53 +154,6 @@ public static class Regulars
                 ]
             };
         }
-
-        public static ApiActionDto GetSourceApiActionForArchivedInstance(Guid dialogId)
-        {
-            var apiActionId = dialogId.CreateDeterministicSubUuidV7(Constants.ApiAction.Read);
-            return new ApiActionDto
-            {
-                Id = apiActionId,
-                Action = "read",
-                AuthorizationAttribute = null,
-                Endpoints = [new ApiActionEndpointDto
-                    {
-                        Id = apiActionId.CreateDeterministicSubUuidV7("0"),
-                        Version = "1.0",
-                        Url = "http://platform.altinn.localhost/storage/api/v1/instances/instance-id",
-                        HttpMethod = HttpVerb.GET,
-                        DocumentationUrl = null,
-                        RequestSchema = null,
-                        ResponseSchema = null,
-                        Deprecated = false,
-                        SunsetAt = null
-                    }
-                ]
-            };
-        }
-
-        public static GuiActionDto Write(Guid dialogId, string? authorizationAttribute = null)
-        {
-            return
-                new GuiActionDto
-                {
-                    Id = dialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.GoTo),
-                    Action = "write",
-                    Url =
-                        "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Forg.apps.altinn.localhost%2Furn%3Aaltinn%3Ainstance-id%2F%3FdontChooseReportee%3Dtrue%23%2Finstance%2Finstance-id",
-                    AuthorizationAttribute = authorizationAttribute,
-                    IsDeleteDialogAction = false,
-                    HttpMethod = HttpVerb.GET,
-                    Priority = DialogGuiActionPriority.Primary,
-                    Title =
-                    [
-                        new LocalizationDto { LanguageCode = "nb", Value = "Gå til skjemautfylling" },
-                        new LocalizationDto { LanguageCode = "nn", Value = "Gå til skjemautfylling" },
-                        new LocalizationDto { LanguageCode = "en", Value = "Go to form completion" }
-                    ],
-                    Prompt = null
-                };
-        }
     }
 
     public static class Transmission
