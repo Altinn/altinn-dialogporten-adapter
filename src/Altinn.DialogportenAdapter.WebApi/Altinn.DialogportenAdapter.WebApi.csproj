@@ -19,4 +19,8 @@
 		<ProjectReference Include="..\Altinn.DialogportenAdapter.Contracts\Altinn.DialogportenAdapter.Contracts.csproj" />
 	</ItemGroup>
 
+    <ItemGroup>
+        <InternalsVisibleTo Include="Altinn.DialogportenAdapter.Unit.Tests"/>
+        <InternalsVisibleTo Include="DynamicProxyGenAssembly2"/>
+    </ItemGroup>
 </Project>
