@@ -4,6 +4,7 @@ using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Altinn.Platform.Storage.Interface.Models;
+using JasperFx.Core;
 using Microsoft.Extensions.Options;
 
 namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
@@ -740,12 +741,17 @@ internal sealed class StorageDialogportenDataMerger
 
     private ApiActionDto CreateGetSourceApiActionDto(Guid dialogId, Instance instance)
     {
-        var platformBaseUri = _settings.DialogportenAdapter.Altinn
-            .GetPlatformUri()
-            .ToString()
-            .TrimEnd('/');
+        var baseUri = instance.Status.IsArchived
+            ? _settings.DialogportenAdapter.Altinn
+                .GetPlatformUri()
+                .ToString()
+                .AppendUrl("/storage/api/v1")
+            : _settings.DialogportenAdapter.Altinn
+                .GetAppUriForOrg(instance.Org, instance.AppId)
+                .ToString()
+                .TrimEnd('/');
 
-        var path = $"{platformBaseUri}/storage/api/v1/instances/{instance.Id}";
+        var path = $"{baseUri}/instances/{instance.Id}";
         var apiActionId = dialogId.CreateDeterministicSubUuidV7(Constants.ApiAction.Read);
 
         var endpointDto = new ApiActionEndpointDto

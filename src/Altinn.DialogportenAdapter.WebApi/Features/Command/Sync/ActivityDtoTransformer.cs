@@ -71,6 +71,10 @@ internal sealed class ActivityDtoTransformer
         var savedEvents = events.InstanceEvents
             .OrderBy(x => x.Created)
             .Where(x => StringComparer.OrdinalIgnoreCase.Equals(x.EventType, "Saved"))
+            // We ignore "Saved" events from the service owner, as they are typically related to transformations performed by the app
+            // as a consequence of the instance being saved by the end user, and do not represent an explicit action performed by the service owner.
+            // These events are usually interleaved, breaking the collapsing of "Saved" events performed by the end user.
+            .Where(x => string.IsNullOrWhiteSpace(x.User.OrgId))
             .Aggregate((SavedActivities: new List<ActivityDto>(), PreviousActivity: (ActivityDto?)null), (state, @event) =>
             {
                 var currentActor = GetPerformedBy(@event.User, instanceOwner, actorUrnByUserId);

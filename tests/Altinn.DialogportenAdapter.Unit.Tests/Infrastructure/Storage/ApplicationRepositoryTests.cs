@@ -52,7 +52,7 @@ public class ApplicationRepositoryTests
             );
 
         var exception = await Assert.ThrowsAsync<ApiException>(() =>
-            repository.GetApplicationTexts("123/123456789", CancellationToken.None)
+            repository.GetApplicationTexts("123/123456789", "1",  CancellationToken.None)
         );
 
         Assert.Equal(HttpStatusCode.InternalServerError, exception.StatusCode);
@@ -77,7 +77,7 @@ public class ApplicationRepositoryTests
                 .Returns(CreateApplicationTextSuccessApiResponse(language));
         });
 
-        var result = await repository.GetApplicationTexts("123/123456789", CancellationToken.None);
+        var result = await repository.GetApplicationTexts("123/123456789", "1", CancellationToken.None);
         Assert.Equal(languages.Count, result.Translations.Count);
 
         await applicationsApi.Received().GetApplicationTexts("123", "123456789", "nb", Arg.Any<CancellationToken>());
@@ -101,7 +101,7 @@ public class ApplicationRepositoryTests
                 )
             );
 
-        var result = await repository.GetApplicationTexts("123/123456789", CancellationToken.None);
+        var result = await repository.GetApplicationTexts("123/123456789", "1", CancellationToken.None);
         Assert.Empty(result.Translations);
 
         await applicationsApi.Received().GetApplicationTexts("123", "123456789", "nb", Arg.Any<CancellationToken>());
@@ -140,5 +140,86 @@ public class ApplicationRepositoryTests
             },
             new RefitSettings()
         );
+    }
+
+    [Fact]
+    public async Task GetApplicationTexts_AppAndVersionIsUnchanged_ReturnsCachedTexts()
+    {
+        var applicationsApi = Substitute.For<IApplicationsApi>();
+        var repository = new ApplicationRepository(applicationsApi, new FusionCache(new FusionCacheOptions()));
+        var languages = new List<string> { "nb", "nn", "en" };
+        languages.ForEach(language =>
+        {
+            applicationsApi
+                .GetApplicationTexts("123", "123456789", language, Arg.Any<CancellationToken>())
+                .Returns(CreateApplicationTextSuccessApiResponse(language));
+        });
+
+        var result1 = await repository.GetApplicationTexts("123/123456789", "1", CancellationToken.None);
+        var result2 = await repository.GetApplicationTexts("123/123456789", "1", CancellationToken.None);
+        Assert.Equal(languages.Count, result1.Translations.Count);
+        Assert.Equal(languages.Count, result2.Translations.Count);
+
+        await applicationsApi.Received().GetApplicationTexts("123", "123456789", "nb", Arg.Any<CancellationToken>());
+        await applicationsApi.Received().GetApplicationTexts("123", "123456789", "nn", Arg.Any<CancellationToken>());
+        await applicationsApi.Received().GetApplicationTexts("123", "123456789", "en", Arg.Any<CancellationToken>());
+
+        Assert.Equal(3, applicationsApi.ReceivedCalls().Count());
+    }
+
+    [Fact]
+    public async Task GetApplicationTexts_VersionChanged_ReturnsNewTexts()
+    {
+        var applicationsApi = Substitute.For<IApplicationsApi>();
+        var repository = new ApplicationRepository(applicationsApi, new FusionCache(new FusionCacheOptions()));
+        var languages = new List<string> { "nb", "nn", "en" };
+        languages.ForEach(language =>
+        {
+            applicationsApi
+                .GetApplicationTexts("123", "123456789", language, Arg.Any<CancellationToken>())
+                .Returns(CreateApplicationTextSuccessApiResponse(language));
+        });
+
+        var result1 = await repository.GetApplicationTexts("123/123456789", "1", CancellationToken.None);
+        var result2 = await repository.GetApplicationTexts("123/123456789", "2", CancellationToken.None);
+        Assert.Equal(languages.Count, result1.Translations.Count);
+        Assert.Equal(languages.Count, result2.Translations.Count);
+
+        await applicationsApi.Received(2).GetApplicationTexts("123", "123456789", "nb", Arg.Any<CancellationToken>());
+        await applicationsApi.Received(2).GetApplicationTexts("123", "123456789", "nn", Arg.Any<CancellationToken>());
+        await applicationsApi.Received(2).GetApplicationTexts("123", "123456789", "en", Arg.Any<CancellationToken>());
+
+        Assert.Equal(6, applicationsApi.ReceivedCalls().Count());
+    }
+
+    [Fact]
+    public async Task GetApplicationTexts_AppChanged_ReturnsNewTexts()
+    {
+        var applicationsApi = Substitute.For<IApplicationsApi>();
+        var repository = new ApplicationRepository(applicationsApi, new FusionCache(new FusionCacheOptions()));
+        var languages = new List<string> { "nb", "nn", "en" };
+        languages.ForEach(language =>
+        {
+            applicationsApi
+                .GetApplicationTexts("123", "123456789", language, Arg.Any<CancellationToken>())
+                .Returns(CreateApplicationTextSuccessApiResponse(language));
+            applicationsApi
+                .GetApplicationTexts("123", "223456789", language, Arg.Any<CancellationToken>())
+                .Returns(CreateApplicationTextSuccessApiResponse(language));
+        });
+
+        var result1 = await repository.GetApplicationTexts("123/123456789", "1", CancellationToken.None);
+        var result2 = await repository.GetApplicationTexts("123/223456789", "1", CancellationToken.None);
+        Assert.Equal(languages.Count, result1.Translations.Count);
+        Assert.Equal(languages.Count, result2.Translations.Count);
+
+        await applicationsApi.Received().GetApplicationTexts("123", "123456789", "nb", Arg.Any<CancellationToken>());
+        await applicationsApi.Received().GetApplicationTexts("123", "123456789", "nn", Arg.Any<CancellationToken>());
+        await applicationsApi.Received().GetApplicationTexts("123", "123456789", "en", Arg.Any<CancellationToken>());
+        await applicationsApi.Received().GetApplicationTexts("123", "223456789", "nb", Arg.Any<CancellationToken>());
+        await applicationsApi.Received().GetApplicationTexts("123", "223456789", "nn", Arg.Any<CancellationToken>());
+        await applicationsApi.Received().GetApplicationTexts("123", "223456789", "en", Arg.Any<CancellationToken>());
+
+        Assert.Equal(6, applicationsApi.ReceivedCalls().Count());
     }
 }
