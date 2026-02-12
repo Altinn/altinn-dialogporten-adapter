@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using Refit;
 
 namespace Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
@@ -31,12 +32,10 @@ internal sealed partial class MockDialogportenApi : IDialogportenApi
         Log.LogCreateCalled(_logger, dto);
         var apiResponse = new ApiResponse<object>(
             settings: _refitSettings,
-            response: new HttpResponseMessage(HttpStatusCode.Created)
-            {
-                Headers = { ETag = new System.Net.Http.Headers.EntityTagHeaderValue($"\"{Guid.NewGuid()}\"") }
-            },
+            response: new HttpResponseMessage(HttpStatusCode.Created),
             content: Guid.NewGuid(),
             error: null);
+        apiResponse.Headers.TryAddWithoutValidation(IDialogportenApi.ETagHeader, Guid.NewGuid().ToString());
         return Task.FromResult<IApiResponse>(apiResponse);
     }
 
@@ -46,12 +45,10 @@ internal sealed partial class MockDialogportenApi : IDialogportenApi
         Log.LogUpdateCalled(_logger, dto, revision);
         var apiResponse = new ApiResponse<object>(
             settings: _refitSettings,
-            response: new HttpResponseMessage(HttpStatusCode.NoContent)
-            {
-                Headers = { ETag = new System.Net.Http.Headers.EntityTagHeaderValue($"\"{Guid.NewGuid()}\"") }
-            },
+            response: new HttpResponseMessage(HttpStatusCode.NoContent),
             content: null,
             error: null);
+        apiResponse.Headers.TryAddWithoutValidation(IDialogportenApi.ETagHeader, Guid.NewGuid().ToString());
         return Task.FromResult<IApiResponse>(apiResponse);
     }
 
