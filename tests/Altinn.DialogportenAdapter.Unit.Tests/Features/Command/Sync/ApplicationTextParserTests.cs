@@ -181,6 +181,34 @@ public class ApplicationTextParserTests
         });
     }
 
+    [Fact]
+    public void FiltersOutBlankValues()
+    {
+        var instance = CreateInstance(null);
+        var texts = CreateTexts(
+            ("nb", new Dictionary<string, string>
+            {
+                { "dp.summary", "" }
+            }),
+            ("nn", new Dictionary<string, string>
+            {
+                { "dp.summary", " " }
+            }),
+            ("en", new Dictionary<string, string>
+            {
+                { "dp.summary", "     " }
+            })
+        );
+
+        var localizations = ApplicationTextParser.GetLocalizationsFromApplicationTexts(
+            "summary",
+            instance,
+            texts,
+            InstanceDerivedStatus.AwaitingSignature);
+
+        Assert.Empty(localizations);
+    }
+
     private static Instance CreateInstance(string? taskId)
     {
         var instance = new Instance();
