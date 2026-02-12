@@ -201,7 +201,7 @@ public class StorageDialogportenDataMergerUpdateTest
                 GuiActions =
                 [
                     Regulars.GuiActions.Delete(dialogId),
-                    Regulars.GuiActions.Write(dialogId)
+                    Regulars.GuiActions.GoTo(dialogId)
                 ],
                 ApiActions = [],
                 Activities = [],
@@ -267,7 +267,7 @@ public class StorageDialogportenDataMergerUpdateTest
             GuiActions =
             [
                 Regulars.GuiActions.Delete(dialogId),
-                Regulars.GuiActions.Write(dialogId, "urn:altinn:task:element-id"),
+                Regulars.GuiActions.GoTo(dialogId, "urn:altinn:task:element-id"),
             ],
             ApiActions = [Regulars.ApiActions.GetSourceApiAction(mergeDto.DialogId)],
             Activities = [],
@@ -337,7 +337,7 @@ public class StorageDialogportenDataMergerUpdateTest
                 GuiActions =
                 [
                     Regulars.GuiActions.Delete(dialogId),
-                    Regulars.GuiActions.Write(dialogId),
+                    Regulars.GuiActions.GoTo(dialogId),
                 ],
                 ApiActions = [],
                 Activities = [],
@@ -407,7 +407,7 @@ public class StorageDialogportenDataMergerUpdateTest
                 },
             ],
             GuiActions = [
-                Regulars.GuiActions.GoTo(dialogId),
+                Regulars.GuiActions.GoToArchived(dialogId),
                 Regulars.GuiActions.Delete(dialogId)
             ],
             ApiActions = [new ApiActionDto
@@ -542,7 +542,7 @@ public class StorageDialogportenDataMergerUpdateTest
                 GuiActions =
                 [
                     Regulars.GuiActions.Delete(dialogId),
-                    Regulars.GuiActions.Write(dialogId)
+                    Regulars.GuiActions.GoTo(dialogId)
                 ],
                 ApiActions = [],
                 Activities = [],
@@ -662,7 +662,7 @@ public class StorageDialogportenDataMergerUpdateTest
             GuiActions =
             [
                 Regulars.GuiActions.Delete(dialogId),
-                Regulars.GuiActions.Write(dialogId),
+                Regulars.GuiActions.GoTo(dialogId),
             ],
             ApiActions = [Regulars.ApiActions.GetSourceApiAction(mergeDto.DialogId)],
             Activities =
