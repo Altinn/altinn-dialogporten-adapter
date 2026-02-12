@@ -191,13 +191,13 @@ internal sealed class StorageDialogportenDataMerger
                     Value = GetSummary(dto.Instance, dto.ApplicationTexts, instanceDerivedStatus)
                 }
             },
-            GuiActions = 
+            GuiActions =
             [
                 CreateGoToAction(dto.DialogId, dto.Instance, dto.ApplicationTexts, instanceDerivedStatus),
                 CreateDeleteAction(dto.DialogId, dto.Instance, dto.ApplicationTexts, instanceDerivedStatus),
                 ..CreateCopyAction(dto.DialogId, dto.Instance, dto.Application, dto.ApplicationTexts, instanceDerivedStatus)
             ],
-            ApiActions = 
+            ApiActions =
             [
                 CreateGetSourceApiActionDto(dto.DialogId, dto.Instance)
             ],
@@ -224,129 +224,127 @@ internal sealed class StorageDialogportenDataMerger
         MergeDto dto,
         List<ActivityDto> activities)
     {
-        var appSettings = dto.Application.GetSyncAdapterSettings();
         var data = dto.Instance.Data;
         var attachmentVisibility = ReceiptAttachmentVisibilityDecider.Create(dto.Application);
 
-        // A2 Instances cant have more than 1 submission
-        // so we take all attachments into a single transmission.
-        var isA2 = IsA2Instance(dto.Instance);
-
-        var filteredData = data
-            .Where(x => x.DataType != PdfType || isA2 || dto.IsMigration)
-            .ToList();
-        
-        if (appSettings.DisableAddTransmissions ||
-            !_settings.DialogportenAdapter.Adapter.FeatureFlag.EnableSubmissionTransmissions)
+        if (TransmissionsDisabled())
         {
-            return 
-            (
-                filteredData.Select(d => CreateAttachmentDto(d, attachmentVisibility))
-                    .ToList(), 
-                []
-            );
+            return (data.Where(IsNotPdfReceipt).Select(CreateAttachmentDto).ToList(), []);
         }
+        
+        var soDataElements = data
+            .Where(IsPerformedBySo)
+            .ToList();
 
-        var potentialTransmissionData = new Queue<DataElement>(filteredData
-            .Where(x => !IsPerformedBySo(x))
+        // Only user data elements should be included as attachments to transmissions,
+        // SO data elements are included as attachments to the dialog itself
+        var userDataElements = new Queue<DataElement>(data
+            .Except(soDataElements)
             .OrderBy(x => x.Created!.Value));
 
         var transmissions = activities
             .Where(x => x.Type is DialogActivityType.FormSubmitted)
             .OrderBy(x => x.CreatedAt)
-            .Select((a, i) => new TransmissionDto
+            .Select(ToTransmissionDto)
+            .ToList();
+
+        var attachments = soDataElements
+            // any remaining attachments not already included in transmissions
+            .Concat(userDataElements)
+            // PDF receipts does not belong to the dialog itself, and should
+            // only be included as attachments to transmissions.
+            .Where(IsNotPdfReceipt)
+            .Select(CreateAttachmentDto)
+            .ToList();
+
+        return (attachments, transmissions);
+
+        bool IsPerformedBySo(DataElement element) => element.LastChangedBy.Length == 9;
+        bool IsNotPdfReceipt(DataElement element) => element.DataType != PdfType;
+        bool TransmissionsDisabled() => dto.Application.GetSyncAdapterSettings().DisableAddTransmissions ||
+                                        !_settings.DialogportenAdapter.Adapter.FeatureFlag
+                                            .EnableSubmissionTransmissions;
+        AttachmentDto CreateAttachmentDto(DataElement element)
+        {
+            var consumerType = attachmentVisibility.GetConsumerType(element);
+            var platformUrl = element.SelfLinks.Platform;
+
+            var url = consumerType is AttachmentUrlConsumerType.Gui && !string.IsNullOrEmpty(platformUrl)
+                ? ToPortalUri(platformUrl)
+                : platformUrl;
+
+            return new()
             {
-                Id = a.Id!.Value.ToVersion7(a.CreatedAt!.Value),
-                CreatedAt = a.CreatedAt.Value,
+                Id = Guid.Parse(element.Id).ToVersion7(element.Created!.Value),
+                DisplayName = [new() { LanguageCode = "nb", Value = element.Filename ?? element.DataType }],
+                Urls =
+                [
+                    new()
+                    {
+                        Id = Guid.Parse(element.Id).ToVersion7(element.Created.Value),
+                        ConsumerType = consumerType,
+                        MediaType = element.ContentType,
+                        Url = url
+                    }
+                ]
+            };
+        }
+        TransmissionAttachmentDto CreateTransmissionAttachmentDto(DataElement element)
+        {
+            var consumerType = attachmentVisibility.GetConsumerType(element);
+            var platformUrl = element.SelfLinks.Platform;
+
+            var url = consumerType is AttachmentUrlConsumerType.Gui && !string.IsNullOrEmpty(platformUrl)
+                ? ToPortalUri(platformUrl)
+                : platformUrl;
+
+            return new()
+            {
+                // Ensure unique IDs when the same DataElement appears as both TransmissionAttachment and Attachment
+                // This prevents ID collisions that would cause conflicts in Dialogporten
+                Id = Guid.CreateVersion7(element.Created!.Value),
+                DisplayName = [new() { LanguageCode = "nb", Value = element.Filename ?? element.DataType }],
+                Urls =
+                [
+                    new()
+                    {
+                        ConsumerType = consumerType,
+                        MediaType = element.ContentType,
+                        Url = url
+                    }
+                ]
+            };
+        }
+        TransmissionDto ToTransmissionDto(ActivityDto activityDto, int index)
+        {
+            // A2 Instances cant have more than 1 submission
+            // so we take all attachments into a single transmission.
+            var isA2 = IsA2Instance(dto.Instance);
+            return new TransmissionDto
+            {
+                Id = activityDto.Id!.Value.ToVersion7(activityDto.CreatedAt!.Value),
+                CreatedAt = activityDto.CreatedAt.Value,
                 Type = DialogTransmissionType.Submission,
-                Sender = a.PerformedBy,
+                Sender = activityDto.PerformedBy,
                 Content = new TransmissionContentDto
                 {
                     Title = new ContentValueDto
                     {
                         Value =
                         [
-                            new() { LanguageCode = "nb", Value = $"Innsending #{i + 1}" },
-                            new() { LanguageCode = "nn", Value = $"Innsending #{i + 1}" },
-                            new() { LanguageCode = "en", Value = $"Submission #{i + 1}" }
+                            new() { LanguageCode = "nb", Value = $"Innsending #{index + 1}" },
+                            new() { LanguageCode = "nn", Value = $"Innsending #{index + 1}" },
+                            new() { LanguageCode = "en", Value = $"Submission #{index + 1}" }
                         ],
                         MediaType = "text/plain"
                     }
                 },
-                Attachments = potentialTransmissionData
-                    .DequeueWhile(e => e.Created <= a.CreatedAt || isA2)
-                    .Select(e => CreateTransmissionAttachmentDto(e, attachmentVisibility))
+                Attachments = userDataElements
+                    .DequeueWhile(e => e.Created <= activityDto.CreatedAt || isA2)
+                    .Select(CreateTransmissionAttachmentDto)
                     .ToList()
-            })
-            .ToList();
-
-        var attachments = filteredData
-            .Where(IsPerformedBySo)
-            .Concat(potentialTransmissionData) // any remaining attachments not already included in transmissions
-            .Select(d => CreateAttachmentDto(d, attachmentVisibility))
-            .ToList();
-
-        return (attachments, transmissions);
-    }
-
-    private AttachmentDto CreateAttachmentDto(DataElement data, ReceiptAttachmentVisibilityDecider attachmentVisibility)
-    {
-        var consumerType = attachmentVisibility.GetConsumerType(data);
-        var platformUrl = data.SelfLinks.Platform;
-
-        var url = consumerType is AttachmentUrlConsumerType.Gui && !string.IsNullOrEmpty(platformUrl)
-            ? ToPortalUri(platformUrl)
-            : platformUrl;
-
-        return new()
-        {
-            Id = Guid.Parse(data.Id).ToVersion7(data.Created!.Value),
-            DisplayName = [new() { LanguageCode = "nb", Value = data.Filename ?? data.DataType }],
-            Urls =
-            [
-                new()
-                {
-                    Id = Guid.Parse(data.Id).ToVersion7(data.Created.Value),
-                    ConsumerType = consumerType,
-                    MediaType = data.ContentType,
-                    Url = url
-                }
-            ]
-        };
-    }
-
-    private TransmissionAttachmentDto CreateTransmissionAttachmentDto(
-        DataElement data,
-        ReceiptAttachmentVisibilityDecider attachmentVisibility)
-    {
-        var consumerType = attachmentVisibility.GetConsumerType(data);
-        var platformUrl = data.SelfLinks.Platform;
-
-        var url = consumerType is AttachmentUrlConsumerType.Gui && !string.IsNullOrEmpty(platformUrl)
-            ? ToPortalUri(platformUrl)
-            : platformUrl;
-
-        return new()
-        {
-            // Ensure unique IDs when the same DataElement appears as both TransmissionAttachment and Attachment
-            // This prevents ID collisions that would cause conflicts in Dialogporten
-            Id = Guid.CreateVersion7(data.Created!.Value),
-            DisplayName = [new() { LanguageCode = "nb", Value = data.Filename ?? data.DataType }],
-            Urls =
-            [
-                new()
-                {
-                    ConsumerType = consumerType,
-                    MediaType = data.ContentType,
-                    Url = url
-                }
-            ]
-        };
-    }
-
-    private static bool IsPerformedBySo(DataElement data)
-    {
-        return data.LastChangedBy.Length == 9;
+            };
+        }
     }
 
     private async Task<string> GetPartyUrn(string partyId, CancellationToken cancellationToken)
@@ -422,8 +420,8 @@ internal sealed class StorageDialogportenDataMerger
 
     private static List<LocalizationDto> GetDeleteActionLabel(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
     {
-
-        var secondaryAction = ApplicationTextParser.GetLocalizationsFromApplicationTexts(DeleteActionLabel, instance, applicationTexts, instanceDerivedStatus);
+        var secondaryAction = ApplicationTextParser.GetLocalizationsFromApplicationTexts(DeleteActionLabel, instance,
+            applicationTexts, instanceDerivedStatus);
         return secondaryAction.Count > 0
             ? secondaryAction
             : GetDeleteActionFallback();
@@ -436,6 +434,7 @@ internal sealed class StorageDialogportenDataMerger
             ? ternaryAction
             : GetCopyActionFallback();
     }
+
     private static List<LocalizationDto> GetCopyActionFallback()
     {
         return
@@ -705,7 +704,7 @@ internal sealed class StorageDialogportenDataMerger
             Version = "1.0",
             Url = path,
             HttpMethod = HttpVerb.GET,
-            Deprecated =  false
+            Deprecated = false
         };
 
         var apiActionDto = new ApiActionDto
