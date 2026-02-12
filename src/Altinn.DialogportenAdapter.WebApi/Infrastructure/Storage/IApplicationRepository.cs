@@ -9,7 +9,7 @@ internal interface IApplicationRepository
 {
     Task<Application?> GetApplication(string appId, CancellationToken cancellationToken);
     Task<(bool, Application?)> TryGetApplicationIfCached(string appId, CancellationToken cancellationToken);
-    Task<ApplicationTexts> GetApplicationTexts(string appId, CancellationToken cancellationToken);
+    Task<ApplicationTexts> GetApplicationTexts(string appId, string version, CancellationToken cancellationToken);
 }
 
 internal sealed class ApplicationRepository(IApplicationsApi applicationsApi, IFusionCache cache) : IApplicationRepository
@@ -26,12 +26,17 @@ internal sealed class ApplicationRepository(IApplicationsApi applicationsApi, IF
         return maybeApplication.HasValue ? (true, maybeApplication.Value) : (false, null);
     }
 
-    public Task<ApplicationTexts> GetApplicationTexts(string appId, CancellationToken cancellationToken) =>
-        cache.GetOrSetAsync(
-            key: $"{nameof(ApplicationTexts)}:{appId}",
+    public Task<ApplicationTexts>
+        GetApplicationTexts(string appId, string version, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(appId);
+        ArgumentException.ThrowIfNullOrEmpty(version);
+
+        return cache.GetOrSetAsync(
+            key: $"{nameof(ApplicationTexts)}:{appId}@{version}",
             factory: (ct) => FetchApplicationTexts(appId, ct),
             token: cancellationToken).AsTask();
-
+    }
     private async Task<ApplicationTexts> FetchApplicationTexts(string appId, CancellationToken cancellationToken)
     {
         string[] predefinedLanguages = ["nb", "nn", "en"];
