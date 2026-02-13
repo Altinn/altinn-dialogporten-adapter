@@ -30,10 +30,12 @@ internal sealed class ApplicationRepository(IApplicationsApi applicationsApi, IF
         GetApplicationTexts(string appId, string? version, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrEmpty(appId);
-        var appVersion = version ?? "0";
+        var cacheKey = version == null
+            ? $"{nameof(ApplicationTexts)}:{appId}"
+            : $"{nameof(ApplicationTexts)}:{appId}@{version}";
 
         return cache.GetOrSetAsync(
-            key: $"{nameof(ApplicationTexts)}:{appId}@{appVersion}",
+            key: cacheKey,
             factory: (ct) => FetchApplicationTexts(appId, ct),
             token: cancellationToken).AsTask();
     }
