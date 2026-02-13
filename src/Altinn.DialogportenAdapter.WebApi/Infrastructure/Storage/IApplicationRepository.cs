@@ -27,16 +27,19 @@ internal sealed class ApplicationRepository(IApplicationsApi applicationsApi, IF
     }
 
     public Task<ApplicationTexts>
-        GetApplicationTexts(string appId, string version, CancellationToken cancellationToken)
+        GetApplicationTexts(string appId, string? version, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrEmpty(appId);
-        ArgumentException.ThrowIfNullOrEmpty(version);
+        var cacheKey = version == null
+            ? $"{nameof(ApplicationTexts)}:{appId}"
+            : $"{nameof(ApplicationTexts)}:{appId}@{version}";
 
         return cache.GetOrSetAsync(
-            key: $"{nameof(ApplicationTexts)}:{appId}@{version}",
+            key: cacheKey,
             factory: (ct) => FetchApplicationTexts(appId, ct),
             token: cancellationToken).AsTask();
     }
+
     private async Task<ApplicationTexts> FetchApplicationTexts(string appId, CancellationToken cancellationToken)
     {
         string[] predefinedLanguages = ["nb", "nn", "en"];

@@ -168,6 +168,31 @@ public class ApplicationRepositoryTests
     }
 
     [Fact]
+    public async Task GetApplicationTexts_VersionNull_CachesTexts()
+    {
+        var applicationsApi = Substitute.For<IApplicationsApi>();
+        var repository = new ApplicationRepository(applicationsApi, new FusionCache(new FusionCacheOptions()));
+        var languages = new List<string> { "nb", "nn", "en" };
+        languages.ForEach(language =>
+        {
+            applicationsApi
+                .GetApplicationTexts("123", "123456789", language, Arg.Any<CancellationToken>())
+                .Returns(CreateApplicationTextSuccessApiResponse(language));
+        });
+
+        var result1 = await repository.GetApplicationTexts("123/123456789", null, CancellationToken.None);
+        var result2 = await repository.GetApplicationTexts("123/123456789", null, CancellationToken.None);
+        Assert.Equal(languages.Count, result1.Translations.Count);
+        Assert.Equal(languages.Count, result2.Translations.Count);
+
+        await applicationsApi.Received(1).GetApplicationTexts("123", "123456789", "nb", Arg.Any<CancellationToken>());
+        await applicationsApi.Received(1).GetApplicationTexts("123", "123456789", "nn", Arg.Any<CancellationToken>());
+        await applicationsApi.Received(1).GetApplicationTexts("123", "123456789", "en", Arg.Any<CancellationToken>());
+
+        Assert.Equal(3, applicationsApi.ReceivedCalls().Count());
+    }
+
+    [Fact]
     public async Task GetApplicationTexts_VersionChanged_ReturnsNewTexts()
     {
         var applicationsApi = Substitute.For<IApplicationsApi>();
