@@ -39,6 +39,7 @@ internal sealed class ApplicationRepository(IApplicationsApi applicationsApi, IF
             factory: (ct) => FetchApplicationTexts(appId, ct),
             token: cancellationToken).AsTask();
     }
+
     private async Task<ApplicationTexts> FetchApplicationTexts(string appId, CancellationToken cancellationToken)
     {
         string[] predefinedLanguages = ["nb", "nn", "en"];
