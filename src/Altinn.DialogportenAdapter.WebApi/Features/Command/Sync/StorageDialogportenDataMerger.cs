@@ -60,9 +60,11 @@ internal sealed class StorageDialogportenDataMerger
                 ? null!
                 : storageDialog.Content.Summary;
 
-            storageDialog.Content.AdditionalInfo = syncAdapterSettings.DisableSyncContentSummary // FIXME! Change with correct setting when available
+            storageDialog.Content.AdditionalInfo = syncAdapterSettings.DisableSyncContentSummary // TODO: Introduce feature flag
                 ? null!
                 : storageDialog.Content.AdditionalInfo;
+
+            // TODO: Introduce feature flag for storageDialog.Content.ExtendedStatus
 
             storageDialog.Activities = syncAdapterSettings.DisableAddActivities
                 ? []
@@ -109,9 +111,11 @@ internal sealed class StorageDialogportenDataMerger
             ? existing.Content.Summary
             : storageDialog.Content.Summary;
 
-        existing.Content.AdditionalInfo = syncAdapterSettings.DisableSyncContentSummary // FIXME! Change with correct setting when available
+        existing.Content.AdditionalInfo = syncAdapterSettings.DisableSyncContentSummary // TODO: Introduce feature flag
             ? existing.Content.AdditionalInfo
             : storageDialog.Content.AdditionalInfo;
+
+        existing.Content.ExtendedStatus = storageDialog.Content.ExtendedStatus; // TODO: Introduce feature flag
 
         existing.Attachments = syncAdapterSettings.DisableSyncAttachments
             ? existing.Attachments
@@ -190,7 +194,8 @@ internal sealed class StorageDialogportenDataMerger
                 {
                     MediaType = MediaTypes.PlainText,
                     Value = GetSummary(dto.Instance, dto.ApplicationTexts, instanceDerivedStatus)
-                }
+                },
+                ExtendedStatus = GetExtendedStatus(dto)
             },
             GuiActions =
             [
@@ -207,7 +212,6 @@ internal sealed class StorageDialogportenDataMerger
             Activities = activities
         };
 
-
         var additionalInfo = GetAdditionalInfo(dto.Instance, dto.ApplicationTexts, instanceDerivedStatus);
         if (additionalInfo.Count > 0)
         {
@@ -221,6 +225,30 @@ internal sealed class StorageDialogportenDataMerger
         return dialog;
     }
 
+    private static ContentValueDto? GetExtendedStatus(MergeDto dto)
+    {
+        var label = dto.Instance.Status.Substatus?.Label;
+
+        if (string.IsNullOrWhiteSpace(label)) return null;
+
+        var labelLocalized = dto.ApplicationTexts
+            .Translations
+            .Where(t => t.Texts.ContainsKey(label))
+            .Select(t => new LocalizationDto
+            {
+                LanguageCode = t.Language,
+                Value = t.Texts[label].AsSpan().TruncateEllipsis(Constants.ExtendedStatusMaxStringLength)
+            })
+            .DefaultIfEmpty(new LocalizationDto
+            {
+                LanguageCode = "nb",
+                Value = label.AsSpan().TruncateEllipsis(Constants.ExtendedStatusMaxStringLength)
+            })
+            .ToList();
+
+        return new ContentValueDto { Value = labelLocalized, MediaType = MediaTypes.PlainText };
+    }
+
     private (List<AttachmentDto> attachments, List<TransmissionDto> transmissions) GetAttachmentAndTransmissions(
         MergeDto dto,
         List<ActivityDto> activities)
@@ -232,7 +260,7 @@ internal sealed class StorageDialogportenDataMerger
         {
             return (data.Where(IsNotPdfReceipt).Select(CreateAttachmentDto).ToList(), []);
         }
-        
+
         var soDataElements = data
             .Where(IsPerformedBySo)
             .ToList();
