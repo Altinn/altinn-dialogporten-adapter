@@ -1246,6 +1246,7 @@ public class StorageDialogportenDataMergerTest
                 new AttachmentDto
                 {
                     Id = Guid.Parse("00dc6b07-88c8-74ed-8130-3a1ac8af3d91"),
+                    Name = "visible-because-of-missing-data-type",
                     DisplayName =
                     [
                         new LocalizationDto
@@ -1269,6 +1270,7 @@ public class StorageDialogportenDataMergerTest
                 new AttachmentDto
                 {
                     Id = Guid.Parse("00dc6b07-88c8-711d-b79f-835d26cd1a58"),
+                    Name = "not-visible-because-app-logic-exists",
                     DisplayName =
                     [
                         new LocalizationDto
@@ -1291,6 +1293,7 @@ public class StorageDialogportenDataMergerTest
                 new AttachmentDto
                 {
                     Id = Guid.Parse("00dc6b07-88c8-79a8-9f37-3ef8f82b2d0b"),
+                    Name = "not-visible-because-app-owned",
                     DisplayName =
                     [
                         new LocalizationDto
@@ -1313,6 +1316,7 @@ public class StorageDialogportenDataMergerTest
                 new AttachmentDto
                 {
                     Id = Guid.Parse("00dc6b07-88c8-7176-948e-79921affe066"),
+                    Name = "visible-not-excluded",
                     DisplayName =
                     [
                         new LocalizationDto
@@ -1697,6 +1701,7 @@ public class StorageDialogportenDataMergerTest
                 new AttachmentDto
                 {
                     Id = Guid.Parse("00dc6b07-88c8-74ed-8130-3a1ac8af3d91"),
+                    Name = "visible-because-of-missing-data-type",
                     DisplayName =
                     [
                         new LocalizationDto
@@ -1720,6 +1725,7 @@ public class StorageDialogportenDataMergerTest
                 new AttachmentDto
                 {
                     Id = Guid.Parse("00dc6b07-88c8-711d-b79f-835d26cd1a58"),
+                    Name = "not-visible-because-app-logic-exists",
                     DisplayName =
                     [
                         new LocalizationDto
@@ -1742,6 +1748,7 @@ public class StorageDialogportenDataMergerTest
                 new AttachmentDto
                 {
                     Id = Guid.Parse("00dc6b07-88c8-79a8-9f37-3ef8f82b2d0b"),
+                    Name = "not-visible-because-app-owned",
                     DisplayName =
                     [
                         new LocalizationDto
@@ -1764,6 +1771,7 @@ public class StorageDialogportenDataMergerTest
                 new AttachmentDto
                 {
                     Id = Guid.Parse("00dc6b07-88c8-7176-948e-79921affe066"),
+                    Name = "visible-not-excluded",
                     DisplayName =
                     [
                         new LocalizationDto
@@ -2056,6 +2064,7 @@ public class StorageDialogportenDataMergerTest
                 new AttachmentDto
                 {
                     Id = Guid.Parse("00dc6b07-88c8-74ed-8130-3a1ac8af3d91"),
+                    Name = "outside-transmission",
                     DisplayName =
                     [
                         new LocalizationDto
@@ -2113,6 +2122,7 @@ public class StorageDialogportenDataMergerTest
                         new TransmissionAttachmentDto
                         {
                             Id = Guid.Parse("00e46784-34c8-7fd5-a2a8-de1ddce7c2a2"),
+                            Name = "in-transmission-as-1",
                             DisplayName =
                             [
                                 new LocalizationDto
@@ -2168,6 +2178,7 @@ public class StorageDialogportenDataMergerTest
                         new TransmissionAttachmentDto
                         {
                             Id = Guid.Parse("00ebbf35-60c8-79b5-b54c-98dd6d154c63"),
+                            Name = "in-transmission-as-2",
                             DisplayName =
                             [
                                 new LocalizationDto

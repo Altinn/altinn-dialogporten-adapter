@@ -580,6 +580,7 @@ public class StorageDialogportenDataMergerUpdateTest
                 new AttachmentDto
                 {
                     Id = Guid.Parse("00dc6b07-88c8-74ed-8130-3a1ac8af3d91"),
+                    Name = "outside-transmission",
                     DisplayName =
                     [
                         new LocalizationDto
@@ -637,6 +638,7 @@ public class StorageDialogportenDataMergerUpdateTest
                         new TransmissionAttachmentDto
                         {
                             Id = Guid.Parse("00e46784-34c8-7f88-b8f5-5fa21ea3043a"),
+                            Name = "in-transmission-as-1",
                             DisplayName =
                             [
                                 new LocalizationDto
