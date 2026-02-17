@@ -233,7 +233,7 @@ internal sealed class StorageDialogportenDataMerger
 
         var labelLocalized = dto.ApplicationTexts
             .Translations
-            .Where(t => t.Texts.ContainsKey(label))
+            .Where(t => t.Texts.TryGetValue(label, out var text) && !string.IsNullOrWhiteSpace(text))
             .Select(t => new LocalizationDto
             {
                 LanguageCode = t.Language,
