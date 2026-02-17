@@ -341,6 +341,18 @@ public class StorageDialogportenDataMergerTest
                             },
                         }
                     },
+                    new ApplicationTextsTranslation
+                    {
+                        Language = "es",
+                        Texts = new Dictionary<string, string>
+                        {
+                            { "substatus.label", "" },
+                            {
+                                "substatus.description",
+                                ""
+                            },
+                        }
+                    },
                 ]
             },
             DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
