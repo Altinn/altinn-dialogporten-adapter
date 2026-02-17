@@ -91,14 +91,14 @@ static void BuildAndRun(string[] args)
         // This may happen during migrations when the same instance is attempted created
         // multiple times.
         opts.Policies
-            .OnException<ApiException>(ex => ex.StatusCode
-                is HttpStatusCode.Conflict)
+            .OnException<ApiException>(ex => ex.StatusCode is HttpStatusCode.Conflict)
             .RetryWithJitteredCooldown(1.Seconds(), 3.Seconds(), 5.Seconds())
             .Then.MoveToErrorQueue();
 
         // Handle 410, which we get when trying to DELETE an already deleted dialog. Just discard.
         opts.Policies
             .OnException<ApiException>(ex => ex.StatusCode is HttpStatusCode.Gone)
+            .OrInner<ApiException>(ex => ex.StatusCode is HttpStatusCode.Gone)
             .Discard();
 
         // If the queue backlog grows faster than we can drain it (ie. due to downtime), two messages with the same
@@ -137,6 +137,7 @@ static void BuildAndRun(string[] args)
         // Attempt to handle errors most likely caused by expired/invalid tokens. If retries don't help, move to error queue for manual inspection.
         opts.Policies
             .OnException<ApiException>(ex => ex.StatusCode is HttpStatusCode.Unauthorized)
+            .OrInner<ApiException>(ex => ex.StatusCode is HttpStatusCode.Unauthorized)
             .RetryWithJitteredCooldown(1.Seconds(), 3.Seconds(), 5.Seconds())
             .Then.MoveToErrorQueue();
 
@@ -148,8 +149,16 @@ static void BuildAndRun(string[] args)
             .OrInner<ApiException>(x => (int)x.StatusCode >= 500)
             .Or<TaskCanceledException>()
             .RetryWithCooldown(10.Seconds(), 20.Seconds())
-            .Then.ScheduleRetryIndefinitely(30.Seconds(), 60.Seconds(), 2.Minutes())
-            .AndPauseProcessing(30.Seconds()); // Give some time for upstream to recover before processing more messages
+            .Then.ScheduleRetryIndefinitely(30.Seconds(), 60.Seconds(), 2.Minutes());
+
+            // Disabled, as bugs is any upstreams might cause a soft head-of-line-blocking,
+            // where everything gets delayed due to a few problematic messages at the front of the queue.
+            // It's better to have some failed messages in the error queue and keep processing the rest
+            // of the queue than to have everything delayed due to a few problematic messages.
+            // Detecting actual overload situations and pausing the queue processing temporarily is not trivial,
+            // and would require more advanced monitoring and alerting setup to do properly.
+
+            //.AndPauseProcessing(30.Seconds()); // Give some time for upstream to recover before processing more messages
 
         opts.ListenToAzureServiceBusQueue(ContractConstants.AdapterQueueName)
             .ListenerCount(70.PercentOf(settings.WolverineSettings.ListenerCount));
