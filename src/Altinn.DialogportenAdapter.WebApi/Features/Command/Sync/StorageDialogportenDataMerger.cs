@@ -305,6 +305,7 @@ internal sealed class StorageDialogportenDataMerger
             return new()
             {
                 Id = Guid.Parse(element.Id).ToVersion7(element.Created!.Value),
+                Name = element.Filename,
                 DisplayName = [new() { LanguageCode = "nb", Value = element.Filename ?? element.DataType }],
                 Urls =
                 [
@@ -332,6 +333,7 @@ internal sealed class StorageDialogportenDataMerger
                 // Ensure unique IDs when the same DataElement appears as both TransmissionAttachment and Attachment
                 // This prevents ID collisions that would cause conflicts in Dialogporten
                 Id = transmissionId.CreateDeterministicSubUuidV7(element.Id),
+                Name = element.Filename,
                 DisplayName = [new() { LanguageCode = "nb", Value = element.Filename ?? element.DataType }],
                 Urls =
                 [
