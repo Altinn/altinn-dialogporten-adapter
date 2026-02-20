@@ -306,6 +306,7 @@ internal sealed class StorageDialogportenDataMerger
             {
                 Id = Guid.Parse(element.Id).ToVersion7(element.Created!.Value),
                 DisplayName = [new() { LanguageCode = "nb", Value = element.Filename ?? element.DataType }],
+                Name = element.Filename,
                 Urls =
                 [
                     new()
@@ -333,6 +334,7 @@ internal sealed class StorageDialogportenDataMerger
                 // This prevents ID collisions that would cause conflicts in Dialogporten
                 Id = transmissionId.CreateDeterministicSubUuidV7(element.Id),
                 DisplayName = [new() { LanguageCode = "nb", Value = element.Filename ?? element.DataType }],
+                Name = element.Filename,
                 Urls =
                 [
                     new()
