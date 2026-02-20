@@ -588,6 +588,7 @@ public class StorageDialogportenDataMergerUpdateTest
                             LanguageCode = "nb"
                         }
                     ],
+                    Name = "outside-transmission",
                     Urls =
                     [
                         new AttachmentUrlDto
@@ -645,6 +646,7 @@ public class StorageDialogportenDataMergerUpdateTest
                                     LanguageCode = "nb"
                                 }
                             ],
+                            Name = "in-transmission-as-1",
                             Urls =
                             [
                                 new TransmissionAttachmentUrlDto
