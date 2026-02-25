@@ -1266,7 +1266,7 @@ public class StorageDialogportenDataMergerTest
                             LanguageCode = "nb"
                         }
                     ],
-                    Name = "visible-because-of-missing-data-type",
+                    Name = null,
                     Urls =
                     [
                         new AttachmentUrlDto
@@ -1290,7 +1290,7 @@ public class StorageDialogportenDataMergerTest
                             LanguageCode = "nb"
                         }
                     ],
-                    Name = "not-visible-because-app-logic-exists",
+                    Name = "app-logic",
                     Urls =
                     [
                         new AttachmentUrlDto
@@ -1313,7 +1313,7 @@ public class StorageDialogportenDataMergerTest
                             LanguageCode = "nb"
                         }
                     ],
-                    Name = "not-visible-because-app-owned",
+                    Name = "app-owned",
                     Urls =
                     [
                         new AttachmentUrlDto
@@ -1336,7 +1336,7 @@ public class StorageDialogportenDataMergerTest
                             LanguageCode = "nb"
                         }
                     ],
-                    Name = "visible-not-excluded",
+                    Name = "not-excluded",
                     Urls =
                     [
                         new AttachmentUrlDto
@@ -1721,7 +1721,7 @@ public class StorageDialogportenDataMergerTest
                             LanguageCode = "nb"
                         }
                     ],
-                    Name = "visible-because-of-missing-data-type",
+                    Name = null,
                     Urls =
                     [
                         new AttachmentUrlDto
@@ -1745,7 +1745,7 @@ public class StorageDialogportenDataMergerTest
                             LanguageCode = "nb"
                         }
                     ],
-                    Name = "not-visible-because-app-logic-exists",
+                    Name = "app-logic",
                     Urls =
                     [
                         new AttachmentUrlDto
@@ -1768,7 +1768,7 @@ public class StorageDialogportenDataMergerTest
                             LanguageCode = "nb"
                         }
                     ],
-                    Name = "not-visible-because-app-owned",
+                    Name = "app-owned",
                     Urls =
                     [
                         new AttachmentUrlDto
@@ -1791,7 +1791,7 @@ public class StorageDialogportenDataMergerTest
                             LanguageCode = "nb"
                         }
                     ],
-                    Name = "visible-not-excluded",
+                    Name = "not-excluded",
                     Urls =
                     [
                         new AttachmentUrlDto
@@ -2084,7 +2084,7 @@ public class StorageDialogportenDataMergerTest
                             LanguageCode = "nb"
                         }
                     ],
-                    Name = "outside-transmission",
+                    Name = null,
                     Urls =
                     [
                         new AttachmentUrlDto
@@ -2142,7 +2142,7 @@ public class StorageDialogportenDataMergerTest
                                     LanguageCode = "nb"
                                 }
                             ],
-                            Name = "in-transmission-as-1",
+                            Name = "png-1",
                             Urls =
                             [
                                 new TransmissionAttachmentUrlDto
@@ -2198,7 +2198,7 @@ public class StorageDialogportenDataMergerTest
                                     LanguageCode = "nb"
                                 }
                             ],
-                            Name = "in-transmission-as-2",
+                            Name = "png-2",
                             Urls =
                             [
                                 new TransmissionAttachmentUrlDto
