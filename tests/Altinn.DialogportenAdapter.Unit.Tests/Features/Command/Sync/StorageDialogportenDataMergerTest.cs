@@ -556,8 +556,8 @@ public class StorageDialogportenDataMergerTest
         });
     }
 
-    [Fact(DisplayName = "Given DueBefore and VisibleAfter in the future, MergeDto should include both fields")]
-    public async Task Merge_DueBeforeAndVisibleAfterInTheFuture_IncludesBoth()
+    [Fact(DisplayName = "Given VisibleAfter after DueBefore, set VisibleAfter to null")]
+    public async Task Merge_VisibleAfterIsAfterDueBefore_SetVisibleAfterToNull()
     {
         var mergeDto = new MergeDto(
             Application: AltinnApplicationBuilder.NewDefaultAltinnApplication().Build(),
@@ -572,8 +572,8 @@ public class StorageDialogportenDataMergerTest
             },
             Instance: AltinnInstanceBuilder
                 .NewInProgressInstance()
-                .WithDueBefore(new DateTime(9999, 1, 1, 1, 1, 3))
-                .WithVisibleAfter(new DateTime(9999, 1, 1, 1, 1, 4)).Build()
+                .WithDueBefore(new DateTime(9000, 1, 1, 1, 1, 4))
+                .WithVisibleAfter(new DateTime(9000, 1, 1, 1, 1, 5)).Build()
             ,
             ExistingDialog: null,
             IsMigration: false
@@ -591,8 +591,68 @@ public class StorageDialogportenDataMergerTest
             Progress = null,
             ExtendedStatus = null,
             ExternalReference = null,
-            VisibleFrom = new DateTime(9999, 1, 1, 1, 1, 4),
-            DueAt = new DateTime(9999, 1, 1, 1, 1, 3),
+            VisibleFrom = null,
+            DueAt = new DateTime(9000, 1, 1, 1, 1, 4),
+            Process = null,
+            PrecedingProcess = null,
+            ExpiresAt = null,
+            CreatedAt = new DateTime(1000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+            UpdatedAt = new DateTime(1000, 2, 1, 1, 1, 1, DateTimeKind.Utc),
+            Status = DialogStatus.InProgress,
+            SystemLabel = SystemLabel.Default,
+            ServiceOwnerContext = Regulars.ServiceOwnerContexts.DefaultContext,
+            Content = Regulars.Content.ReadyForSubmission,
+            SearchTags = [],
+            Attachments = [],
+            Transmissions = [],
+            GuiActions =
+            [
+                Regulars.GuiActions.Delete(mergeDto.DialogId),
+                Regulars.GuiActions.GoTo(mergeDto.DialogId)
+            ],
+            ApiActions = [Regulars.ApiActions.GetSourceApiAction(mergeDto.DialogId)],
+            Activities = [],
+            Deleted = false
+        });
+    }
+
+    [Fact(DisplayName = "Given DueBefore and VisibleAfter in the future, MergeDto should include both fields")]
+    public async Task Merge_DueBeforeAndVisibleAfterInTheFuture_IncludesBoth()
+    {
+        var mergeDto = new MergeDto(
+            Application: AltinnApplicationBuilder.NewDefaultAltinnApplication().Build(),
+            ApplicationTexts: new ApplicationTexts
+            {
+                Translations = []
+            },
+            DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
+            Events: new InstanceEventList
+            {
+                InstanceEvents = [AltinnInstanceEventBuilder.NewCreatedByPlatformUserInstanceEvent(UserId1).Build()]
+            },
+            Instance: AltinnInstanceBuilder
+                .NewInProgressInstance()
+                .WithDueBefore(new DateTime(9999, 1, 1, 1, 1, 4))
+                .WithVisibleAfter(new DateTime(9999, 1, 1, 1, 1, 3)).Build()
+            ,
+            ExistingDialog: null,
+            IsMigration: false
+        );
+
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
+
+        actualDialogDto.Should().BeEquivalentTo(new DialogDto
+        {
+            Id = Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
+            IsApiOnly = false,
+            Revision = null,
+            ServiceResource = "urn:altinn:resource:app_urn:altinn:instance-id",
+            Party = "urn:actor.by.party.id.party1",
+            Progress = null,
+            ExtendedStatus = null,
+            ExternalReference = null,
+            VisibleFrom = new DateTime(9999, 1, 1, 1, 1, 3),
+            DueAt = new DateTime(9999, 1, 1, 1, 1, 4),
             Process = null,
             PrecedingProcess = null,
             ExpiresAt = null,
