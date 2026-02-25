@@ -9,7 +9,8 @@ public static class WolverineOptionsExtentions
     public static WolverineOptions ConfigureAdapterDefaults(
         this WolverineOptions opts,
         IHostEnvironment env,
-        string azureServiceBusConnectionString)
+        string azureServiceBusConnectionString,
+        string? managementConnectionString)
     {
         ArgumentNullException.ThrowIfNull(opts);
         ArgumentNullException.ThrowIfNull(env);
@@ -19,6 +20,11 @@ public static class WolverineOptionsExtentions
         opts.EnableAutomaticFailureAcks = false;
         opts.EnableRemoteInvocation = false;
         opts.MultipleHandlerBehavior = MultipleHandlerBehavior.Separated;
+        if (managementConnectionString != null)
+        {
+            var transport = opts.Transports.GetOrCreate<AzureServiceBusTransport>();
+            transport.ManagementConnectionString = managementConnectionString;
+        }
         var azureBusConfig = opts
             .UseAzureServiceBus(azureServiceBusConnectionString)
             .AutoProvision();
