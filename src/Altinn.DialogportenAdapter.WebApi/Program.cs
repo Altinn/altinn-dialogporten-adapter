@@ -141,6 +141,14 @@ static void BuildAndRun(string[] args)
             .RetryWithJitteredCooldown(1.Seconds(), 3.Seconds(), 5.Seconds())
             .Then.MoveToErrorQueue();
 
+        // Handle other ApiExceptions (like 403 Forbidden or 400 Bad Request) 
+        // not caught by specific policies above.
+        opts.Policies
+            .OnException<ApiException>()
+            .OrInner<ApiException>()
+            .RetryWithJitteredCooldown(1.Seconds(), 3.Seconds(), 5.Seconds())
+            .Then.MoveToErrorQueue();
+
         // 5xx errors are usually transient (upstream being down/overloaded), so try a few times with a cooldown before
         // re-scheduling indefinitely, as is timeouts (TaskCanceledException). HttpRequestExceptions indicates network issues, DNS issues, etc. which are usually
         // transient, so handle this the same as 5xx errors.
@@ -166,6 +174,13 @@ static void BuildAndRun(string[] args)
         // Also listen to the history queue with a fewer number of listeners.
         opts.ListenToAzureServiceBusQueue(ContractConstants.AdapterHistoryQueueName)
             .ListenerCount(30.PercentOf(settings.WolverineSettings.ListenerCount));
+
+        // Global safety net for non-API exceptions (e.g. NullReference, Mapping errors)
+        // to ensure a single retry before moving to DLQ.
+        opts.Policies
+            .OnException<Exception>()
+            .RetryWithCooldown(2.Seconds())
+            .Then.MoveToErrorQueue();
 
     });
 
