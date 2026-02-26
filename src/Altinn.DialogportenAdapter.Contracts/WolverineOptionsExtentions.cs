@@ -20,7 +20,7 @@ public static class WolverineOptionsExtentions
         opts.EnableAutomaticFailureAcks = false;
         opts.EnableRemoteInvocation = false;
         opts.MultipleHandlerBehavior = MultipleHandlerBehavior.Separated;
-        if (managementConnectionString != null)
+        if (string.IsNullOrWhiteSpace(managementConnectionString))
         {
             var transport = opts.Transports.GetOrCreate<AzureServiceBusTransport>();
             transport.ManagementConnectionString = managementConnectionString;
