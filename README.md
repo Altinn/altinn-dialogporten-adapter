@@ -24,9 +24,12 @@ Run the SyncByInstanceId.http scratch file. Remember to select "Run with: docker
 # How to run locally with ServiceBusEmulator
 
 1. Set this in your user-secrets:
-```
-"WolverineSettings:ServiceBusConnectionString": "Endpoint=sb://localhost:5672;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;",
-"WolverineSettings:ManagementConnectionString": "Endpoint=sb://localhost:5300;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;"
+```json
+{
+  ...
+  "WolverineSettings:ServiceBusConnectionString": "Endpoint=sb://localhost:5672;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;",
+  "WolverineSettings:ManagementConnectionString": "Endpoint=sb://localhost:5300;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;" 
+}
 ```
 2. Start service-bus-emulator (compose file in dialogporten repo)
 
