@@ -10,7 +10,7 @@ public static class WolverineOptionsExtentions
         this WolverineOptions opts,
         IHostEnvironment env,
         string azureServiceBusConnectionString,
-        string? managementConnectionString)
+        string? managementConnectionString = null)
     {
         ArgumentNullException.ThrowIfNull(opts);
         ArgumentNullException.ThrowIfNull(env);
