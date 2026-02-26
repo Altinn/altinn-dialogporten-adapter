@@ -11,7 +11,7 @@ public sealed class Settings
 
 public sealed record WolverineSettings(
     string ServiceBusConnectionString,
-    string ManagementConnectionString,
+    string? ManagementConnectionString = null,
     int ListenerCount = 50);
 
 public sealed record DialogportenAdapterSettings(
