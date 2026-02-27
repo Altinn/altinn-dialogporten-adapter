@@ -1266,6 +1266,7 @@ public class StorageDialogportenDataMergerTest
                             LanguageCode = "nb"
                         }
                     ],
+                    Name = null,
                     Urls =
                     [
                         new AttachmentUrlDto
@@ -1289,6 +1290,7 @@ public class StorageDialogportenDataMergerTest
                             LanguageCode = "nb"
                         }
                     ],
+                    Name = "app-logic",
                     Urls =
                     [
                         new AttachmentUrlDto
@@ -1311,6 +1313,7 @@ public class StorageDialogportenDataMergerTest
                             LanguageCode = "nb"
                         }
                     ],
+                    Name = "app-owned",
                     Urls =
                     [
                         new AttachmentUrlDto
@@ -1333,6 +1336,7 @@ public class StorageDialogportenDataMergerTest
                             LanguageCode = "nb"
                         }
                     ],
+                    Name = "not-excluded",
                     Urls =
                     [
                         new AttachmentUrlDto
@@ -1717,6 +1721,7 @@ public class StorageDialogportenDataMergerTest
                             LanguageCode = "nb"
                         }
                     ],
+                    Name = null,
                     Urls =
                     [
                         new AttachmentUrlDto
@@ -1740,6 +1745,7 @@ public class StorageDialogportenDataMergerTest
                             LanguageCode = "nb"
                         }
                     ],
+                    Name = "app-logic",
                     Urls =
                     [
                         new AttachmentUrlDto
@@ -1762,6 +1768,7 @@ public class StorageDialogportenDataMergerTest
                             LanguageCode = "nb"
                         }
                     ],
+                    Name = "app-owned",
                     Urls =
                     [
                         new AttachmentUrlDto
@@ -1784,6 +1791,7 @@ public class StorageDialogportenDataMergerTest
                             LanguageCode = "nb"
                         }
                     ],
+                    Name = "not-excluded",
                     Urls =
                     [
                         new AttachmentUrlDto
@@ -2076,6 +2084,7 @@ public class StorageDialogportenDataMergerTest
                             LanguageCode = "nb"
                         }
                     ],
+                    Name = null,
                     Urls =
                     [
                         new AttachmentUrlDto
@@ -2133,6 +2142,7 @@ public class StorageDialogportenDataMergerTest
                                     LanguageCode = "nb"
                                 }
                             ],
+                            Name = "png-1",
                             Urls =
                             [
                                 new TransmissionAttachmentUrlDto
@@ -2188,6 +2198,7 @@ public class StorageDialogportenDataMergerTest
                                     LanguageCode = "nb"
                                 }
                             ],
+                            Name = "png-2",
                             Urls =
                             [
                                 new TransmissionAttachmentUrlDto

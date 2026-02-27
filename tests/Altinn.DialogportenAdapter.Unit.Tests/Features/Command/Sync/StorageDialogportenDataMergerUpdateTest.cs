@@ -588,6 +588,7 @@ public class StorageDialogportenDataMergerUpdateTest
                             LanguageCode = "nb"
                         }
                     ],
+                    Name = null,
                     Urls =
                     [
                         new AttachmentUrlDto
@@ -645,6 +646,7 @@ public class StorageDialogportenDataMergerUpdateTest
                                     LanguageCode = "nb"
                                 }
                             ],
+                            Name = null,
                             Urls =
                             [
                                 new TransmissionAttachmentUrlDto
