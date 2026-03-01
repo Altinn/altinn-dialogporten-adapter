@@ -20,3 +20,17 @@ Run the SyncByInstanceId.http scratch file. Remember to select "Run with: docker
 ```
 
 > Note: We use a separate configuration for the docker-image. See: appsettings.DevelopmentDocker.json 
+
+# How to run locally with ServiceBusEmulator
+
+1. Set this in your user-secrets:
+```json
+{
+  ...
+  "WolverineSettings:ServiceBusConnectionString": "Endpoint=sb://localhost:5672;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;",
+  "WolverineSettings:ManagementConnectionString": "Endpoint=sb://localhost:5300;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;" 
+}
+```
+2. Start service-bus-emulator (compose file in dialogporten repo)
+
+WebClient and EventSimulator should now be using your local service-bus-emulator. 
