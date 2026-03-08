@@ -146,6 +146,64 @@ public class StorageDialogportenDataMergerTest
         });
     }
 
+    [Fact(DisplayName = "Given instance id on format <partyId>/<instanceGuid>, should include storage, app-instance and party labels")]
+    public async Task Merge_InstanceIdWithPartyAndGuid_IncludesExpectedServiceOwnerLabels()
+    {
+        var instanceGuid = "a0123f30-17d6-4ad6-a562-13b0dd419db9";
+        var partyId = PartyId1;
+        var mergeDto = new MergeDto(
+            Application: new Application
+            {
+                Title = new Dictionary<string, string>
+                {
+                    ["nb"] = "Test applikasjon",
+                    ["en"] = "Test application"
+                }
+            },
+            ApplicationTexts: new ApplicationTexts
+            {
+                Translations = []
+            },
+            DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
+            Events: new InstanceEventList
+            {
+                InstanceEvents =
+                [
+                    new InstanceEvent
+                    {
+                        User = new PlatformUser
+                        {
+                            UserId = 1,
+                            OrgId = "org",
+                        }
+                    }
+                ]
+            },
+            Instance: AltinnInstanceBuilder
+                .NewInProgressInstance()
+                .WithId($"{partyId}/{instanceGuid}")
+                .WithInstanceOwner(new InstanceOwner
+                {
+                    PartyId = partyId
+                })
+                .Build(),
+            ExistingDialog: null,
+            IsMigration: false
+        );
+
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
+
+        actualDialogDto.ServiceOwnerContext.Should().BeEquivalentTo(new ServiceOwnerContext
+        {
+            ServiceOwnerLabels =
+            [
+                new ServiceOwnerLabel { Value = $"urn:altinn:integration:storage:{partyId}/{instanceGuid}" },
+                new ServiceOwnerLabel { Value = $"urn:altinn:app-instance-id:{instanceGuid}" },
+                new ServiceOwnerLabel { Value = $"urn:altinn:party:id:{partyId}" },
+            ]
+        });
+    }
+
     [Fact(DisplayName = "Given two saves of a full MergeDto, should return the same DialogDto")]
     public async Task Merge_FullMergeDtoMergedTwice_ReturnsTheSameDialogDto()
     {

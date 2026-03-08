@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Altinn.ApiClients.Dialogporten;
 using Altinn.ApiClients.Maskinporten.Extensions;
 using Altinn.ApiClients.Maskinporten.Services;

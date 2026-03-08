@@ -176,16 +176,7 @@ internal sealed class StorageDialogportenDataMerger
                 : dto.Instance.Created,
             VisibleFrom = dto.Instance.VisibleAfter > DateTimeOffset.UtcNow || dto.IsMigration ? dto.Instance.VisibleAfter : null,
             DueAt = dto.Instance.DueBefore > DateTimeOffset.UtcNow || dto.IsMigration ? dto.Instance.DueBefore : null,
-            ServiceOwnerContext = new ServiceOwnerContext
-            {
-                ServiceOwnerLabels =
-                [
-                    new ServiceOwnerLabel
-                    {
-                        Value = $"urn:altinn:integration:storage:{dto.Instance.Id}"
-                    }
-                ]
-            },
+            ServiceOwnerContext = GetServiceOwnerContext(dto.Instance),
             Status = dialogStatus,
             Content = new ContentDto
             {
@@ -227,6 +218,41 @@ internal sealed class StorageDialogportenDataMerger
         }
 
         return dialog;
+    }
+
+    private static ServiceOwnerContext GetServiceOwnerContext(Instance dtoInstance)
+    {
+        var parts = dtoInstance.Id.Split('/');
+
+        var ctx = new ServiceOwnerContext
+        {
+            ServiceOwnerLabels =
+            [
+                // This is the legacy label that has been used to identify dialogs originating from Storage,
+                // and should be kept until https://github.com/Altinn/dialogporten/issues/3358 is implemented.
+                new ServiceOwnerLabel
+                {
+                    Value = $"urn:altinn:integration:storage:{dtoInstance.Id}"
+                }
+            ]
+        };
+
+        if (parts.Length != 2) return ctx;
+
+        ctx.ServiceOwnerLabels.Add(
+            new ServiceOwnerLabel
+            {
+                Value = $"urn:altinn:app-instance-id:{parts[1]}"
+            }
+        );
+        ctx.ServiceOwnerLabels.Add(
+            new ServiceOwnerLabel
+            {
+                Value = $"urn:altinn:party:id:{dtoInstance.InstanceOwner.PartyId}"
+            }
+        );
+
+        return ctx;
     }
 
     private static ContentValueDto? GetExtendedStatus(MergeDto dto)
