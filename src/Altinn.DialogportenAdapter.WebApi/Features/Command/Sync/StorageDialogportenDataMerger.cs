@@ -248,13 +248,13 @@ internal sealed class StorageDialogportenDataMerger
         ctx.ServiceOwnerLabels.Add(
             new ServiceOwnerLabel
             {
-                Value = $"urn:altinn:app-instance-id:{parts[1]}"
+                Value = $"{Constants.AppInstanceIdUrnPrefix}{parts[1]}"
             }
         );
         ctx.ServiceOwnerLabels.Add(
             new ServiceOwnerLabel
             {
-                Value = $"urn:altinn:party:id:{parts[0]}"
+                Value = $"{Constants.PartyIdUrnPrefix}{parts[0]}"
             }
         );
 

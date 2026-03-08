@@ -18,6 +18,7 @@ internal static class Constants
     public const string OrganizationUrnPrefix = "urn:altinn:organization:identifier-no:";
     public const string DisplayNameUrnPrefix = "urn:altinn:displayName:";
     public const string SiUserUrnPrefix = "urn:altinn:person:legacy-selfidentified:";
+    public const string AppInstanceIdUrnPrefix = "urn:altinn:app-instance-id:";
 
     public const string DefaultMaskinportenClientDefinitionKey = "DefaultMaskinportenClientDefinitionKey";
 
