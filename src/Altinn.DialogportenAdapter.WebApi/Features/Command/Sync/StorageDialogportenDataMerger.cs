@@ -237,7 +237,13 @@ internal sealed class StorageDialogportenDataMerger
             ]
         };
 
-        if (parts.Length != 2) return ctx;
+        if (parts.Length != 2 ||
+            string.IsNullOrWhiteSpace(parts[0]) ||
+            string.IsNullOrWhiteSpace(parts[1]) ||
+            !string.Equals(parts[0], dtoInstance.InstanceOwner.PartyId, StringComparison.Ordinal))
+        {
+            return ctx;
+        }
 
         ctx.ServiceOwnerLabels.Add(
             new ServiceOwnerLabel
@@ -248,8 +254,11 @@ internal sealed class StorageDialogportenDataMerger
         ctx.ServiceOwnerLabels.Add(
             new ServiceOwnerLabel
             {
-                Value = $"urn:altinn:party:id:{dtoInstance.InstanceOwner.PartyId}"
+                Value = $"urn:altinn:party:id:{parts[0]}"
             }
+        );
+
+        return ctx;
         );
 
         return ctx;
