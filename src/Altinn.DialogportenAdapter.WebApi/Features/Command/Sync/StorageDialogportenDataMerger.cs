@@ -259,9 +259,6 @@ internal sealed class StorageDialogportenDataMerger
         );
 
         return ctx;
-        );
-
-        return ctx;
     }
 
     private static ContentValueDto? GetExtendedStatus(MergeDto dto)
