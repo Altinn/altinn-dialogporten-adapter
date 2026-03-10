@@ -127,7 +127,8 @@ public static class ApplicationTextParser
     /// <param name="applicationTexts">All translations</param>
     /// <param name="truncateLength">If supplied, truncate the localizations to given length</param>
     /// <returns>
-    /// A list of application texts as localizations or the input-string as a NB localization
+    /// If the string is found in ApplicationTexts: A list of application texts as localizations
+    /// Otherwise returns a single localization in NB with the input-string as value
     /// </returns>
     public static List<LocalizationDto> GetLocalizationsFromString(
         string value,
