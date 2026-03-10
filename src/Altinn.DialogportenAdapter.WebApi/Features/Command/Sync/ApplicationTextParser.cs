@@ -1,4 +1,5 @@
 using Altinn.DialogportenAdapter.WebApi.Common;
+using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Altinn.Platform.Storage.Interface.Models;
@@ -117,5 +118,39 @@ public static class ApplicationTextParser
             TruncateSuffix.AsSpan().CopyTo(span[^TruncateSuffix.Length..]);
         });
 
+    }
+
+    /// <summary>
+    /// Converts a string to localizations by checking if the string is a key in ApplicationTexts.
+    /// </summary>
+    /// <param name="value">String or key in ApplicationTexts</param>
+    /// <param name="applicationTexts">All translations</param>
+    /// <param name="truncateLength">If supplied, truncate the localizations to given length</param>
+    /// <returns>
+    /// A list of application texts as localizations or the input-string as a NB localization
+    /// </returns>
+    public static List<LocalizationDto> GetLocalizationsFromString(
+        string value,
+        ApplicationTexts applicationTexts,
+        int? truncateLength = null)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return [];
+
+        return applicationTexts
+            .Translations
+            .Where(t => t.Texts.TryGetValue(value, out var text) && !string.IsNullOrWhiteSpace(text))
+            .Select(t => new LocalizationDto
+            {
+                LanguageCode = t.Language,
+                Value = truncateLength == null
+                    ? t.Texts[value]
+                    : t.Texts[value].AsSpan().TruncateEllipsis(truncateLength.Value)
+            })
+            .DefaultIfEmpty(new LocalizationDto
+            {
+                LanguageCode = "nb",
+                Value = truncateLength == null ? value : value.AsSpan().TruncateEllipsis(truncateLength.Value)
+            })
+            .ToList();
     }
 }
