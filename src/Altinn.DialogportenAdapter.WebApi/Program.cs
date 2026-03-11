@@ -102,7 +102,7 @@ static void BuildAndRun(string[] args)
         opts.Policies
             .OnException<ApiException>(ex => ex.StatusCode is HttpStatusCode.Gone)
             .OrInner<ApiException>(ex => ex.StatusCode is HttpStatusCode.Gone)
-            .Discard();
+            .CustomActionIndefinitely((_, lifetime, _) => lifetime.CompleteAsync(), "Discard indefinitely");
 
         // If the queue backlog grows faster than we can drain it (ie. due to downtime), two messages with the same
         // InstanceId may still be processed concurrently once we catch up, causing dialog
