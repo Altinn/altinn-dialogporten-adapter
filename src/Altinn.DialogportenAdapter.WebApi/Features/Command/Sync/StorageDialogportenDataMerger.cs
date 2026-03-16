@@ -350,6 +350,10 @@ internal sealed class StorageDialogportenDataMerger
             // so we take all attachments into a single transmission.
             var isA2 = IsA2Instance(dto.Instance);
             var transmissionId = activityDto.Id!.Value.ToVersion7(activityDto.CreatedAt!.Value);
+            var adapterBaseUri = _settings.DialogportenAdapter.Adapter.BaseUri
+                .ToString()
+                .TrimEnd('/');
+            var baseUrl = $"{adapterBaseUri}/api/v1/receipt/{dto.DialogId}/{transmissionId}";
             return new TransmissionDto
             {
                 Id = transmissionId,
@@ -366,7 +370,17 @@ internal sealed class StorageDialogportenDataMerger
                             new() { LanguageCode = "nn", Value = $"Innsending #{index + 1}" },
                             new() { LanguageCode = "en", Value = $"Submission #{index + 1}" }
                         ],
-                        MediaType = "text/plain"
+                        MediaType = MediaTypes.PlainText
+                    },
+                    ContentReference = new ContentValueDto
+                    {
+                        Value =
+                        [
+                            new() { LanguageCode = "nb", Value = $"{baseUrl}?lang=nb" },
+                            new() { LanguageCode = "nn", Value = $"{baseUrl}?lang=nn" },
+                            new() { LanguageCode = "en", Value = $"{baseUrl}?lang=en" }
+                        ],
+                        MediaType = MediaTypes.EmbeddableMarkdown
                     }
                 },
                 Attachments = userDataElements
