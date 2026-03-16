@@ -314,7 +314,7 @@ public class StorageDialogportenDataMergerTest
                             { "substatus.label", "Registrering av tiltak, og litt for lang tekst" },
                             {
                                 "substatus.description",
-                                "øke sikkerheten og beredskapen i den digitale grunnmuren"
+                                new string('a', 256)
                             },
                         },
                     },
@@ -402,7 +402,7 @@ public class StorageDialogportenDataMergerTest
                         new LocalizationDto
                         {
                             LanguageCode = "nb",
-                            Value = "øke sikkerheten og beredskapen i den digitale grunnmuren"
+                            Value = new string('a', 252) + "..."
                         },
                         new LocalizationDto
                         {
