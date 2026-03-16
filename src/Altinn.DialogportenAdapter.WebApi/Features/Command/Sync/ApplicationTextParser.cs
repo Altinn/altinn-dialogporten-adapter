@@ -125,7 +125,7 @@ public static class ApplicationTextParser
     /// </summary>
     /// <param name="value">String or key in ApplicationTexts</param>
     /// <param name="applicationTexts">All translations</param>
-    /// <param name="truncateLength">If supplied, truncate the localizations to given length</param>
+    /// <param name="maxLength">Truncate the localizations to given length. Using default length if omitted</param>
     /// <returns>
     /// If the string is found in ApplicationTexts: A list of application texts as localizations
     /// Otherwise returns a single localization in NB with the input-string as value
@@ -133,7 +133,7 @@ public static class ApplicationTextParser
     public static List<LocalizationDto> GetLocalizationsFromString(
         string value,
         ApplicationTexts applicationTexts,
-        int? truncateLength = null)
+        int? maxLength = DefaultMaxLength)
     {
         if (string.IsNullOrWhiteSpace(value)) return [];
 
@@ -143,14 +143,14 @@ public static class ApplicationTextParser
             .Select(t => new LocalizationDto
             {
                 LanguageCode = t.Language,
-                Value = truncateLength == null
+                Value = maxLength == null
                     ? t.Texts[value]
-                    : t.Texts[value].AsSpan().TruncateEllipsis(truncateLength.Value)
+                    : t.Texts[value].AsSpan().TruncateEllipsis(maxLength.Value)
             })
             .DefaultIfEmpty(new LocalizationDto
             {
                 LanguageCode = "nb",
-                Value = truncateLength == null ? value : value.AsSpan().TruncateEllipsis(truncateLength.Value)
+                Value = maxLength == null ? value : value.AsSpan().TruncateEllipsis(maxLength.Value)
             })
             .ToList();
     }
