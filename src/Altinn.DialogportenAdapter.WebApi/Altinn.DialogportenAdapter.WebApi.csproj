@@ -7,8 +7,8 @@
         <PackageReference Include="Altinn.Platform.Storage.Interface" Version="4.5.0" />
         <PackageReference Include="Azure.Identity" Version="1.17.1" />
         <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.4.0" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.3" />
-        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.3" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.5" />
+        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.5" />
         <PackageReference Include="Refit.HttpClientFactory" Version="10.0.1" />
         <PackageReference Include="DeterministicGuids" Version="1.0.10" />
         <PackageReference Include="WolverineFx.AzureServiceBus" Version="5.16.2" />
