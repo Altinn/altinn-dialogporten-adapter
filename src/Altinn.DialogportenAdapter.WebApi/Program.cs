@@ -353,7 +353,7 @@ static void BuildAndRun(string[] args)
                 GetReceiptResponse.NotFound => Results.NotFound(),
                 GetReceiptResponse.InvalidLanguageCode => Results.ValidationProblem(new Dictionary<string, string[]>
                 {
-                    ["lang"] = ["Expected ISO 639-1 two-letter language code."]
+                    ["lang"] = [$"Expected one of these language codes: {InstanceReceipt.GetSupportedLanguageCodes()}"]
                 }),
                 _ => Results.InternalServerError()
             };

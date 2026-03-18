@@ -45,17 +45,19 @@ internal sealed class InstanceReceipt(
     private readonly IAltinnOrgs _altinnOrgs = altinnOrgs ?? throw new ArgumentNullException(nameof(altinnOrgs));
     private readonly IRegisterApi _registerApi = registerApi ?? throw new ArgumentNullException(nameof(registerApi));
 
-    private static readonly List<string> LanguageCodes = ["nb", "nn", "en"];
     private const string DefaultLanguageCode = "nb";
     private const string InstanceReceiptSummaryKey = "receipt-transmission-summary";
+
+    private static readonly List<string> LanguageCodes = ["nb", "nn", "en"];
+
+    public static string GetSupportedLanguageCodes() => string.Join(", ", LanguageCodes);
 
     public async Task<GetReceiptResponse> GetReceipt(GetReceiptDto request, CancellationToken cancellationToken)
     {
         if (!ValidateDialogToken(request.DialogToken, request.DialogId, ["read"]))
             return new GetReceiptResponse.UnAuthorized();
 
-        if (request.LanguageCode is not null &&
-            !Common.LanguageCodes.IsValidTwoLetterLanguageCode(request.LanguageCode))
+        if (request.LanguageCode is not null && !LanguageCodes.Contains(request.LanguageCode))
             return new GetReceiptResponse.InvalidLanguageCode();
 
         var dialog = await _dialogportenApi.Get(request.DialogId, cancellationToken).ContentOrDefault();
@@ -113,10 +115,7 @@ internal sealed class InstanceReceipt(
             return orgCode;
         }
 
-        return org.Name.GetValueOrDefault(languageCode)
-               ?? org.Name.GetValueOrDefault("nb")
-               ?? org.Name.GetValueOrDefault("en")
-               ?? orgCode;
+        return org.Name.GetValueOrDefault(languageCode) ?? orgCode;
     }
 
     private async Task<string> GetSender(string partyUrn, CancellationToken cancellationToken)
@@ -128,7 +127,8 @@ internal sealed class InstanceReceipt(
             string prePendSender = String.Empty;
             if (partyIdentifier.PersonIdentifier != null)
             {
-                prePendSender = $"{partyIdentifier.PersonIdentifier}-";
+                // Mask last 5 digits in the Norwegian national number
+                prePendSender = $"{partyIdentifier.PersonIdentifier[..6]}*****-";
             }
             else if (partyIdentifier.OrganizationIdentifier != null)
             {
