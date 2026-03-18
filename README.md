@@ -31,6 +31,18 @@ Run the SyncByInstanceId.http scratch file. Remember to select "Run with: docker
   "WolverineSettings:ManagementConnectionString": "Endpoint=sb://localhost:5300;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;" 
 }
 ```
-2. Start service-bus-emulator (compose file in dialogporten repo)
+2. Start service-bus-emulator 
 
-WebClient and EventSimulator should now be using your local service-bus-emulator. 
+```bash
+docker-compose -f docker-compose-service-bus.yml up
+``` 
+
+#### Note on Colima on arm-Mac
+If you use Colima on an Arm Mac, the msql image may crash. You can fix it by starting the vm with rosetta enabled:
+```bash
+colima start --cpu 4 --memory 4 --disk 100 --vm-type=vz --vz-rosetta
+```
+
+#### Note on Podman on arm-Mac
+If you use Podman on an Arm Mac, the msql image may crash. You can fix it by starting the vm with rosetta enabled:
+# https://blog.podman.io/2025/08/podman-5-6-released-rosetta-status-update/
