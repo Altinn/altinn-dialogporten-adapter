@@ -235,22 +235,15 @@ internal sealed class StorageDialogportenDataMerger
 
         if (string.IsNullOrWhiteSpace(label)) return null;
 
-        var labelLocalized = dto.ApplicationTexts
-            .Translations
-            .Where(t => t.Texts.TryGetValue(label, out var text) && !string.IsNullOrWhiteSpace(text))
-            .Select(t => new LocalizationDto
-            {
-                LanguageCode = t.Language,
-                Value = t.Texts[label].AsSpan().TruncateEllipsis(Constants.ExtendedStatusMaxStringLength)
-            })
-            .DefaultIfEmpty(new LocalizationDto
-            {
-                LanguageCode = "nb",
-                Value = label.AsSpan().TruncateEllipsis(Constants.ExtendedStatusMaxStringLength)
-            })
-            .ToList();
-
-        return new ContentValueDto { Value = labelLocalized, MediaType = MediaTypes.PlainText };
+        return new ContentValueDto
+        {
+            Value = ApplicationTextParser.GetLocalizationsFromString(
+                label,
+                dto.ApplicationTexts,
+                Constants.ExtendedStatusMaxStringLength
+            ),
+            MediaType = MediaTypes.PlainText
+        };
     }
 
     private (List<AttachmentDto> attachments, List<TransmissionDto> transmissions) GetAttachmentAndTransmissions(
@@ -432,6 +425,13 @@ internal sealed class StorageDialogportenDataMerger
     }
     private static List<LocalizationDto> GetSummary(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
     {
+        var substatusDescription = instance.Status.Substatus?.Description;
+
+        if (!string.IsNullOrWhiteSpace(substatusDescription))
+        {
+            return ApplicationTextParser.GetLocalizationsFromString(substatusDescription, applicationTexts);
+        }
+
         var summary = ApplicationTextParser.GetLocalizationsFromApplicationTexts(nameof(DialogDto.Content.Summary), instance, applicationTexts, instanceDerivedStatus);
         return summary.Count > 0
             ? summary
