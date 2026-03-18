@@ -2127,7 +2127,28 @@ public class StorageDialogportenDataMergerTest
                             MediaType = "text/plain"
                         },
                         Summary = null!,
-                        ContentReference = null
+                        ContentReference = new ContentValueDto
+                        {
+                            Value =  [
+                                new LocalizationDto
+                                {
+                                    LanguageCode = "nb",
+                                    Value = "http://adapter.localhost/api/v1/receipt/902de1ba-6919-4355-99ad-7ad279266a2f/00e46784-34c8-7fdf-a7ec-f85248d2293c?lang=nb"
+                                },
+                                new LocalizationDto
+                                {
+                                    LanguageCode = "nn",
+                                    Value = "http://adapter.localhost/api/v1/receipt/902de1ba-6919-4355-99ad-7ad279266a2f/00e46784-34c8-7fdf-a7ec-f85248d2293c?lang=nn"
+                                },
+                                new LocalizationDto
+                                {
+                                    LanguageCode = "en",
+                                    Value = "http://adapter.localhost/api/v1/receipt/902de1ba-6919-4355-99ad-7ad279266a2f/00e46784-34c8-7fdf-a7ec-f85248d2293c?lang=en"
+                                }
+                            ]
+                            ,
+                            MediaType = "application/vnd.dialogporten.frontchannelembed-url;type=text/markdown"
+                        }
                     },
                     Attachments =
                     [
@@ -2183,7 +2204,28 @@ public class StorageDialogportenDataMergerTest
                             MediaType = "text/plain"
                         },
                         Summary = null!,
-                        ContentReference = null
+                        ContentReference = new ContentValueDto
+                        {
+                            Value =  [
+                                new LocalizationDto
+                                {
+                                    LanguageCode = "nb",
+                                    Value = "http://adapter.localhost/api/v1/receipt/902de1ba-6919-4355-99ad-7ad279266a2f/00ebbf35-60c8-7fdf-a7ec-f85248d2293c?lang=nb"
+                                },
+                                new LocalizationDto
+                                {
+                                    LanguageCode = "nn",
+                                    Value = "http://adapter.localhost/api/v1/receipt/902de1ba-6919-4355-99ad-7ad279266a2f/00ebbf35-60c8-7fdf-a7ec-f85248d2293c?lang=nn"
+                                },
+                                new LocalizationDto
+                                {
+                                    LanguageCode = "en",
+                                    Value = "http://adapter.localhost/api/v1/receipt/902de1ba-6919-4355-99ad-7ad279266a2f/00ebbf35-60c8-7fdf-a7ec-f85248d2293c?lang=en"
+                                }
+                            ]
+                            ,
+                            MediaType = "application/vnd.dialogporten.frontchannelembed-url;type=text/markdown"
+                        }
                     },
                     Attachments =
                     [
