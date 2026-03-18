@@ -131,7 +131,8 @@ static void BuildAndRun(string[] args)
         opts.Policies
             .OnException<PartyNotFoundException>()
             .OrInner<PartyNotFoundException>()
-            .ScheduleRetry(1.Minutes(), 10.Minutes(), 30.Minutes())
+            .RetryWithJitteredCooldown(1.Seconds(), 5.Seconds(), 20.Seconds())
+            .Then.ScheduleRetry(1.Minutes(), 10.Minutes(), 30.Minutes())
             .Then.MoveToErrorQueue();
 
         // Attempt to handle errors most likely caused by expired/invalid tokens. If retries don't help, move to error queue for manual inspection.
