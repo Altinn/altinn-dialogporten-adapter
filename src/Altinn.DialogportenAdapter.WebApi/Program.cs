@@ -80,8 +80,11 @@ static void BuildAndRun(string[] args)
 
     builder.Services.AddWolverine(opts =>
     {
-        opts.ConfigureAdapterDefaults(builder.Environment,
-            settings.WolverineSettings.ServiceBusConnectionString);
+        opts.ConfigureAdapterDefaults(
+            builder.Environment,
+            settings.WolverineSettings.ServiceBusConnectionString,
+            settings.WolverineSettings.ManagementConnectionString
+        );
         opts.Policies.AllListeners(x => x
             .ProcessInline());
         opts.Policies.AllSenders(x => x.SendInline());
