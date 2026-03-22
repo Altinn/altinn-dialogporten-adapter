@@ -4,15 +4,15 @@
         <PackageReference Include="Altinn.ApiClients.Dialogporten" Version="1.106.2" />
         <PackageReference Include="Altinn.ApiClients.Maskinporten" Version="10.0.1" />
         <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.5.0" />
-        <PackageReference Include="Altinn.Platform.Storage.Interface" Version="4.5.0" />
+        <PackageReference Include="Altinn.Platform.Storage.Interface" Version="4.6.0" />
         <PackageReference Include="Azure.Identity" Version="1.19.0" />
         <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.4.0" />
         <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.5" />
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.5" />
         <PackageReference Include="Refit.HttpClientFactory" Version="10.0.1" />
         <PackageReference Include="DeterministicGuids" Version="1.0.10" />
-        <PackageReference Include="WolverineFx.AzureServiceBus" Version="5.19.1" />
-        <PackageReference Include="ZiggyCreatures.FusionCache.Locking.AsyncKeyed" Version="2.5.0" />
+        <PackageReference Include="WolverineFx.AzureServiceBus" Version="5.21.0" />
+        <PackageReference Include="ZiggyCreatures.FusionCache.Locking.AsyncKeyed" Version="2.6.0" />
     </ItemGroup>
 
 	<ItemGroup>

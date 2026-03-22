@@ -2,7 +2,7 @@
 
     <ItemGroup>
         <PackageReference Include="AsyncKeyedLock" Version="8.0.2" />
-        <PackageReference Include="WolverineFx.AzureServiceBus" Version="5.19.1" />
+        <PackageReference Include="WolverineFx.AzureServiceBus" Version="5.21.0" />
     </ItemGroup>
 
 </Project>
