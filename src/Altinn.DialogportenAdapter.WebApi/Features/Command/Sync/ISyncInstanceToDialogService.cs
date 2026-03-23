@@ -42,7 +42,6 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
         // sync is disabled in which case we can skip the rest of the processing.
         var (isCached, cachedApp) =
             await _applicationRepository.TryGetApplicationIfCached(dto.AppId, cancellationToken);
-
         if (isCached && cachedApp is not null && cachedApp.GetSyncAdapterSettings().DisableSync)
         {
             return;
@@ -58,6 +57,17 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
                 _storageApi.GetInstance(dto.PartyId, dto.InstanceId, cancellationToken).ContentOrDefault(),
                 _storageApi.GetInstanceEvents(dto.PartyId, dto.InstanceId, Constants.SupportedEventTypes, cancellationToken).ContentOrDefault()
             );
+        
+        if (application.GetSyncAdapterSettings().EnableUserSuppliedDialogId && instance is not null)
+        {
+            if (!Guid.TryParse(instance.DataValues[Constants.InstanceDataValueDialogIdKey], out dialogId))
+            {
+                LogInvalidUserSuppliedDialogIdWarning(dto.InstanceId);
+                return;
+            }
+            existingDialog = await _dialogportenApi.Get(dialogId, cancellationToken).ContentOrDefault();
+        }
+
         if (instance is null && existingDialog is null)
         {
             LogNoOpWarning(dto.PartyId, dto.InstanceId, dto.InstanceCreatedAt, dto.IsMigration);
@@ -314,4 +324,7 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
 
     [LoggerMessage(LogLevel.Information, "Instance id={Id} is soft-deleted in storage and does not exist in Dialogporten. Creating and deleting immediately afterwards.")]
     partial void LogCreateDialogInSoftDeleteState(string id);
+    
+    [LoggerMessage(LogLevel.Warning, "Instance id={Id} has invalid user supplied dialog id. NoOp.")]
+    partial void LogInvalidUserSuppliedDialogIdWarning(Guid id);
 }
