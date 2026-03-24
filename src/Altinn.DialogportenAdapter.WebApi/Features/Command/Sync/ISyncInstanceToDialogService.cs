@@ -57,14 +57,15 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
                 _storageApi.GetInstance(dto.PartyId, dto.InstanceId, cancellationToken).ContentOrDefault(),
                 _storageApi.GetInstanceEvents(dto.PartyId, dto.InstanceId, Constants.SupportedEventTypes, cancellationToken).ContentOrDefault()
             );
-        
+
         if (application.GetSyncAdapterSettings().EnableUserSuppliedDialogId && instance is not null)
         {
-            if (!Guid.TryParse(instance.DataValues[Constants.InstanceDataValueDialogIdKey], out dialogId))
+            if (!TryGetValidUserSuppliedDialogId(instance, out dialogId))
             {
                 LogInvalidUserSuppliedDialogIdWarning(dto.InstanceId);
                 return;
             }
+
             existingDialog = await _dialogportenApi.Get(dialogId, cancellationToken).ContentOrDefault();
         }
 
@@ -224,6 +225,17 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
          || instanceDialogId != dialogId;
     }
 
+    private static bool TryGetValidUserSuppliedDialogId([NotNullWhen(true)] Instance? instance, out Guid dialogId)
+    {
+        dialogId = Guid.Empty;
+
+        return instance?.DataValues is not null
+         && instance.DataValues.TryGetValue(Constants.InstanceDataValueDialogIdKey, out var userSuppliedDialogId)
+         && Guid.TryParse(userSuppliedDialogId, out dialogId)
+         && dialogId.IsUuidV7WithTimestampInPast();
+    }
+
+
     private async Task<Guid?> UpsertDialog(DialogDto updated,
         DialogDto? existing,
         SyncAdapterSettings settings,
@@ -324,7 +336,7 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
 
     [LoggerMessage(LogLevel.Information, "Instance id={Id} is soft-deleted in storage and does not exist in Dialogporten. Creating and deleting immediately afterwards.")]
     partial void LogCreateDialogInSoftDeleteState(string id);
-    
+
     [LoggerMessage(LogLevel.Warning, "Instance id={Id} has invalid user supplied dialog id. NoOp.")]
     partial void LogInvalidUserSuppliedDialogIdWarning(Guid id);
 }
