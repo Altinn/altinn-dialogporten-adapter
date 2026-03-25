@@ -27,6 +27,16 @@ public static class WolverineOptionsExtentions
         }
         var azureBusConfig = opts
             .UseAzureServiceBus(azureServiceBusConnectionString)
+            .ConfigureSenders(s =>
+            {
+                s.CustomizeOutgoingMessagesOfType<SyncInstanceCommand>((envelope, _) =>
+                {
+                    // Duplication detection is enabled, which will cause retries within
+                    // the duplication detection window to be silently discarded. Always
+                    // setting a fresh id for the envelope circumvents this.
+                    envelope.Id = Guid.NewGuid();
+                });
+            })
             .AutoProvision();
 
         if (env.IsDevelopment())
