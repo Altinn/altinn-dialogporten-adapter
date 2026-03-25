@@ -156,10 +156,11 @@ internal sealed class StorageDialogportenDataMerger
         var systemLabel = dto.Instance.Status.IsArchived && dto.IsMigration
             ? SystemLabel.Archive
             : SystemLabel.Default;
+
         var (party, activities) = await (
-                GetPartyUrn(dto.Instance.InstanceOwner.PartyId, cancellationToken),
-                _activityDtoTransformer.GetActivities(dto.Events, dto.Instance.InstanceOwner, cancellationToken)
-            );
+            GetPartyUrnOrThrow(dto.Instance.InstanceOwner.PartyId, cancellationToken),
+            _activityDtoTransformer.GetActivities(dto.Events, dto.Instance.InstanceOwner, cancellationToken)
+        );
 
         var (attachments, transmissions) = GetAttachmentAndTransmissions(dto, activities);
 
@@ -383,13 +384,13 @@ internal sealed class StorageDialogportenDataMerger
         }
     }
 
-    private async Task<string> GetPartyUrn(string partyId, CancellationToken cancellationToken)
+    private async Task<string> GetPartyUrnOrThrow(string partyId, CancellationToken cancellationToken)
     {
         var response = await _registerRepository.GetActorUrnByPartyId([partyId], cancellationToken);
 
-        return !response.TryGetValue(partyId, out var actorUrn)
-            ? throw new PartyNotFoundException(partyId)
-            : actorUrn;
+        return response.TryGetValue(partyId, out var actorUrn)
+            ? actorUrn
+            : throw new PartyNotFoundException(partyId);
     }
 
     private static (InstanceDerivedStatus, DialogStatus) GetStatus(Instance instance, InstanceEventList events)

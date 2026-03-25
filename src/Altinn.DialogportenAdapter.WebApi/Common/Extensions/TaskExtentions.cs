@@ -4,6 +4,17 @@ namespace Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 
 internal static class TaskExtentions
 {
+
+    /// <summary>
+    /// Extension method on await that enable await on tuples.
+    /// If one task throws an Exception, this method simply throws that exception
+    /// If multiple tasks throws different exceptions, this method throws an AggregateException where the:
+    /// - InnerException will be whichever occurred first in time
+    /// - InnerExceptions will contain all exceptions in the order of occurrence in time.
+    /// Note:
+    /// This is unlike if you use WhenAll directly, where the arguments order determines the order of the exceptions.
+    /// </summary>
+    /// <returns>A tuple of all tasks in the same order as passed to this function</returns>
     public static TaskAwaiter<(T1, T2)> GetAwaiter<T1, T2>(
         this (Task<T1>, Task<T2>) taskTuple)
     {
@@ -16,6 +27,7 @@ internal static class TaskExtentions
         }
     }
 
+    /// <inheritdoc cref="GetAwaiter{T1,T2}" />
     public static TaskAwaiter<(T1, T2, T3)> GetAwaiter<T1, T2, T3>(
         this (Task<T1>, Task<T2>, Task<T3>) taskTuple)
     {
@@ -28,6 +40,7 @@ internal static class TaskExtentions
         }
     }
 
+    /// <inheritdoc cref="GetAwaiter{T1,T2}" />
     public static TaskAwaiter<(T1, T2, T3, T4)> GetAwaiter<T1, T2, T3, T4>(
         this (Task<T1>, Task<T2>, Task<T3>, Task<T4>) taskTuple)
     {
@@ -40,6 +53,7 @@ internal static class TaskExtentions
         }
     }
 
+    /// <inheritdoc cref="GetAwaiter{T1,T2}" />
     public static TaskAwaiter<(T1, T2, T3, T4, T5)> GetAwaiter<T1, T2, T3, T4, T5>(
         this (Task<T1>, Task<T2>, Task<T3>, Task<T4>, Task<T5>) taskTuple)
     {
@@ -52,6 +66,7 @@ internal static class TaskExtentions
         }
     }
 
+    /// <inheritdoc cref="GetAwaiter{T1,T2}" />
     public static TaskAwaiter<(T1, T2, T3, T4, T5, T6)> GetAwaiter<T1, T2, T3, T4, T5, T6>(
         this (Task<T1>, Task<T2>, Task<T3>, Task<T4>, Task<T5>, Task<T6>) taskTuple)
     {
@@ -64,6 +79,7 @@ internal static class TaskExtentions
         }
     }
 
+    /// <inheritdoc cref="GetAwaiter{T1,T2}" />
     public static TaskAwaiter<(T1, T2, T3, T4, T5, T6, T7)> GetAwaiter<T1, T2, T3, T4, T5, T6, T7>(
         this (Task<T1>, Task<T2>, Task<T3>, Task<T4>, Task<T5>, Task<T6>, Task<T7>) taskTuple)
     {
@@ -76,6 +92,7 @@ internal static class TaskExtentions
         }
     }
 
+    /// <inheritdoc cref="GetAwaiter{T1,T2}" />
     public static TaskAwaiter<(T1, T2, T3, T4, T5, T6, T7, T8)> GetAwaiter<T1, T2, T3, T4, T5, T6, T7, T8>(
         this (Task<T1>, Task<T2>, Task<T3>, Task<T4>, Task<T5>, Task<T6>, Task<T7>, Task<T8>) taskTuple)
     {
@@ -89,6 +106,7 @@ internal static class TaskExtentions
         }
     }
 
+    /// <inheritdoc cref="GetAwaiter{T1,T2}" />
     public static TaskAwaiter<(T1, T2, T3, T4, T5, T6, T7, T8, T9)> GetAwaiter<T1, T2, T3, T4, T5, T6, T7, T8, T9>(
         this (Task<T1>, Task<T2>, Task<T3>, Task<T4>, Task<T5>, Task<T6>, Task<T7>, Task<T8>, Task<T9>) taskTuple)
     {
@@ -102,16 +120,31 @@ internal static class TaskExtentions
         }
     }
 
+    /// <summary>
+    /// Exposes the internal AggregateException if there is more than one exception from running parallell tasks.
+    /// Usage: Task.WhenAll(...).WithAggregatedExceptions();
+    ///
+    /// If one task throws an Exception, the Task will simply throw that exception
+    /// If multiple tasks throws different exceptions, the Task will throw an AggregateException where the:
+    /// - InnerException will be the leftmost errored task in the arguments supplied to WhenAll
+    /// - InnerExceptions will contain all exceptions in the same order as the arguments to WhenAll
+    ///
+    /// Advantages:
+    /// - All exceptions can be logged as part of the AggregateException
+    /// - Enable more specific retry-policies
+    ///
+    /// </summary>
+    /// <param name="this"></param>
+    /// <returns></returns>
     public static Task WithAggregatedExceptions(this Task @this)
     {
         return @this
             .ContinueWith(
-                continuationFunction: anteTask =>
-                    anteTask is { IsFaulted: true, Exception: not null } &&
-                    (anteTask.Exception.InnerExceptions.Count > 1
-                     || anteTask.Exception.InnerException is AggregateException)
-                        ? Task.FromException(anteTask.Exception.Flatten())
-                        : anteTask,
+                continuationFunction: anteTask => anteTask is { IsFaulted: true, Exception: not null } &&
+                                                  (anteTask.Exception.InnerExceptions.Count > 1
+                                                   || anteTask.Exception.InnerException is AggregateException)
+                    ? Task.FromException(anteTask.Exception.Flatten())
+                    : anteTask,
                 cancellationToken: CancellationToken.None,
                 TaskContinuationOptions.ExecuteSynchronously,
                 scheduler: TaskScheduler.Default)
