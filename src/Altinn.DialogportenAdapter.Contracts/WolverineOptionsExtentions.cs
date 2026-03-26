@@ -25,18 +25,17 @@ public static class WolverineOptionsExtentions
             var transport = opts.Transports.GetOrCreate<AzureServiceBusTransport>();
             transport.ManagementConnectionString = managementConnectionString;
         }
+
         var azureBusConfig = opts
             .UseAzureServiceBus(azureServiceBusConnectionString)
-            .ConfigureSenders(s =>
+            .ConfigureListeners(listener => listener.UseInterop((_, mapper) =>
             {
-                s.CustomizeOutgoingMessagesOfType<SyncInstanceCommand>((envelope, _) =>
-                {
-                    // Duplication detection is enabled, which will cause retries within
-                    // the duplication detection window to be silently discarded. Always
-                    // setting a fresh id for the envelope circumvents this.
-                    envelope.Id = Guid.NewGuid();
-                });
-            })
+                // Duplication detection is enabled, which will cause retries within
+                // the duplication detection window to be silently discarded. Always
+                // setting a fresh id for the envelope circumvents this.
+                mapper.MapOutgoingProperty(x => x.Id,
+                    (_, message) => message.MessageId = Guid.NewGuid().ToString("N"));
+            }))
             .AutoProvision();
 
         if (env.IsDevelopment())
