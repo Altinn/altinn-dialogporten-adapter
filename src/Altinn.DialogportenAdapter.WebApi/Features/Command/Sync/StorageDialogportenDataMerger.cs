@@ -80,6 +80,13 @@ internal sealed class StorageDialogportenDataMerger
                 ? []
                 : storageDialog.Transmissions;
 
+            if (syncAdapterSettings.DisableMarkCompletedWhenConfirmed)
+            {
+                if (storageDialog.Status == DialogStatus.Completed)
+                {
+                    storageDialog.Status = DialogStatus.Awaiting;
+                }
+            }
             storageDialog.Status = syncAdapterSettings.DisableSyncStatus
                 ? DialogStatus.NotApplicable
                 : storageDialog.Status;
@@ -158,9 +165,9 @@ internal sealed class StorageDialogportenDataMerger
             : SystemLabel.Default;
 
         var (party, activities) = await (
-            GetPartyUrnOrThrow(dto.Instance.InstanceOwner.PartyId, cancellationToken),
-            _activityDtoTransformer.GetActivities(dto.Events, dto.Instance.InstanceOwner, cancellationToken)
-        );
+                GetPartyUrnOrThrow(dto.Instance.InstanceOwner.PartyId, cancellationToken),
+                _activityDtoTransformer.GetActivities(dto.Events, dto.Instance.InstanceOwner, cancellationToken)
+            );
 
         var (attachments, transmissions) = GetAttachmentAndTransmissions(dto, activities);
 
@@ -288,9 +295,11 @@ internal sealed class StorageDialogportenDataMerger
 
         bool IsPerformedBySo(DataElement element) => element.LastChangedBy.Length == 9;
         bool IsNotPdfReceipt(DataElement element) => element.DataType != PdfType;
+
         bool TransmissionsDisabled() => dto.Application.GetSyncAdapterSettings().DisableAddTransmissions ||
-                                        !_settings.DialogportenAdapter.Adapter.FeatureFlag
-                                            .EnableSubmissionTransmissions;
+            !_settings.DialogportenAdapter.Adapter.FeatureFlag
+                .EnableSubmissionTransmissions;
+
         AttachmentDto CreateAttachmentDto(DataElement element)
         {
             var consumerType = attachmentVisibility.GetConsumerType(element);
@@ -317,6 +326,7 @@ internal sealed class StorageDialogportenDataMerger
                 ]
             };
         }
+
         TransmissionAttachmentDto CreateTransmissionAttachmentDto(DataElement element, Guid transmissionId)
         {
             var consumerType = attachmentVisibility.GetConsumerType(element);
@@ -344,6 +354,7 @@ internal sealed class StorageDialogportenDataMerger
                 ]
             };
         }
+
         TransmissionDto ToTransmissionDto(ActivityDto activityDto, int index)
         {
             // A2 Instances cant have more than 1 submission
@@ -663,15 +674,15 @@ internal sealed class StorageDialogportenDataMerger
         {
             var url = instanceDerivedStatus is InstanceDerivedStatus.ArchivedConfirmed or InstanceDerivedStatus.ArchivedUnconfirmed
                 ? _settings.DialogportenAdapter.Altinn
-                      .GetPlatformUri()
-                      .ToString()
-                      .TrimEnd('/')
-                  + $"/receipt/{instance.Id}"
+                    .GetPlatformUri()
+                    .ToString()
+                    .TrimEnd('/')
+              + $"/receipt/{instance.Id}"
                 : _settings.DialogportenAdapter.Altinn
-                      .GetAppUriForOrg(instance.Org, instance.AppId)
-                      .ToString()
-                      .TrimEnd('/')
-                  + $"/#/instance/{instance.Id}";
+                    .GetAppUriForOrg(instance.Org, instance.AppId)
+                    .ToString()
+                    .TrimEnd('/')
+              + $"/#/instance/{instance.Id}";
             return ToPortalUri(url);
         }
     }
