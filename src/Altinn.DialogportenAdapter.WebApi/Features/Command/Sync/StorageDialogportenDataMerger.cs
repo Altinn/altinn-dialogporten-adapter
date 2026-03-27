@@ -80,13 +80,13 @@ internal sealed class StorageDialogportenDataMerger
                 ? []
                 : storageDialog.Transmissions;
 
-            if (syncAdapterSettings.DisableMarkCompletedWhenConfirmed)
+            if (syncAdapterSettings.DisableMarkCompletedWhenConfirmed
+             && storageDialog.Status == DialogStatus.Completed
+             && GetStatus(dto.Instance, dto.Events).Item1 == InstanceDerivedStatus.ArchivedConfirmed)
             {
-                if (storageDialog.Status == DialogStatus.Completed)
-                {
-                    storageDialog.Status = DialogStatus.Awaiting;
-                }
+                storageDialog.Status = DialogStatus.Awaiting;
             }
+
             storageDialog.Status = syncAdapterSettings.DisableSyncStatus
                 ? DialogStatus.NotApplicable
                 : storageDialog.Status;
@@ -107,6 +107,14 @@ internal sealed class StorageDialogportenDataMerger
         existing.DueAt = syncAdapterSettings.DisableSyncDueAt
             ? existing.DueAt
             : storageDialog.DueAt;
+
+        if (syncAdapterSettings.DisableMarkCompletedWhenConfirmed
+         && existing.Status != DialogStatus.Completed
+         && storageDialog.Status == DialogStatus.Completed
+         && GetStatus(dto.Instance, dto.Events).Item1 == InstanceDerivedStatus.ArchivedConfirmed)
+        {
+            storageDialog.Status = DialogStatus.Awaiting;
+        }
 
         existing.Status = syncAdapterSettings.DisableSyncStatus
             ? existing.Status
