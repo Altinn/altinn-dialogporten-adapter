@@ -674,15 +674,15 @@ internal sealed class StorageDialogportenDataMerger
         {
             var url = instanceDerivedStatus is InstanceDerivedStatus.ArchivedConfirmed or InstanceDerivedStatus.ArchivedUnconfirmed
                 ? _settings.DialogportenAdapter.Altinn
-                    .GetPlatformUri()
-                    .ToString()
-                    .TrimEnd('/')
-              + $"/receipt/{instance.Id}"
+                        .GetPlatformUri()
+                        .ToString()
+                        .TrimEnd('/')
+                    + $"/receipt/{instance.Id}"
                 : _settings.DialogportenAdapter.Altinn
-                    .GetAppUriForOrg(instance.Org, instance.AppId)
-                    .ToString()
-                    .TrimEnd('/')
-              + $"/#/instance/{instance.Id}";
+                        .GetAppUriForOrg(instance.Org, instance.AppId)
+                        .ToString()
+                        .TrimEnd('/')
+                + $"/#/instance/{instance.Id}";
             return ToPortalUri(url);
         }
     }
