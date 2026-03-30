@@ -1,0 +1,43 @@
+name: "microsoft-azure-servicebus-emulator"
+services:
+  emulator:
+    container_name: "servicebus-emulator"
+    platform: linux/amd64
+    image: "mcr.microsoft.com/azure-messaging/servicebus-emulator@sha256:a00c9626c8960f6b9be6178aa91a7ac8f1a102c0d9deda7603a1ba0ac9d9ab51"
+    pull_policy: "always"
+    ports:
+      - "5672:5672"
+      - "5300:5300"
+    environment:
+      SQL_SERVER: "mssql"
+      MSSQL_SA_PASSWORD: "password123456!"
+      ACCEPT_EULA: "Y"
+      EMULATOR_HTTP_PORT: 5300
+      SQL_WAIT_INTERVAL: 0
+    depends_on:
+      "mssql": { condition: service_healthy }
+    networks:
+      sb-emulator:
+        aliases:
+          - "sb-emulator"
+  mssql:
+    container_name: "mssql"
+    platform: linux/amd64
+    image: "mcr.microsoft.com/mssql/server@sha256:ca62ad2d75975074cbc9ac39a1329cd88af9cd3ea2ffb59d6302579a97cf32f4"
+    ports:
+      - "1433:1433"
+    networks:
+      sb-emulator:
+        aliases:
+          - "mssql"
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "password123456!"
+    healthcheck:
+      test: [ "CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'password123456!' -Q 'SELECT 1' -C || exit 1" ]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+
+networks:
+  sb-emulator:
