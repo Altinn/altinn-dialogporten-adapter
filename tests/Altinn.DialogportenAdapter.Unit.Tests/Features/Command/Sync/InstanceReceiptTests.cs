@@ -5,6 +5,7 @@ using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Altinn.Platform.Storage.Interface.Models;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Refit;
 
@@ -208,8 +209,10 @@ public class InstanceReceiptTests
         altinnOrgs ??= Substitute.For<IAltinnOrgs>();
         registerApi ??= Substitute.For<IRegisterApi>();
 
+        ILogger<InstanceReceipt> logger = Substitute.For<ILogger<InstanceReceipt>>();
+
         return (
-            new InstanceReceipt(storageApi, applicationRepository, dialogApi, altinnOrgs, registerApi),
+            new InstanceReceipt(storageApi, applicationRepository, dialogApi, altinnOrgs, registerApi, logger),
             storageApi,
             applicationRepository,
             dialogApi,

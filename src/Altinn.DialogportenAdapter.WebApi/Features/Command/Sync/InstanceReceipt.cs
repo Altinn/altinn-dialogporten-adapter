@@ -23,12 +23,13 @@ public abstract record GetReceiptResponse
     public sealed record InvalidLanguageCode : GetReceiptResponse;
 }
 
-internal sealed class InstanceReceipt(
+internal sealed partial class InstanceReceipt(
     IStorageApi storageApi,
     IApplicationRepository applicationRepository,
     IDialogportenApi dialogportenApi,
     IAltinnOrgs altinnOrgs,
-    IRegisterApi registerApi
+    IRegisterApi registerApi,
+    ILogger<InstanceReceipt> logger
     )
 {
     private readonly IStorageApi _storageApi = storageApi ?? throw new ArgumentNullException(nameof(storageApi));
@@ -36,11 +37,15 @@ internal sealed class InstanceReceipt(
     private readonly IDialogportenApi _dialogportenApi = dialogportenApi ?? throw new ArgumentNullException(nameof(dialogportenApi));
     private readonly IAltinnOrgs _altinnOrgs = altinnOrgs ?? throw new ArgumentNullException(nameof(altinnOrgs));
     private readonly IRegisterApi _registerApi = registerApi ?? throw new ArgumentNullException(nameof(registerApi));
+    private readonly ILogger<InstanceReceipt> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
     private const string DefaultLanguageCode = "nb";
     private const string InstanceReceiptSummaryKey = "receipt-transmission-summary";
 
     private static readonly List<string> LanguageCodes = ["nb", "nn", "en"];
+
+    [LoggerMessage(LogLevel.Error, "Unhandled error occured: {Message}")]
+    private partial void LogReceiptError(string message);
 
     public static string GetSupportedLanguageCodes() => string.Join(", ", LanguageCodes);
 
@@ -53,7 +58,10 @@ internal sealed class InstanceReceipt(
         if (dialog is null)
             return new GetReceiptResponse.NotFound();
 
-        if (!TryParseStorageUrn(dialog.ServiceOwnerContext?.ServiceOwnerLabels.FirstOrDefault()?.Value,
+        if (dialog.ServiceOwnerContext?.ServiceOwnerLabels.Count != 1)
+            throw new InvalidOperationException("ServiceOwnerContext should contain only one ServiceOwnerLabel");
+
+        if (!TryParseStorageUrn(dialog.ServiceOwnerContext.ServiceOwnerLabels[0].Value,
                 out string? partyId, out var instanceGuid))
             return new GetReceiptResponse.NotFound();
 
@@ -64,7 +72,10 @@ internal sealed class InstanceReceipt(
 
         var application = await _applicationRepository.GetApplication(instance.AppId, cancellationToken);
         if (application is null)
+        {
+            LogReceiptError($"Application {instance.AppId} does not exist");
             return new GetReceiptResponse.NotFound();
+        }
 
         var transmission = dialog.Transmissions.FirstOrDefault(x => x.Id == request.TransmissionId);
         if (transmission is null)
@@ -87,9 +98,8 @@ internal sealed class InstanceReceipt(
         var summary = await GetReceiptSummary(instance, application.VersionId, langCode, cancellationToken);
         var receipt =
             $"""
-             | | |
-             |---|---|
-             | **{GetFieldText(langCode, FieldTexts.DateSent)}:** | {createdAt} |
+             | **{GetFieldText(langCode, FieldTexts.DateSent)}:** | **{createdAt}** |
+             |:-|:-|
              | **{GetFieldText(langCode, FieldTexts.Sender)}:** | {sender} |
              | **{GetFieldText(langCode, FieldTexts.Receiver)}:** | {receiver} |
              | **{GetFieldText(langCode, FieldTexts.ReferenceNumber)}:** | {referenceNumber} |

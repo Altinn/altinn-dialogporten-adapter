@@ -6,6 +6,7 @@ using Altinn.DialogportenAdapter.WebApi;
 using AwesomeAssertions;
 using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using ZiggyCreatures.Caching.Fusion;
@@ -15,9 +16,11 @@ namespace Altinn.DialogportenAdapter.Unit.Tests.Infrastructure.Register;
 public class AltinnOrgsTests
 {
     private readonly IOptionsSnapshot<Settings> _settings;
+    private ILogger<AltinnOrgs> _logger;
 
     public AltinnOrgsTests()
     {
+        _logger = Substitute.For<ILogger<AltinnOrgs>>();
         _settings = Substitute.For<IOptionsSnapshot<Settings>>();
         _settings.Value.Returns(new Settings
         {
@@ -165,21 +168,23 @@ public class AltinnOrgsTests
     }
 
     [Fact]
-    public async Task GetAltinnOrgs_HttpFailure_ThrowsHttpRequestException()
+    public async Task GetAltinnOrgs_HttpFailure_CatchExceptionAndReturnsNull()
     {
         var handler = new StubHttpMessageHandler((_, _) =>
             new HttpResponseMessage(HttpStatusCode.InternalServerError));
 
         var sut = CreateSut(handler);
 
-        await Assert.ThrowsAsync<HttpRequestException>(() => sut.GetAltinnOrgs(CancellationToken.None));
+        var result = await sut.GetAltinnOrgs(CancellationToken.None);
+        Assert.Null(result);
     }
 
     [Fact]
     public void GetAltinnOrgs_NullCache_ThrowsArgumentNullException()
     {
         var clientFactory = Substitute.For<IHttpClientFactory>();
-        var ex = Assert.Throws<ArgumentNullException>(()  => new AltinnOrgs(null!, clientFactory, _settings));
+
+        var ex = Assert.Throws<ArgumentNullException>(()  => new AltinnOrgs(null!, clientFactory, _settings, _logger));
         Assert.Equal("cache", ex.ParamName);
     }
 
@@ -187,7 +192,7 @@ public class AltinnOrgsTests
     public void GetAltinnOrgs_NullClientFactory_ThrowsArgumentNullException()
     {
         var cache = new FusionCache(new FusionCacheOptions());
-        var ex = Assert.Throws<ArgumentNullException>(()  => new AltinnOrgs(cache, null!, _settings));
+        var ex = Assert.Throws<ArgumentNullException>(()  => new AltinnOrgs(cache, null!, _settings, _logger));
         Assert.Equal("clientFactory", ex.ParamName);
     }
 
@@ -197,7 +202,7 @@ public class AltinnOrgsTests
         var emptySettings = Substitute.For<IOptionsSnapshot<Settings>>();
         var cache = new FusionCache(new FusionCacheOptions());
         var clientFactory = Substitute.For<IHttpClientFactory>();
-        var ex = Assert.Throws<ArgumentNullException>(()  => new AltinnOrgs(cache, clientFactory, emptySettings));
+        var ex = Assert.Throws<ArgumentNullException>(()  => new AltinnOrgs(cache, clientFactory, emptySettings, _logger));
         Assert.Equal("settings", ex.ParamName);
     }
 
@@ -209,7 +214,7 @@ public class AltinnOrgsTests
             .CreateClient(Constants.AltinnOrgsClient)
             .Returns(httpClient);
 
-        return new AltinnOrgs(new FusionCache(new FusionCacheOptions()), clientFactory, _settings);
+        return new AltinnOrgs(new FusionCache(new FusionCacheOptions()), clientFactory, _settings, _logger);
     }
 
     private sealed class StubHttpMessageHandler(

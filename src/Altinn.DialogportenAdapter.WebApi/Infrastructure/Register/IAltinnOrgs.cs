@@ -27,17 +27,34 @@ internal interface IAltinnOrgs
     Task<AltinnOrgData?> GetAltinnOrgs(CancellationToken cancellationToken);
 }
 
-internal sealed class AltinnOrgs(IFusionCache cache, IHttpClientFactory clientFactory, IOptionsSnapshot<Settings> settings) : IAltinnOrgs
+internal sealed partial class AltinnOrgs(
+    IFusionCache cache,
+    IHttpClientFactory clientFactory,
+    IOptionsSnapshot<Settings> settings,
+    ILogger<AltinnOrgs> logger) : IAltinnOrgs
 {
     private readonly IHttpClientFactory _clientFactory = clientFactory ?? throw new ArgumentNullException(nameof(clientFactory));
     private readonly IFusionCache _cache = cache ?? throw new ArgumentNullException(nameof(cache));
     private readonly Settings _settings = settings.Value ?? throw new ArgumentNullException(nameof(settings));
 
-    public Task<AltinnOrgData?> GetAltinnOrgs(CancellationToken cancellationToken) =>
-        _cache.GetOrSetAsync(
-            key: nameof(AltinnOrgData),
-            factory: FetchAltinnOrgData,
-            token: cancellationToken).AsTask();
+    [LoggerMessage(LogLevel.Warning, "Error occured: {errorMessage}")]
+    private partial void LogAltinnOrgsWarning(string errorMessage);
+
+    public async Task<AltinnOrgData?> GetAltinnOrgs(CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _cache.GetOrSetAsync(
+                key: nameof(AltinnOrgData),
+                factory: FetchAltinnOrgData,
+                token: cancellationToken).AsTask();
+        }
+        catch (Exception)
+        {
+            LogAltinnOrgsWarning("Failed to get AltinnOrgs from server. Using cached");
+            return null;
+        }
+    }
 
     private async Task<AltinnOrgData?> FetchAltinnOrgData(CancellationToken ct) =>
         await _clientFactory.CreateClient(Constants.AltinnOrgsClient)
