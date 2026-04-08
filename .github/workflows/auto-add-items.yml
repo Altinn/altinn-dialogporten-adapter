@@ -6,6 +6,8 @@ on:
   pull_request:
     types: [opened, reopened, labeled]
 
+permissions: {}
+
 jobs:
   add-to-project:
     name: Add issue to project

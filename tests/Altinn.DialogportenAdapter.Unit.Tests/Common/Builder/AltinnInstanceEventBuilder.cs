@@ -1,3 +1,4 @@
+using Altinn.DialogportenAdapter.Unit.Tests.Common.Extensions;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 

@@ -2,6 +2,7 @@ using Altinn.ApiClients.Maskinporten.Config;
 using Altinn.DialogportenAdapter.Unit.Tests.Common.AssertHelpers;
 using Altinn.DialogportenAdapter.Unit.Tests.Common.Builder;
 using Altinn.DialogportenAdapter.WebApi;
+using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
@@ -48,7 +49,7 @@ public class StorageDialogportenDataMergerTest
                 ),
                 Authentication: new AuthenticationSettings(JwtBearerWellKnown: "http://well.known.localhost")
             ),
-            WolverineSettings = new WolverineSettings("http://service.bus.localhost", 0)
+            WolverineSettings = new WolverineSettings("http://service.bus.localhost", null, 0)
         });
 
         _registerRepositoryMock.GetActorUrnByPartyId(Arg.Any<IEnumerable<string>>(), Arg.Any<CancellationToken>())
@@ -296,7 +297,7 @@ public class StorageDialogportenDataMergerTest
 
 
     [Fact(DisplayName =
-        "Given a localized Substatus, Substatus should be truncated and mapped to ExtendedStatus in all languages")]
+        "Given a localized Substatus, Substatus label should be truncated and mapped to ExtendedStatus and Substatus Description should be mapped to Summary in all languages")]
     public async Task Merge_LocalizedSubstatus_MapsAllLanguagesToExtendedStatus()
     {
         var mergeDto = new MergeDto(
@@ -313,7 +314,7 @@ public class StorageDialogportenDataMergerTest
                             { "substatus.label", "Registrering av tiltak, og litt for lang tekst" },
                             {
                                 "substatus.description",
-                                "øke sikkerheten og beredskapen i den digitale grunnmuren i sårbare kommuner og regioner gjennom målrettede tilskudd"
+                                new string('a', 256)
                             },
                         },
                     },
@@ -325,7 +326,7 @@ public class StorageDialogportenDataMergerTest
                             { "substatus.label", "Registrering av tiltak nn" },
                             {
                                 "substatus.description",
-                                "Auke tryggleiken og beredskapen i den digitale grunnmuren i sårbare kommunar og regionar gjennom målretta tilskot"
+                                "Auke tryggleiken og beredskapen i den digitale grunnmuren"
                             },
                         },
                     },
@@ -337,7 +338,7 @@ public class StorageDialogportenDataMergerTest
                             { "substatus.label", "Registration of measures" },
                             {
                                 "substatus.description",
-                                "Increase security and preparedness in the digital infrastructure in vulnerable municipalities and regions through targeted grants"
+                                "Increase security and preparedness in the digital infrastructure"
                             },
                         }
                     },
@@ -365,6 +366,7 @@ public class StorageDialogportenDataMergerTest
                 Substatus = new Substatus
                 {
                     Label = "substatus.label",
+                    Description = "substatus.description",
                 }
             }).Build(),
             ExistingDialog: null,
@@ -394,7 +396,27 @@ public class StorageDialogportenDataMergerTest
             ServiceOwnerContext = Regulars.ServiceOwnerContexts.DefaultContext,
             Content = new ContentDto
             {
-                Summary = Regulars.Content.ReadyForSubmission.Summary,
+                Summary = new ContentValueDto
+                {
+                    Value = [
+                        new LocalizationDto
+                        {
+                            LanguageCode = "nb",
+                            Value = new string('a', 252) + "..."
+                        },
+                        new LocalizationDto
+                        {
+                            LanguageCode = "nn",
+                            Value = "Auke tryggleiken og beredskapen i den digitale grunnmuren"
+                        },
+                        new LocalizationDto
+                        {
+                            LanguageCode = "en",
+                            Value = "Increase security and preparedness in the digital infrastructure"
+                        }
+                    ],
+                    MediaType = MediaTypes.PlainText
+                },
                 Title = Regulars.Content.ReadyForSubmission.Title,
                 ExtendedStatus = new ContentValueDto
                 {
@@ -404,7 +426,7 @@ public class StorageDialogportenDataMergerTest
                         new LocalizationDto { LanguageCode = "nn", Value = "Registrering av tiltak nn" },
                         new LocalizationDto { LanguageCode = "en", Value = "Registration of measures" }
                     ],
-                    MediaType = "text/plain"
+                    MediaType = MediaTypes.PlainText
                 },
             },
             SearchTags = [],
@@ -422,7 +444,7 @@ public class StorageDialogportenDataMergerTest
     }
 
     [Fact(DisplayName =
-        "Given a non-localized Substatus, Substatus should be truncated and mapped to Extendedstatus in NB")]
+        "Given a non-localized Substatus, Substatus label should be truncated and mapped to Extendedstatus in NB and Substatus description should be mapped to Summary")]
     public async Task Merge_SubstatusWithText_AssumesNorwegian()
     {
         var mergeDto = new MergeDto(
@@ -440,6 +462,7 @@ public class StorageDialogportenDataMergerTest
                     Substatus = new Substatus
                     {
                         Label = "En substatus som vi antar er på norsk og litt for lang",
+                        Description = "En substatus description som vi antar er på norsk"
                     }
                 })
                 .Build(),
@@ -471,7 +494,18 @@ public class StorageDialogportenDataMergerTest
             ServiceOwnerContext = Regulars.ServiceOwnerContexts.DefaultContext,
             Content = new ContentDto
             {
-                Summary = Regulars.Content.ReadyForSubmission.Summary,
+                Summary = new ContentValueDto
+                {
+                    Value =
+                    [
+                        new LocalizationDto
+                        {
+                            Value = "En substatus description som vi antar er på norsk",
+                            LanguageCode = "nb"
+                        }
+                    ],
+                    MediaType = MediaTypes.PlainText
+                },
                 Title = Regulars.Content.ReadyForSubmission.Title,
                 ExtendedStatus = new ContentValueDto
                 {
@@ -479,7 +513,7 @@ public class StorageDialogportenDataMergerTest
                     [
                         new LocalizationDto { LanguageCode = "nb", Value = "En substatus som vi an..." },
                     ],
-                    MediaType = "text/plain"
+                    MediaType = MediaTypes.PlainText
                 },
             },
             SearchTags = [],
@@ -2124,7 +2158,7 @@ public class StorageDialogportenDataMergerTest
                                 new LocalizationDto { Value = "Innsending #1", LanguageCode = "nn" },
                                 new LocalizationDto { Value = "Submission #1", LanguageCode = "en" }
                             ],
-                            MediaType = "text/plain"
+                            MediaType = MediaTypes.PlainText
                         },
                         Summary = null!,
                         ContentReference = null
@@ -2180,7 +2214,7 @@ public class StorageDialogportenDataMergerTest
                                 new LocalizationDto { Value = "Innsending #2", LanguageCode = "nn" },
                                 new LocalizationDto { Value = "Submission #2", LanguageCode = "en" }
                             ],
-                            MediaType = "text/plain"
+                            MediaType = MediaTypes.PlainText
                         },
                         Summary = null!,
                         ContentReference = null

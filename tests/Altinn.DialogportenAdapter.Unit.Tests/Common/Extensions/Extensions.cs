@@ -1,7 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 
-namespace Altinn.DialogportenAdapter.Unit.Tests.Common;
+namespace Altinn.DialogportenAdapter.Unit.Tests.Common.Extensions;
 
 public static class Extensions
 {

@@ -156,10 +156,11 @@ internal sealed class StorageDialogportenDataMerger
         var systemLabel = dto.Instance.Status.IsArchived && dto.IsMigration
             ? SystemLabel.Archive
             : SystemLabel.Default;
+
         var (party, activities) = await (
-                GetPartyUrn(dto.Instance.InstanceOwner.PartyId, cancellationToken),
-                _activityDtoTransformer.GetActivities(dto.Events, dto.Instance.InstanceOwner, cancellationToken)
-            );
+            GetPartyUrnOrThrow(dto.Instance.InstanceOwner.PartyId, cancellationToken),
+            _activityDtoTransformer.GetActivities(dto.Events, dto.Instance.InstanceOwner, cancellationToken)
+        );
 
         var (attachments, transmissions) = GetAttachmentAndTransmissions(dto, activities);
 
@@ -235,22 +236,15 @@ internal sealed class StorageDialogportenDataMerger
 
         if (string.IsNullOrWhiteSpace(label)) return null;
 
-        var labelLocalized = dto.ApplicationTexts
-            .Translations
-            .Where(t => t.Texts.TryGetValue(label, out var text) && !string.IsNullOrWhiteSpace(text))
-            .Select(t => new LocalizationDto
-            {
-                LanguageCode = t.Language,
-                Value = t.Texts[label].AsSpan().TruncateEllipsis(Constants.ExtendedStatusMaxStringLength)
-            })
-            .DefaultIfEmpty(new LocalizationDto
-            {
-                LanguageCode = "nb",
-                Value = label.AsSpan().TruncateEllipsis(Constants.ExtendedStatusMaxStringLength)
-            })
-            .ToList();
-
-        return new ContentValueDto { Value = labelLocalized, MediaType = MediaTypes.PlainText };
+        return new ContentValueDto
+        {
+            Value = ApplicationTextParser.GetLocalizationsFromString(
+                label,
+                dto.ApplicationTexts,
+                Constants.ExtendedStatusMaxStringLength
+            ),
+            MediaType = MediaTypes.PlainText
+        };
     }
 
     private (List<AttachmentDto> attachments, List<TransmissionDto> transmissions) GetAttachmentAndTransmissions(
@@ -383,13 +377,13 @@ internal sealed class StorageDialogportenDataMerger
         }
     }
 
-    private async Task<string> GetPartyUrn(string partyId, CancellationToken cancellationToken)
+    private async Task<string> GetPartyUrnOrThrow(string partyId, CancellationToken cancellationToken)
     {
         var response = await _registerRepository.GetActorUrnByPartyId([partyId], cancellationToken);
 
-        return !response.TryGetValue(partyId, out var actorUrn)
-            ? throw new PartyNotFoundException(partyId)
-            : actorUrn;
+        return response.TryGetValue(partyId, out var actorUrn)
+            ? actorUrn
+            : throw new PartyNotFoundException(partyId);
     }
 
     private static (InstanceDerivedStatus, DialogStatus) GetStatus(Instance instance, InstanceEventList events)
@@ -432,6 +426,13 @@ internal sealed class StorageDialogportenDataMerger
     }
     private static List<LocalizationDto> GetSummary(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
     {
+        var substatusDescription = instance.Status.Substatus?.Description;
+
+        if (!string.IsNullOrWhiteSpace(substatusDescription))
+        {
+            return ApplicationTextParser.GetLocalizationsFromString(substatusDescription, applicationTexts);
+        }
+
         var summary = ApplicationTextParser.GetLocalizationsFromApplicationTexts(nameof(DialogDto.Content.Summary), instance, applicationTexts, instanceDerivedStatus);
         return summary.Count > 0
             ? summary

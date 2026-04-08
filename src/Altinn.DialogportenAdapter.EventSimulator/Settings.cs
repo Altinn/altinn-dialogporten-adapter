@@ -8,7 +8,10 @@ public sealed record Settings(
     DialogportenAdapterSettings DialogportenAdapter,
     WolverineSettings WolverineSettings);
 
-public sealed record WolverineSettings(string ServiceBusConnectionString, int ListenerCount = 50);
+public sealed record WolverineSettings(
+    string ServiceBusConnectionString,
+    string? ManagementConnectionString = null,
+    int ListenerCount = 50);
 
 public sealed record DialogportenAdapterSettings(
     MaskinportenSettings Maskinporten,

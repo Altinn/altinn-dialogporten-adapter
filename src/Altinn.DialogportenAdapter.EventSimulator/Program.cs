@@ -51,8 +51,11 @@ static Task BuildAndRun(string[] args)
 
     builder.Services.AddWolverine(opts =>
     {
-        opts.ConfigureAdapterDefaults(builder.Environment,
-            settings.WolverineSettings.ServiceBusConnectionString);
+        opts.ConfigureAdapterDefaults(
+            builder.Environment,
+            settings.WolverineSettings.ServiceBusConnectionString,
+            settings.WolverineSettings.ManagementConnectionString
+        );
         opts.Policies.AllListeners(x => x
             .ListenerCount(settings.WolverineSettings.ListenerCount)
             .ProcessInline());

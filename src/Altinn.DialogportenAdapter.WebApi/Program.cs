@@ -1,3 +1,4 @@
+using System.Net;
 using Altinn.ApiClients.Dialogporten;
 using Altinn.ApiClients.Maskinporten.Extensions;
 using Altinn.ApiClients.Maskinporten.Services;
@@ -20,7 +21,6 @@ using Microsoft.IdentityModel.Tokens;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Refit;
-using System.Net;
 using Wolverine;
 using Wolverine.AzureServiceBus;
 using Wolverine.ErrorHandling;
@@ -80,8 +80,11 @@ static void BuildAndRun(string[] args)
 
     builder.Services.AddWolverine(opts =>
     {
-        opts.ConfigureAdapterDefaults(builder.Environment,
-            settings.WolverineSettings.ServiceBusConnectionString);
+        opts.ConfigureAdapterDefaults(
+            builder.Environment,
+            settings.WolverineSettings.ServiceBusConnectionString,
+            settings.WolverineSettings.ManagementConnectionString
+        );
         opts.Policies.AllListeners(x => x
             .ProcessInline());
         opts.Policies.AllSenders(x => x.SendInline());
@@ -98,7 +101,7 @@ static void BuildAndRun(string[] args)
         // Handle 410, which we get when trying to DELETE an already deleted dialog. Just discard.
         opts.Policies
             .OnException<ApiException>(ex => ex.StatusCode is HttpStatusCode.Gone)
-            .OrInner<ApiException>(ex => ex.StatusCode is HttpStatusCode.Gone)
+            .OrAnyInner<ApiException>(ex => ex.StatusCode is HttpStatusCode.Gone)
             .CustomActionIndefinitely((_, lifetime, _) => lifetime.CompleteAsync(), "Discard indefinitely");
 
         // If the queue backlog grows faster than we can drain it (ie. due to downtime), two messages with the same
@@ -128,16 +131,18 @@ static void BuildAndRun(string[] args)
 
         // PartyNotFoundExceptions may happen due to desyncs between Altinn 2 and Altinn 3 register. Reschedule for a retry after a while,
         // eventually failing to error queue for manual inspection if the party is still not found.
+
         opts.Policies
             .OnException<PartyNotFoundException>()
-            .OrInner<PartyNotFoundException>()
-            .ScheduleRetry(1.Minutes(), 10.Minutes(), 30.Minutes())
+            .OrAnyInner<PartyNotFoundException>()
+            .RetryWithJitteredCooldown(1.Seconds(), 5.Seconds(), 20.Seconds())
+            .Then.ScheduleRetry(1.Minutes(), 10.Minutes(), 30.Minutes())
             .Then.MoveToErrorQueue();
 
         // Attempt to handle errors most likely caused by expired/invalid tokens. If retries don't help, move to error queue for manual inspection.
         opts.Policies
             .OnException<ApiException>(ex => ex.StatusCode is HttpStatusCode.Unauthorized)
-            .OrInner<ApiException>(ex => ex.StatusCode is HttpStatusCode.Unauthorized)
+            .OrAnyInner<ApiException>(ex => ex.StatusCode is HttpStatusCode.Unauthorized)
             .RetryWithJitteredCooldown(1.Seconds(), 3.Seconds(), 5.Seconds())
             .Then.MoveToErrorQueue();
 
@@ -146,7 +151,7 @@ static void BuildAndRun(string[] args)
         // transient, so handle this the same as 5xx errors.
         opts.Policies.OnException<HttpRequestException>()
             .Or<ApiException>(x => (int)x.StatusCode >= 500)
-            .OrInner<ApiException>(x => (int)x.StatusCode >= 500)
+            .OrAnyInner<ApiException>(x => (int)x.StatusCode >= 500)
             .Or<TaskCanceledException>()
             .RetryWithCooldown(10.Seconds(), 20.Seconds())
             .Then.ScheduleRetryIndefinitely(30.Seconds(), 60.Seconds(), 2.Minutes());
@@ -376,3 +381,4 @@ partial class Program
     [LoggerMessage(LogLevel.Critical, "Application terminated unexpectedly")]
     static partial void LogApplicationTerminatedUnexpectedly(ILogger<Program> logger, Exception exception);
 }
+

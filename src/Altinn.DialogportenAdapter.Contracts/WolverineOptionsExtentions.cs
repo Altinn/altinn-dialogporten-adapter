@@ -9,7 +9,8 @@ public static class WolverineOptionsExtentions
     public static WolverineOptions ConfigureAdapterDefaults(
         this WolverineOptions opts,
         IHostEnvironment env,
-        string azureServiceBusConnectionString)
+        string azureServiceBusConnectionString,
+        string? managementConnectionString = null)
     {
         ArgumentNullException.ThrowIfNull(opts);
         ArgumentNullException.ThrowIfNull(env);
@@ -19,8 +20,22 @@ public static class WolverineOptionsExtentions
         opts.EnableAutomaticFailureAcks = false;
         opts.EnableRemoteInvocation = false;
         opts.MultipleHandlerBehavior = MultipleHandlerBehavior.Separated;
+        if (!string.IsNullOrWhiteSpace(managementConnectionString))
+        {
+            var transport = opts.Transports.GetOrCreate<AzureServiceBusTransport>();
+            transport.ManagementConnectionString = managementConnectionString;
+        }
+
         var azureBusConfig = opts
             .UseAzureServiceBus(azureServiceBusConnectionString)
+            .ConfigureListeners(listener => listener.UseInterop((_, mapper) =>
+            {
+                // Duplication detection is enabled, which will cause retries within
+                // the duplication detection window to be silently discarded. Always
+                // setting a fresh id for the envelope circumvents this.
+                mapper.MapOutgoingProperty(x => x.Id,
+                    (_, message) => message.MessageId = Guid.NewGuid().ToString("N"));
+            }))
             .AutoProvision();
 
         if (env.IsDevelopment())
