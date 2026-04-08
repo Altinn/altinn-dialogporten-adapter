@@ -74,7 +74,7 @@ internal static class GuidExtensions
         public bool IsUuidV7WithTimestampInPast()
         {
             Span<byte> bytes = stackalloc byte[16];
-            if (!guid.TryWriteBytes(bytes, bigEndian: true, out var written) && written != 16)
+            if (!guid.TryWriteBytes(bytes, bigEndian: true, out var written) || written != 16)
             {
                 return false;
             }
