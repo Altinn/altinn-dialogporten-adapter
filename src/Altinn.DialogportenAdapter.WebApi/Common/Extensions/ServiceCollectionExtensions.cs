@@ -72,7 +72,6 @@ internal static class ServiceCollectionExtensions
 
             services.AddWolverine(opts =>
             {
-                opts.Discovery.IncludeType<SyncDialogOnInstanceUpdatedHandler>();
                 opts.ConfigureAdapterDefaults(
                     environment,
                     settings.WolverineSettings.ServiceBusConnectionString,
