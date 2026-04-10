@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging;
 using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
 using WireMock.Server;
-using Xunit.Internal;
 
 namespace Altinn.DialogportenAdapter.Integration.Tests.Common.Extensions;
 
@@ -60,6 +59,7 @@ public static partial class WireMockServerExtensions
                 })
                 .Select(x => x.RequestMessage)
                 .Where(x => x != null)
+                .ToList()
                 .ForEach(x => LogNoWiremockHandler(logger, serverName, x!.Method, x.Url));
 
             return server;

@@ -19,11 +19,11 @@ namespace Altinn.DialogportenAdapter.Integration.Tests.Common;
 
 public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication app) : IAsyncLifetime
 {
-    private ServiceBusReceiver AdapterHistoryQueueDlqReciever { get; set; } = null!;
+    private ServiceBusReceiver AdapterHistoryQueueDlqReceiver { get; set; } = null!;
 
     public ValueTask InitializeAsync()
     {
-        AdapterHistoryQueueDlqReciever = app.ServiceBusClient.CreateReceiver(
+        AdapterHistoryQueueDlqReceiver = app.ServiceBusClient.CreateReceiver(
             Constants.AdapterHistoryQueueName,
             new ServiceBusReceiverOptions
             {
@@ -43,7 +43,7 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         app.StorageApi.LogUnhandledRequests(app.App.Logger, "StorageApi").ResetAllExceptFallbackMapping();
 
         await DrainLeftoverMessages();
-        await AdapterHistoryQueueDlqReciever.DisposeAsync();
+        await AdapterHistoryQueueDlqReceiver.DisposeAsync();
 
         GC.SuppressFinalize(this);
     }
@@ -57,7 +57,7 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
     protected async Task<ServiceBusReceivedMessage?> WaitForDlqMessage(TimeSpan? timeoutSeconds = null)
     {
         var maxWaitTime = timeoutSeconds ?? TimeSpan.FromSeconds(5);
-        return await AdapterHistoryQueueDlqReciever.ReceiveMessageAsync(maxWaitTime);
+        return await AdapterHistoryQueueDlqReceiver.ReceiveMessageAsync(maxWaitTime);
     }
 
     protected Task<ILogEntry?> WaitForDialogPostedLogEntry(TimeSpan? timeout = null)
@@ -242,6 +242,6 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
     /// </summary>
     private async Task DrainLeftoverMessages()
     {
-        while (await AdapterHistoryQueueDlqReciever.ReceiveMessageAsync(TimeSpan.FromMilliseconds(200)) is not null) ;
+        while (await AdapterHistoryQueueDlqReceiver.ReceiveMessageAsync(TimeSpan.FromMilliseconds(200)) is not null) ;
     }
 }

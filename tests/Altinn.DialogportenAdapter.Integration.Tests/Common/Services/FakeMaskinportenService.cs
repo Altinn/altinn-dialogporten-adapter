@@ -19,8 +19,8 @@ public class FakeMaskinportenService : IMaskinportenService
         return Task.FromResult(new TokenResponse
         {
             AccessToken = "fake.token",
-            ExpiresIn = 0,
-            Scope = "null",
+            ExpiresIn = 3600,
+            Scope = "",
             TokenType = "bearer"
         });
     }
@@ -37,8 +37,8 @@ public class FakeMaskinportenService : IMaskinportenService
         return Task.FromResult(new TokenResponse
         {
             AccessToken = "fake.token",
-            ExpiresIn = 0,
-            Scope = "null",
+            ExpiresIn = 3600,
+            Scope = "",
             TokenType = "bearer"
         });
     }
@@ -55,8 +55,8 @@ public class FakeMaskinportenService : IMaskinportenService
         return Task.FromResult(new TokenResponse
         {
             AccessToken = "fake.token",
-            ExpiresIn = 0,
-            Scope = "null",
+            ExpiresIn = 3600,
+            Scope = "",
             TokenType = "bearer"
         });
     }
@@ -66,8 +66,8 @@ public class FakeMaskinportenService : IMaskinportenService
         return Task.FromResult(new TokenResponse
         {
             AccessToken = "fake.token",
-            ExpiresIn = 0,
-            Scope = "null",
+            ExpiresIn = 3600,
+            Scope = "",
             TokenType = "bearer"
         });
     }
@@ -83,8 +83,8 @@ public class FakeMaskinportenService : IMaskinportenService
         return Task.FromResult(new TokenResponse
         {
             AccessToken = "fake.token",
-            ExpiresIn = 0,
-            Scope = "null",
+            ExpiresIn = 3600,
+            Scope = "",
             TokenType = "bearer"
         });
     }

@@ -200,7 +200,7 @@ public class DialogportenAdapterTest(DialogportenAdapterApplication application)
     }
 
     [Fact(Timeout = 6000)]
-    public async Task GivenGetDialogDownRetryIndefinetly()
+    public async Task GivenGetDialogDownRetryIndefinitely()
     {
         // Arrange
         var arrangement = ArrangeDefaults();

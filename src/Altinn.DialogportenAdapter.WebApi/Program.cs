@@ -6,6 +6,7 @@ using Altinn.DialogportenAdapter.WebApi.Features.Command.Delete;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 using var loggerFactory = CreateBootstrapLoggerFactory();
 var bootstrapLogger = loggerFactory.CreateLogger<Program>();
@@ -48,7 +49,7 @@ static void BuildAndRun(string[] args)
 
     var baseRoute = app.MapGroup("storage/dialogporten");
     var v1Route = baseRoute.MapGroup("api/v1");
-    var settings = builder.Configuration.Get<Settings>()!;
+    var settings = app.Services.GetRequiredService<IOptions<Settings>>().Value;
 
     app.MapHealthChecks("/health")
         .AllowAnonymous();
