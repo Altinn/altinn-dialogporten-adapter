@@ -242,6 +242,10 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
     /// </summary>
     private async Task DrainLeftoverMessages()
     {
-        while (await AdapterHistoryQueueDlqReceiver.ReceiveMessageAsync(TimeSpan.FromMilliseconds(200)) is not null) ;
+        var timeoutAt = DateTimeOffset.UtcNow.AddSeconds(10);
+        while (DateTimeOffset.UtcNow < timeoutAt &&
+               await AdapterHistoryQueueDlqReceiver.ReceiveMessageAsync(TimeSpan.FromMilliseconds(200)) is not null)
+        {
+        }
     }
 }
