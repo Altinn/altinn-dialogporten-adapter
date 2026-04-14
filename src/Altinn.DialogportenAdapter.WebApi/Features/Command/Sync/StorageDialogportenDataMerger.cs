@@ -80,13 +80,6 @@ internal sealed class StorageDialogportenDataMerger
                 ? []
                 : storageDialog.Transmissions;
 
-            if (syncAdapterSettings.DisableMarkCompletedWhenConfirmed
-             && storageDialog.Status == DialogStatus.Completed
-             && GetStatus(dto.Instance, dto.Events).Item1 == InstanceDerivedStatus.ArchivedConfirmed)
-            {
-                storageDialog.Status = DialogStatus.Awaiting;
-            }
-
             storageDialog.Status = syncAdapterSettings.DisableSyncStatus
                 ? DialogStatus.NotApplicable
                 : storageDialog.Status;
@@ -107,14 +100,6 @@ internal sealed class StorageDialogportenDataMerger
         existing.DueAt = syncAdapterSettings.DisableSyncDueAt
             ? existing.DueAt
             : storageDialog.DueAt;
-
-        if (syncAdapterSettings.DisableMarkCompletedWhenConfirmed
-         && existing.Status != DialogStatus.Completed
-         && storageDialog.Status == DialogStatus.Completed
-         && GetStatus(dto.Instance, dto.Events).Item1 == InstanceDerivedStatus.ArchivedConfirmed)
-        {
-            storageDialog.Status = DialogStatus.Awaiting;
-        }
 
         existing.Status = syncAdapterSettings.DisableSyncStatus
             ? existing.Status
@@ -171,11 +156,10 @@ internal sealed class StorageDialogportenDataMerger
         var systemLabel = dto.Instance.Status.IsArchived && dto.IsMigration
             ? SystemLabel.Archive
             : SystemLabel.Default;
-
         var (party, activities) = await (
-            GetPartyUrnOrThrow(dto.Instance.InstanceOwner.PartyId, cancellationToken),
-            _activityDtoTransformer.GetActivities(dto.Events, dto.Instance.InstanceOwner, cancellationToken)
-        );
+                GetPartyUrn(dto.Instance.InstanceOwner.PartyId, cancellationToken),
+                _activityDtoTransformer.GetActivities(dto.Events, dto.Instance.InstanceOwner, cancellationToken)
+            );
 
         var (attachments, transmissions) = GetAttachmentAndTransmissions(dto, activities);
 
@@ -303,11 +287,9 @@ internal sealed class StorageDialogportenDataMerger
 
         bool IsPerformedBySo(DataElement element) => element.LastChangedBy.Length == 9;
         bool IsNotPdfReceipt(DataElement element) => element.DataType != PdfType;
-
         bool TransmissionsDisabled() => dto.Application.GetSyncAdapterSettings().DisableAddTransmissions ||
                                         !_settings.DialogportenAdapter.Adapter.FeatureFlag
                                             .EnableSubmissionTransmissions;
-
         AttachmentDto CreateAttachmentDto(DataElement element)
         {
             var consumerType = attachmentVisibility.GetConsumerType(element);
@@ -334,7 +316,6 @@ internal sealed class StorageDialogportenDataMerger
                 ]
             };
         }
-
         TransmissionAttachmentDto CreateTransmissionAttachmentDto(DataElement element, Guid transmissionId)
         {
             var consumerType = attachmentVisibility.GetConsumerType(element);
@@ -362,17 +343,12 @@ internal sealed class StorageDialogportenDataMerger
                 ]
             };
         }
-
         TransmissionDto ToTransmissionDto(ActivityDto activityDto, int index)
         {
             // A2 Instances cant have more than 1 submission
             // so we take all attachments into a single transmission.
             var isA2 = IsA2Instance(dto.Instance);
             var transmissionId = activityDto.Id!.Value.ToVersion7(activityDto.CreatedAt!.Value);
-            var adapterBaseUri = _settings.DialogportenAdapter.Adapter.BaseUri
-                .ToString()
-                .TrimEnd('/');
-            var baseUrl = $"{adapterBaseUri}/api/v1/receipt/{dto.DialogId}/{transmissionId}";
             return new TransmissionDto
             {
                 Id = transmissionId,
@@ -389,17 +365,7 @@ internal sealed class StorageDialogportenDataMerger
                             new() { LanguageCode = "nn", Value = $"Innsending #{index + 1}" },
                             new() { LanguageCode = "en", Value = $"Submission #{index + 1}" }
                         ],
-                        MediaType = MediaTypes.PlainText
-                    },
-                    ContentReference = new ContentValueDto
-                    {
-                        Value =
-                        [
-                            new() { LanguageCode = "nb", Value = $"{baseUrl}?lang=nb" },
-                            new() { LanguageCode = "nn", Value = $"{baseUrl}?lang=nn" },
-                            new() { LanguageCode = "en", Value = $"{baseUrl}?lang=en" }
-                        ],
-                        MediaType = MediaTypes.EmbeddableMarkdown
+                        MediaType = "text/plain"
                     }
                 },
                 Attachments = userDataElements
@@ -410,13 +376,13 @@ internal sealed class StorageDialogportenDataMerger
         }
     }
 
-    private async Task<string> GetPartyUrnOrThrow(string partyId, CancellationToken cancellationToken)
+    private async Task<string> GetPartyUrn(string partyId, CancellationToken cancellationToken)
     {
         var response = await _registerRepository.GetActorUrnByPartyId([partyId], cancellationToken);
 
-        return response.TryGetValue(partyId, out var actorUrn)
-            ? actorUrn
-            : throw new PartyNotFoundException(partyId);
+        return !response.TryGetValue(partyId, out var actorUrn)
+            ? throw new PartyNotFoundException(partyId)
+            : actorUrn;
     }
 
     private static (InstanceDerivedStatus, DialogStatus) GetStatus(Instance instance, InstanceEventList events)
@@ -669,12 +635,9 @@ internal sealed class StorageDialogportenDataMerger
     private GuiActionDto CreateGoToAction(Guid dialogId, Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
     {
         var goToActionId = dialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.GoTo);
-        var xacmlAction = instanceDerivedStatus switch
-        {
-            InstanceDerivedStatus.ArchivedConfirmed or InstanceDerivedStatus.ArchivedUnconfirmed => ReadAction,
-            InstanceDerivedStatus.AwaitingSignature => SignAction,
-            _ => WriteAction
-        };
+
+        // We offload the handling of missing write/sign permissions to the app
+        var xacmlAction = ReadAction;
 
         // CurrentTask may be null (ex. instance id 51499006/907c12e2-041a-4275-9d33-67620cdf15b6 tt02),
         // in which case we have no other option than to not set an authorization attribute.
@@ -696,15 +659,15 @@ internal sealed class StorageDialogportenDataMerger
         {
             var url = instanceDerivedStatus is InstanceDerivedStatus.ArchivedConfirmed or InstanceDerivedStatus.ArchivedUnconfirmed
                 ? _settings.DialogportenAdapter.Altinn
-                    .GetPlatformUri()
-                    .ToString()
-                    .TrimEnd('/')
-              + $"/receipt/{instance.Id}"
+                      .GetPlatformUri()
+                      .ToString()
+                      .TrimEnd('/')
+                  + $"/receipt/{instance.Id}"
                 : _settings.DialogportenAdapter.Altinn
-                    .GetAppUriForOrg(instance.Org, instance.AppId)
-                    .ToString()
-                    .TrimEnd('/')
-              + $"/#/instance/{instance.Id}";
+                      .GetAppUriForOrg(instance.Org, instance.AppId)
+                      .ToString()
+                      .TrimEnd('/')
+                  + $"/#/instance/{instance.Id}";
             return ToPortalUri(url);
         }
     }
