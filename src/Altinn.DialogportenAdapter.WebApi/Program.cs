@@ -55,7 +55,9 @@ static void BuildAndRun(string[] args)
     builder.Configuration
         .AddCoreClusterSettings()
         .AddAzureKeyVault()
-        .AddLocalDevelopmentSettings(builder.Environment);
+        .AddLocalDevelopmentSettings(builder.Environment)
+        .AddUserSecrets<DialogportenAdapterSettings>();
+
 
     var settings = builder.Configuration.Get<Settings>()!;
     builder.Services.AddOptions<Settings>().Bind(builder.Configuration);
