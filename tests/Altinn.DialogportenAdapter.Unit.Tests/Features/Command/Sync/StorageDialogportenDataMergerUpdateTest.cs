@@ -39,7 +39,8 @@ public class StorageDialogportenDataMergerUpdateTest
                     BaseUri: new Uri("http://altinn.localhost/"),
                     InternalStorageEndpoint: new Uri("http://altinn.storage.localhost/"),
                     InternalRegisterEndpoint: new Uri("http://altinn.register.localhost/"),
-                    SubscriptionKey: "subscriptionKey"
+                    SubscriptionKey: "subscriptionKey",
+                    AltinnOrgs: new Uri("https://altinncdn.no/orgs/altinn-orgs.json")
                 ),
                 Dialogporten: new DialogportenSettings(BaseUri: new Uri("http://dialogporten.localhost/")),
                 Adapter: new AdapterSettings(
@@ -401,7 +402,28 @@ public class StorageDialogportenDataMergerUpdateTest
                             MediaType = "text/plain"
                         },
                         Summary = null!,
-                        ContentReference = null
+                        ContentReference = new ContentValueDto
+                        {
+                            Value =  [
+                                new LocalizationDto
+                                {
+                                    LanguageCode = "nb",
+                                    Value = "http://adapter.localhost/api/v1/receipt/902de1ba-6919-4355-99ad-7ad279266a2f/00e46784-34c8-7fbc-996e-9a05cd175766?lang=nb"
+                                },
+                                new LocalizationDto
+                                {
+                                    LanguageCode = "nn",
+                                    Value = "http://adapter.localhost/api/v1/receipt/902de1ba-6919-4355-99ad-7ad279266a2f/00e46784-34c8-7fbc-996e-9a05cd175766?lang=nn"
+                                },
+                                new LocalizationDto
+                                {
+                                    LanguageCode = "en",
+                                    Value = "http://adapter.localhost/api/v1/receipt/902de1ba-6919-4355-99ad-7ad279266a2f/00e46784-34c8-7fbc-996e-9a05cd175766?lang=en"
+                                }
+                            ]
+                            ,
+                            MediaType = "application/vnd.dialogporten.frontchannelembed-url;type=text/markdown"
+                        }
                     },
                     Attachments = []
                 },
@@ -631,7 +653,28 @@ public class StorageDialogportenDataMergerUpdateTest
                             MediaType = "text/plain"
                         },
                         Summary = null!,
-                        ContentReference = null
+                        ContentReference = new ContentValueDto
+                        {
+                            Value =  [
+                                new LocalizationDto
+                                {
+                                    LanguageCode = "nb",
+                                    Value = "http://adapter.localhost/api/v1/receipt/902de1ba-6919-4355-99ad-7ad279266a2f/00e46784-34c8-7f4d-bed1-d5417461bb53?lang=nb"
+                                },
+                                new LocalizationDto
+                                {
+                                    LanguageCode = "nn",
+                                    Value = "http://adapter.localhost/api/v1/receipt/902de1ba-6919-4355-99ad-7ad279266a2f/00e46784-34c8-7f4d-bed1-d5417461bb53?lang=nn"
+                                },
+                                new LocalizationDto
+                                {
+                                    LanguageCode = "en",
+                                    Value = "http://adapter.localhost/api/v1/receipt/902de1ba-6919-4355-99ad-7ad279266a2f/00e46784-34c8-7f4d-bed1-d5417461bb53?lang=en"
+                                }
+                            ]
+                            ,
+                            MediaType = "application/vnd.dialogporten.frontchannelembed-url;type=text/markdown"
+                        }
                     },
                     Attachments =
                     [

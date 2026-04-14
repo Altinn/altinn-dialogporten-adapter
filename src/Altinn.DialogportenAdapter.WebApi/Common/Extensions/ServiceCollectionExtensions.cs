@@ -304,7 +304,10 @@ internal static class ServiceCollectionExtensions
                 .AddTransient<StorageDialogportenDataMerger>()
                 .AddTransient<ActivityDtoTransformer>()
                 .AddTransient<FourHundredLoggingDelegatingHandler>()
-                .AddTransient<InstanceService>();
+                .AddTransient<InstanceService>()
+                .AddTransient<InstanceReceipt>()
+                .AddTransient<AuthorizationValidator>()
+                .AddTransient<IAltinnOrgs, AltinnOrgs>();
         }
 
         public IServiceCollection ReplaceLocalDevelopmentResources(

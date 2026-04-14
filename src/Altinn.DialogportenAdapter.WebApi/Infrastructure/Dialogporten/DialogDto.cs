@@ -17,6 +17,12 @@ public class DialogDto
     public Guid? Revision { get; set; }
 
     /// <summary>
+    /// The service owner code representing the organization (service owner) related to this dialog.
+    /// </summary>
+    /// <example>ske</example>
+    public string Org { get; set; } = null!;
+
+    /// <summary>
     /// The service identifier for the service that the dialog is related to in URN-format.
     /// This corresponds to a resource in the Altinn Resource Registry, which the authenticated organization
     /// must own, i.e., be listed as the "competent authority" in the Resource Registry entry.
