@@ -1,4 +1,5 @@
 using System.Net;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
@@ -54,7 +55,7 @@ public static partial class WireMockServerExtensions
             server.LogEntries.Where(log =>
                 {
                     var status = log.ResponseMessage?.StatusCode;
-                    if (status == null) return true;
+                    if (status == null) throw new BadHttpRequestException("Expected a response from WireMock");
                     return (int)status == 501;
                 })
                 .Select(x => x.RequestMessage)
