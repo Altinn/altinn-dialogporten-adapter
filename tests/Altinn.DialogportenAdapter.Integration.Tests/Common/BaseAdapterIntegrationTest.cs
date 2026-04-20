@@ -26,7 +26,7 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
     public ValueTask InitializeAsync()
     {
         HistoryQueueDlqReceiver = app.ServiceBusClient.CreateReceiver(
-            Constants.AdapterHistoryQueueName,
+            Constants.AdapterQueueName,
             new ServiceBusReceiverOptions
             {
                 SubQueue = SubQueue.DeadLetter,

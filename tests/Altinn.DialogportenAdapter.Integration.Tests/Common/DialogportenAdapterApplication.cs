@@ -175,7 +175,7 @@ public class DialogportenAdapterApplication : IAsyncLifetime
                     _asbContainer.GetHttpConnectionString()
                 )
                 .PublishMessage<SyncInstanceCommand>()
-                .ToAzureServiceBusQueue(Constants.AdapterHistoryQueueName);
+                .ToAzureServiceBusQueue(Constants.AdapterQueueName);
         });
         return builder.Build();
     }
