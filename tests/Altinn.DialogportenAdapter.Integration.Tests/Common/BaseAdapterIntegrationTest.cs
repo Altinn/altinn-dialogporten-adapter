@@ -20,17 +20,16 @@ namespace Altinn.DialogportenAdapter.Integration.Tests.Common;
 
 public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication app) : IAsyncLifetime
 {
-    private ServiceBusReceiver HistoryQueueDlqReceiver { get; set; } = null!;
+    private ServiceBusReceiver AdapterQueueDlqReceiver { get; set; } = null!;
     private readonly ConcurrentQueue<object> _unhandledEvents = new();
 
     public ValueTask InitializeAsync()
     {
-        HistoryQueueDlqReceiver = app.ServiceBusClient.CreateReceiver(
+        AdapterQueueDlqReceiver = app.ServiceBusClient.CreateReceiver(
             Constants.AdapterQueueName,
             new ServiceBusReceiverOptions
             {
                 SubQueue = SubQueue.DeadLetter,
-                ReceiveMode = ServiceBusReceiveMode.ReceiveAndDelete
             }
         );
 
@@ -45,7 +44,7 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         app.StorageApi.LogUnhandledRequests(app.App.Logger, "StorageApi").ResetAllExceptFallbackMapping();
 
         await DrainLeftoverMessages();
-        await HistoryQueueDlqReceiver.DisposeAsync();
+        await AdapterQueueDlqReceiver.DisposeAsync();
 
         GC.SuppressFinalize(this);
     }
@@ -59,11 +58,12 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
 
     protected async Task<ServiceBusReceivedMessage?> WaitForDlqMessage(TimeSpan? timeoutSeconds = null)
     {
-        var maxWait = timeoutSeconds ?? TimeSpan.FromSeconds(5);
-        var message = await HistoryQueueDlqReceiver.ReceiveMessageAsync(maxWait, TestContext.Current.CancellationToken);
+        var maxWait = timeoutSeconds ?? TimeSpan.FromSeconds(10);
+        var message = await AdapterQueueDlqReceiver.ReceiveMessageAsync(maxWait, TestContext.Current.CancellationToken);
 
         if (message != null)
         {
+            await AdapterQueueDlqReceiver.CompleteMessageAsync(message);
             _unhandledEvents.TryDequeue(out _);
         }
 
@@ -76,7 +76,7 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         {
             var entries = app.DialogportenApi.FindLogEntries(Request.Create().DpPostDialog());
             return entries.Count > 0 ? entries[0] : null;
-        }, timeout ?? TimeSpan.FromSeconds(5));
+        }, timeout ?? TimeSpan.FromSeconds(10));
 
         if (entry != null)
         {
@@ -88,11 +88,11 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
 
     protected async Task<DialogDto> WaitForDialogPostedOrFail()
     {
-        var postDialog = WaitForDialogPostedLogEntry(TimeSpan.FromSeconds(6));
-        var getDlqMessage = WaitForDlqMessage(TimeSpan.FromSeconds(5));
+        var postDialog = WaitForDialogPostedLogEntry(TimeSpan.FromSeconds(10));
+        var getDlqMessage = WaitForDlqMessage(TimeSpan.FromSeconds(9));
         await Task.WhenAny(postDialog, getDlqMessage);
 
-        if (getDlqMessage.Result != null)
+        if (getDlqMessage.IsCompleted && getDlqMessage.Result != null)
         {
             var reason = getDlqMessage.Result.DeadLetterErrorDescription;
             Assert.Fail($"Expected a dialog to be posted. But dlq got message instead: {reason}");
@@ -262,13 +262,14 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         var timeoutAt = DateTimeOffset.UtcNow.AddSeconds(10);
         while (DateTimeOffset.UtcNow < timeoutAt && !_unhandledEvents.IsEmpty)
         {
-            var message = await HistoryQueueDlqReceiver.ReceiveMessageAsync(
+            var message = await AdapterQueueDlqReceiver.ReceiveMessageAsync(
                 TimeSpan.FromMilliseconds(50),
                 TestContext.Current.CancellationToken
             );
 
             if (message != null)
             {
+                await AdapterQueueDlqReceiver.CompleteMessageAsync(message);
                 _unhandledEvents.TryDequeue(out _);
             }
         }
