@@ -8,6 +8,8 @@ namespace Altinn.DialogportenAdapter.EventSimulator.Features.HistoryStream;
 
 internal sealed class MigrationPartitionService
 {
+    private const int MaxConcurrentInstanceSends = 16;
+
     private readonly IOrganizationRepository _organizationRepository;
     private readonly IMigrationPartitionRepository _migrationPartitionRepository;
     private readonly IMessageBus _messageBus;
@@ -37,11 +39,18 @@ internal sealed class MigrationPartitionService
     {
         ValidateInstanceCommand(command);
 
-        await Task.WhenAll(command.Instances!
-            .Select(ParseInstanceCommand)
-            .Select(x => _messageBus
-                .SendAsync(x)
-                .AsTask()));
+        await Parallel.ForEachAsync(
+            command.Instances!,
+            new ParallelOptions
+            {
+                MaxDegreeOfParallelism = MaxConcurrentInstanceSends,
+                CancellationToken = cancellationToken
+            },
+            async (instance, token) =>
+            {
+                token.ThrowIfCancellationRequested();
+                await _messageBus.SendAsync(ParseInstanceCommand(instance));
+            });
     }
 
     private async Task HandlePartitions(MigrationCommand command, CancellationToken cancellationToken)
