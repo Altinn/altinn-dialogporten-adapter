@@ -51,9 +51,9 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
 
     protected async Task Send<T>(T command) where T : notnull
     {
+        _unhandledEvents.Enqueue(command);
         var bus = app.StorageScope.ServiceProvider.GetRequiredService<IMessageBus>();
         await bus.SendAsync(command);
-        _unhandledEvents.Enqueue(command);
     }
 
     protected async Task<ServiceBusReceivedMessage?> WaitForDlqMessage(TimeSpan? timeoutSeconds = null)
@@ -259,9 +259,15 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
     /// </summary>
     private async Task DrainLeftoverMessages()
     {
-        var timeoutAt = DateTimeOffset.UtcNow.AddSeconds(10);
-        while (DateTimeOffset.UtcNow < timeoutAt && !_unhandledEvents.IsEmpty)
+        var timeoutSeconds = 30;
+        var timeoutAt = DateTimeOffset.UtcNow.AddSeconds(timeoutSeconds);
+        while (!_unhandledEvents.IsEmpty)
         {
+            if (DateTimeOffset.UtcNow > timeoutAt)
+            {
+                Assert.Fail($"Unable to drain dql: Timeout after {timeoutSeconds} seconds. This invalidates the whole test suite. Look for the test that failed to drain!");
+            }
+
             var message = await AdapterQueueDlqReceiver.ReceiveMessageAsync(
                 TimeSpan.FromMilliseconds(50),
                 TestContext.Current.CancellationToken
