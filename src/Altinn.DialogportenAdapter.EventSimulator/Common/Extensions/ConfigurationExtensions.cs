@@ -47,9 +47,13 @@ internal static class ConfigurationExtensions
     {
         const string vaultApplicationInsightsKey = "ApplicationInsights:InstrumentationKey";
         var instrumentationKey = config[vaultApplicationInsightsKey];
-        applicationInsightsConnectionString = instrumentationKey is not null
-            ? $"InstrumentationKey={instrumentationKey}"
-            : null;
-        return applicationInsightsConnectionString is not null;
+        if (string.IsNullOrWhiteSpace(instrumentationKey))
+        {
+            applicationInsightsConnectionString = null;
+            return false;
+        }
+
+        applicationInsightsConnectionString = $"InstrumentationKey={instrumentationKey}";
+        return true;
     }
 }

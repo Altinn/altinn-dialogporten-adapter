@@ -80,12 +80,17 @@ static Task BuildAndRun(string[] args)
             .ProcessInline());
         opts.Policies.AllSenders(x => x.SendInline());
         opts.OnException<HttpRequestException>()
-            .ScheduleRetry(TimeSpan.FromMinutes(5));
-        opts.OnException<TaskCanceledException>()
-            .ScheduleRetry(TimeSpan.FromMinutes(30));
+            .ScheduleRetry(TimeSpan.FromMinutes(5))
+            .Then.MoveToErrorQueue();
+        opts.OnException<TaskCanceledException>(x => !x.CancellationToken.IsCancellationRequested)
+            .ScheduleRetry(TimeSpan.FromMinutes(30))
+            .Then.MoveToErrorQueue();
 
-        opts.ListenToAzureServiceBusQueue(ContractConstants.EventSimulatorQueueName);
+        opts.ListenToAzureServiceBusQueue(ContractConstants.EventSimulatorQueueName)
+            .ConfigureQueue(x => x.LockDuration = TimeSpan.FromMinutes(5));
         opts.PublishMessage<MigratePartitionCommand>()
+            .ToAzureServiceBusQueue(ContractConstants.EventSimulatorQueueName);
+        opts.PublishMessage<MigrateInstanceCommand>()
             .ToAzureServiceBusQueue(ContractConstants.EventSimulatorQueueName);
         opts.PublishMessage<SyncInstanceCommand>()
             .ToAzureServiceBusQueue(ContractConstants.AdapterHistoryQueueName);
