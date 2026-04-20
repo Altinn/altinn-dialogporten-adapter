@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Azure.Identity;
 using Microsoft.Extensions.FileProviders;
 
@@ -38,5 +39,17 @@ internal static class ConfigurationExtensions
 
         config.AddAzureKeyVault(new Uri(kvSettings.SecretUri), azureCredentials);
         return config;
+    }
+
+    public static bool TryGetApplicationInsightsConnectionString(
+        this IConfiguration config,
+        [NotNullWhen(true)] out string? applicationInsightsConnectionString)
+    {
+        const string vaultApplicationInsightsKey = "ApplicationInsights:InstrumentationKey";
+        var instrumentationKey = config[vaultApplicationInsightsKey];
+        applicationInsightsConnectionString = instrumentationKey is not null
+            ? $"InstrumentationKey={instrumentationKey}"
+            : null;
+        return applicationInsightsConnectionString is not null;
     }
 }

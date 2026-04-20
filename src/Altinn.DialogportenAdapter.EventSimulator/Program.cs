@@ -10,12 +10,15 @@ using Altinn.DialogportenAdapter.EventSimulator.Features.UpdateStream;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Adapter;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Persistance;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
+using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Azure.Data.Tables;
 using JasperFx;
 using Microsoft.AspNetCore.Mvc;
+using OpenTelemetry.Resources;
 using Refit;
 using Wolverine;
 using Wolverine.AzureServiceBus;
+using Wolverine.ErrorHandling;
 using Constants = Altinn.DialogportenAdapter.EventSimulator.Common.Constants;
 using ContractConstants = Altinn.DialogportenAdapter.Contracts.Constants;
 
@@ -49,6 +52,22 @@ static Task BuildAndRun(string[] args)
 
     var settings = builder.Configuration.Get<Settings>()!;
 
+    if (builder.Configuration.TryGetApplicationInsightsConnectionString(out var appInsightsConnectionString))
+    {
+        builder.Services
+            .AddOpenTelemetry()
+            .ConfigureResource(x => x.AddAttributes([
+                new("service.name", "platform-dialogporten-eventsimulator")
+            ]))
+            .UseAzureMonitor(x =>
+            {
+                x.ConnectionString = appInsightsConnectionString;
+                x.SamplingRatio = 0.05F;
+                x.EnableLiveMetrics = false;
+                x.StorageDirectory = "/tmp/logtelemetry";
+            });
+    }
+
     builder.Services.AddWolverine(opts =>
     {
         opts.ConfigureAdapterDefaults(
@@ -60,6 +79,10 @@ static Task BuildAndRun(string[] args)
             .ListenerCount(settings.WolverineSettings.ListenerCount)
             .ProcessInline());
         opts.Policies.AllSenders(x => x.SendInline());
+        opts.OnException<HttpRequestException>()
+            .ScheduleRetry(TimeSpan.FromMinutes(5));
+        opts.OnException<TaskCanceledException>()
+            .ScheduleRetry(TimeSpan.FromMinutes(30));
 
         opts.ListenToAzureServiceBusQueue(ContractConstants.EventSimulatorQueueName);
         opts.PublishMessage<MigratePartitionCommand>()
@@ -106,7 +129,11 @@ static Task BuildAndRun(string[] args)
         })
         .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.MaskinportenClientDefinitionKey);
     builder.Services.AddHttpClient(Constants.MaskinportenClientDefinitionKey)
-        .ConfigureHttpClient(x => x.BaseAddress = settings.DialogportenAdapter.Altinn.ApiStorageEndpoint)
+        .ConfigureHttpClient(x =>
+        {
+            x.BaseAddress = settings.DialogportenAdapter.Altinn.ApiStorageEndpoint;
+            x.Timeout = TimeSpan.FromSeconds(600);
+        })
         .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.MaskinportenClientDefinitionKey);
     builder.Services.AddTransient<IStorageApi>(x => RestService
         .For<IStorageApi>(x.GetRequiredService<IHttpClientFactory>()
