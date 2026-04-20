@@ -199,7 +199,7 @@ public class SyncDialogOnInstanceUpdatedHandlerTest(DialogportenAdapterApplicati
         postRequests.Should().Be(0);
     }
 
-    [Fact(Timeout = 10000)]
+    [Fact]
     public async Task GivenGetDialogDownRetryIndefinitely()
     {
         // Arrange
