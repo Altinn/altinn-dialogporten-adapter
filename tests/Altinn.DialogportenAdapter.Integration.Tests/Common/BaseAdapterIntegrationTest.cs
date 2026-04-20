@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Text.Json;
 using Altinn.DialogportenAdapter.Contracts;
@@ -20,6 +21,7 @@ namespace Altinn.DialogportenAdapter.Integration.Tests.Common;
 public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication app) : IAsyncLifetime
 {
     private ServiceBusReceiver AdapterHistoryQueueDlqReceiver { get; set; } = null!;
+    private ConcurrentQueue<object> _unhandledEvents = new();
 
     public ValueTask InitializeAsync()
     {
@@ -48,25 +50,39 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         GC.SuppressFinalize(this);
     }
 
-    protected async Task Send<T>(T command)
+    protected async Task Send<T>(T command) where T : notnull
     {
         var bus = app.StorageScope.ServiceProvider.GetRequiredService<IMessageBus>();
         await bus.SendAsync(command);
+        _unhandledEvents.Enqueue(command);
     }
 
     protected async Task<ServiceBusReceivedMessage?> WaitForDlqMessage(TimeSpan? timeoutSeconds = null)
     {
         var maxWaitTime = timeoutSeconds ?? TimeSpan.FromSeconds(5);
-        return await AdapterHistoryQueueDlqReceiver.ReceiveMessageAsync(maxWaitTime);
+        var serviceBusReceivedMessage = await AdapterHistoryQueueDlqReceiver.ReceiveMessageAsync(maxWaitTime);
+        if (serviceBusReceivedMessage != null)
+        {
+            _unhandledEvents.TryDequeue(out _);
+        }
+
+        return serviceBusReceivedMessage;
     }
 
-    protected Task<ILogEntry?> WaitForDialogPostedLogEntry(TimeSpan? timeout = null)
+    protected async Task<ILogEntry?> WaitForDialogPostedLogEntry(TimeSpan? timeout = null)
     {
-        return Time.WaitUntilAsync(() =>
+        var entry = await Time.WaitUntilAsync(() =>
         {
             var entries = app.DialogportenApi.FindLogEntries(Request.Create().DpPostDialog());
             return entries.Count > 0 ? entries[0] : null;
         }, timeout ?? TimeSpan.FromSeconds(5));
+
+        if (entry != null)
+        {
+            _unhandledEvents.TryDequeue(out _);
+        }
+
+        return entry;
     }
 
     protected async Task<DialogDto> WaitForDialogPostedOrFail()
@@ -243,9 +259,13 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
     private async Task DrainLeftoverMessages()
     {
         var timeoutAt = DateTimeOffset.UtcNow.AddSeconds(10);
-        while (DateTimeOffset.UtcNow < timeoutAt &&
-               await AdapterHistoryQueueDlqReceiver.ReceiveMessageAsync(TimeSpan.FromMilliseconds(200)) is not null)
+        while (DateTimeOffset.UtcNow < timeoutAt && !_unhandledEvents.IsEmpty)
         {
+            var message = await AdapterHistoryQueueDlqReceiver.ReceiveMessageAsync(TimeSpan.FromMilliseconds(50));
+            if (message != null)
+            {
+                _unhandledEvents.TryDequeue(out _);
+            }
         }
     }
 }

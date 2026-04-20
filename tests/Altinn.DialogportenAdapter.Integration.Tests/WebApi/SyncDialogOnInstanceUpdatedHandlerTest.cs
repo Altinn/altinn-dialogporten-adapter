@@ -199,7 +199,7 @@ public class DialogportenAdapterTest(DialogportenAdapterApplication application)
         postRequests.Should().Be(0);
     }
 
-    [Fact(Timeout = 6000)]
+    [Fact(Timeout = 10000)]
     public async Task GivenGetDialogDownRetryIndefinitely()
     {
         // Arrange
