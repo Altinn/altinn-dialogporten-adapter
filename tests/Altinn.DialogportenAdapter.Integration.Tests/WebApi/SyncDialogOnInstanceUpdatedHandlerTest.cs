@@ -14,7 +14,7 @@ using ZiggyCreatures.Caching.Fusion;
 namespace Altinn.DialogportenAdapter.Integration.Tests.WebApi;
 
 [Collection(nameof(AdapterCollectionFixture))]
-public class DialogportenAdapterTest(DialogportenAdapterApplication application)
+public class SyncDialogOnInstanceUpdatedHandlerTest(DialogportenAdapterApplication application)
     : BaseAdapterIntegrationTest(application)
 {
     private readonly DialogportenAdapterApplication _application = application;
