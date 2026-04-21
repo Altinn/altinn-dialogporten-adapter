@@ -7,8 +7,8 @@ Content-Type: application/json
 
 {
     "From": "2024-01-01",
-    "To": "2025-01-01",
-    "Organizations": ["skd"],
+    "To": "2024-01-01",
+    "Organizations": ["ttd"],
     "Force": true
 }
 
@@ -20,6 +20,16 @@ Content-Type: application/json
 //  "Organizations": ["digdir"],
 //  "Force": true
 //}
+
+### SINGLE INSTANCE MIGRATE
+POST {{eventsimulator}}/api/migrate
+Content-Type: application/json
+
+{
+    "Instances": [
+        "50055202/e40b03b2-3108-470d-92fb-7d06ae4ab10a"
+    ]
+}
 
 ### DELETE
 DELETE {{eventsimulator}}/api/table/truncate

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using Altinn.ApiClients.Dialogporten;
 using Altinn.ApiClients.Maskinporten.Extensions;
@@ -28,6 +29,13 @@ using ZiggyCreatures.Caching.Fusion;
 using ZiggyCreatures.Caching.Fusion.Locking.AsyncKeyed;
 using Constants = Altinn.DialogportenAdapter.WebApi.Common.Constants;
 using ContractConstants = Altinn.DialogportenAdapter.Contracts.Constants;
+
+// Workaround issue in Wolverine on nb_NB causing intermittent 400 Bad Request errors due to
+// attempts to auto-provision queues with a unicode negative sign
+var safeCulture = (CultureInfo)CultureInfo.CurrentCulture.Clone();
+safeCulture.NumberFormat.NegativeSign = "-";
+CultureInfo.DefaultThreadCurrentCulture = safeCulture;
+CultureInfo.CurrentCulture = safeCulture;
 
 using var loggerFactory = CreateBootstrapLoggerFactory();
 var bootstrapLogger = loggerFactory.CreateLogger<Program>();
