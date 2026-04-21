@@ -25,8 +25,6 @@ internal sealed class StorageDialogportenDataMerger
     private const string CopyActionLabel = "copyactionlabel";
     private const string ReadAction = "read";
     private const string DeleteAction = "delete";
-    private const string SignAction = "sign";
-    private const string WriteAction = "write";
     private const string InstantiateAction = "instantiate";
     private const string PdfType = "ref-data-as-pdf";
     private readonly Settings _settings;
