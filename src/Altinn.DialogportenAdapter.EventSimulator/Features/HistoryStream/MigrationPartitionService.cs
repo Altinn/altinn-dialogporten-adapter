@@ -30,6 +30,7 @@ internal sealed class MigrationPartitionService
         {
             await HandleInstances(command, cancellationToken);
             return;
+
         }
 
         await HandlePartitions(command, cancellationToken);
@@ -49,7 +50,8 @@ internal sealed class MigrationPartitionService
             async (instance, token) =>
             {
                 token.ThrowIfCancellationRequested();
-                await _messageBus.SendAsync(ParseInstanceCommand(instance));
+                var instanceCommand = ParseInstanceCommand(instance);
+                await _messageBus.SendAsync(instanceCommand);
             });
     }
 

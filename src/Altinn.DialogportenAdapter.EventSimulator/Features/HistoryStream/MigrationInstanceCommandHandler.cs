@@ -4,7 +4,7 @@ using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
 
 namespace Altinn.DialogportenAdapter.EventSimulator.Features.HistoryStream;
 
-internal static partial class MigrationInstanceCommandHandler
+public static partial class MigrationInstanceCommandHandler
 {
     public static async Task<SyncInstanceCommand> Handle(
         MigrateInstanceCommand command,
@@ -63,4 +63,4 @@ internal static partial class MigrationInstanceCommandHandler
         DateTimeOffset created);
 }
 
-internal sealed record MigrateInstanceCommand(string PartyId, Guid InstanceId);
+public sealed record MigrateInstanceCommand(string PartyId, Guid InstanceId);
