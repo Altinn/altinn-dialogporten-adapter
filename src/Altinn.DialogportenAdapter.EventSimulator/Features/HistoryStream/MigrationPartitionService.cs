@@ -39,17 +39,20 @@ internal sealed class MigrationPartitionService
     {
         ValidateInstanceCommand(command);
 
+        var instanceCommands = command.Instances!
+            .Select(ParseInstanceCommand)
+            .ToList();
+
         await Parallel.ForEachAsync(
-            command.Instances!,
+            instanceCommands,
             new ParallelOptions
             {
                 MaxDegreeOfParallelism = MaxConcurrentInstanceSends,
                 CancellationToken = cancellationToken
             },
-            async (instance, token) =>
+            async (instanceCommand, token) =>
             {
                 token.ThrowIfCancellationRequested();
-                var instanceCommand = ParseInstanceCommand(instance);
                 await _messageBus.SendAsync(instanceCommand);
             });
     }
