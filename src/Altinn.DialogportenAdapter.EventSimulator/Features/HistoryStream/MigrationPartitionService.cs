@@ -30,7 +30,6 @@ internal sealed class MigrationPartitionService
         {
             await HandleInstances(command, cancellationToken);
             return;
-
         }
 
         await HandlePartitions(command, cancellationToken);
