@@ -28,9 +28,7 @@ using ContractConstants = Altinn.DialogportenAdapter.Contracts.Constants;
 var safeCulture = (CultureInfo)CultureInfo.CurrentCulture.Clone();
 safeCulture.NumberFormat.NegativeSign = "-";
 CultureInfo.DefaultThreadCurrentCulture = safeCulture;
-CultureInfo.DefaultThreadCurrentUICulture = safeCulture;
 CultureInfo.CurrentCulture = safeCulture;
-CultureInfo.CurrentUICulture = safeCulture;
 
 using var loggerFactory = CreateBootstrapLoggerFactory();
 var bootstrapLogger = loggerFactory.CreateLogger<Program>();
