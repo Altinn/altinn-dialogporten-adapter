@@ -91,7 +91,7 @@ public static class Regulars
                 new GuiActionDto
                 {
                     Id = dialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.GoTo),
-                    Action = "write",
+                    Action = "read",
                     Url =
                         "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Forg.apps.altinn.localhost%2Furn%3Aaltinn%3Ainstance-id%2F%3FdontChooseReportee%3Dtrue%23%2Finstance%2Finstance-id",
                     AuthorizationAttribute = authorizationAttribute,
