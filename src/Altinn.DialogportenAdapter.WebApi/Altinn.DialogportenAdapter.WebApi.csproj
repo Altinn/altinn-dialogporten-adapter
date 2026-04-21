@@ -20,6 +20,7 @@
 	</ItemGroup>
 
     <ItemGroup>
+        <InternalsVisibleTo Include="Altinn.DialogportenAdapter.Integration.Tests"/>
         <InternalsVisibleTo Include="Altinn.DialogportenAdapter.Unit.Tests"/>
         <InternalsVisibleTo Include="DynamicProxyGenAssembly2"/>
     </ItemGroup>

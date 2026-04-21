@@ -1,5 +1,5 @@
 using System.Net;
-using Altinn.DialogportenAdapter.Unit.Tests.Common.Builder;
+using Altinn.DialogportenAdapter.Test.Common.Builder;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
@@ -8,6 +8,10 @@ using Altinn.Platform.Storage.Interface.Models;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Refit;
+using IAltinnOrgs = Altinn.DialogportenAdapter.WebApi.Infrastructure.Register.IAltinnOrgs;
+using IApplicationRepository = Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage.IApplicationRepository;
+using IRegisterApi = Altinn.DialogportenAdapter.WebApi.Infrastructure.Register.IRegisterApi;
+using IStorageApi = Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage.IStorageApi;
 
 namespace Altinn.DialogportenAdapter.Unit.Tests.Features.Command.Sync;
 
