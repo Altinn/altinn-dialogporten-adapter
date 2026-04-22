@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using Altinn.DialogportenAdapter.Contracts;
+using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
@@ -42,7 +43,6 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
         // sync is disabled in which case we can skip the rest of the processing.
         var (isCached, cachedApp) =
             await _applicationRepository.TryGetApplicationIfCached(dto.AppId, cancellationToken);
-
         if (isCached && cachedApp is not null && cachedApp.GetSyncAdapterSettings().DisableSync)
         {
             return;
@@ -58,6 +58,33 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
                 _storageApi.GetInstance(dto.PartyId, dto.InstanceId, cancellationToken).ContentOrDefault(),
                 _storageApi.GetInstanceEvents(dto.PartyId, dto.InstanceId, Constants.SupportedEventTypes, cancellationToken).ContentOrDefault()
             );
+
+        if (application.GetSyncAdapterSettings().EnableUserSuppliedDialogId && instance is not null)
+        {
+            if (instance.DataValues is null
+             || !instance.DataValues.TryGetValue(Constants.InstanceDataValueDialogIdKey, out var userSuppliedDialogId))
+            {
+                throw new UserSuppliedDialogIdNotFoundException(instance.Id);
+            }
+
+            if (!Guid.TryParse(userSuppliedDialogId, out dialogId)
+             || !dialogId.IsUuidV7WithTimestampInPast())
+            {
+                LogInvalidUserSuppliedDialogIdWarning(dto.InstanceId);
+                return;
+            }
+
+            existingDialog = await _dialogportenApi.Get(dialogId, cancellationToken).ContentOrDefault();
+
+            // Check if DialogId is already in use by someone else
+            if (existingDialog?.ServiceOwnerContext != null && existingDialog.ServiceOwnerContext.ServiceOwnerLabels.All(x => x.Value != $"urn:altinn:integration:storage:{instance.Id}"))
+            {
+                LogInvalidUserSuppliedDialogIdWarning(dto.InstanceId);
+                return;
+            }
+
+        }
+
         if (instance is null && existingDialog is null)
         {
             LogNoOpWarning(dto.PartyId, dto.InstanceId, dto.InstanceCreatedAt, dto.IsMigration);
@@ -314,4 +341,7 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
 
     [LoggerMessage(LogLevel.Information, "Instance id={Id} is soft-deleted in storage and does not exist in Dialogporten. Creating and deleting immediately afterwards.")]
     partial void LogCreateDialogInSoftDeleteState(string id);
+
+    [LoggerMessage(LogLevel.Warning, "Instance id={Id} has invalid user supplied dialog id. NoOp.")]
+    partial void LogInvalidUserSuppliedDialogIdWarning(Guid id);
 }
