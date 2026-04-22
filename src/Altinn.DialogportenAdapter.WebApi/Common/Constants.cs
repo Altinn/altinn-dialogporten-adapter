@@ -21,6 +21,8 @@ internal static class Constants
 
     public const string DefaultMaskinportenClientDefinitionKey = "DefaultMaskinportenClientDefinitionKey";
 
+    public const string AltinnOrgsClient = "AltinnOrgsClient";
+
     public static readonly ImmutableArray<string> SupportedEventTypes =
     [
         InstanceEventType.Created.ToString(),

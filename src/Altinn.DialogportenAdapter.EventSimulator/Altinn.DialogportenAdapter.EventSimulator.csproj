@@ -10,6 +10,7 @@
       <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.5" />
       <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.5.0" />
       <PackageReference Include="Azure.Identity" Version="1.19.0" />
+      <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.4.0" />
       <PackageReference Include="WolverineFx.AzureServiceBus" Version="5.24.0" />
     </ItemGroup>
 

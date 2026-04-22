@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using Altinn.ApiClients.Dialogporten;
 using Altinn.ApiClients.Maskinporten.Extensions;
@@ -29,6 +30,13 @@ using ZiggyCreatures.Caching.Fusion.Locking.AsyncKeyed;
 using Constants = Altinn.DialogportenAdapter.WebApi.Common.Constants;
 using ContractConstants = Altinn.DialogportenAdapter.Contracts.Constants;
 
+// Workaround issue in Wolverine on nb_NB causing intermittent 400 Bad Request errors due to
+// attempts to auto-provision queues with a unicode negative sign
+var safeCulture = (CultureInfo)CultureInfo.CurrentCulture.Clone();
+safeCulture.NumberFormat.NegativeSign = "-";
+CultureInfo.DefaultThreadCurrentCulture = safeCulture;
+CultureInfo.CurrentCulture = safeCulture;
+
 using var loggerFactory = CreateBootstrapLoggerFactory();
 var bootstrapLogger = loggerFactory.CreateLogger<Program>();
 
@@ -55,7 +63,9 @@ static void BuildAndRun(string[] args)
     builder.Configuration
         .AddCoreClusterSettings()
         .AddAzureKeyVault()
-        .AddLocalDevelopmentSettings(builder.Environment);
+        .AddLocalDevelopmentSettings(builder.Environment)
+        .AddUserSecrets<DialogportenAdapterSettings>();
+
 
     var settings = builder.Configuration.Get<Settings>()!;
     builder.Services.AddOptions<Settings>().Bind(builder.Configuration);
@@ -250,6 +260,9 @@ static void BuildAndRun(string[] args)
         .AddTransient<ActivityDtoTransformer>()
         .AddTransient<FourHundredLoggingDelegatingHandler>()
         .AddTransient<InstanceService>()
+        .AddTransient<InstanceReceipt>()
+        .AddTransient<AuthorizationValidator>()
+        .AddTransient<IAltinnOrgs, AltinnOrgs>()
 
         // Http clients
         .AddRefitClient<IStorageApi>()
@@ -370,6 +383,32 @@ static void BuildAndRun(string[] args)
             };
         })
         .AllowAnonymous(); // 👈 Dialog token is validated inside InstanceService
+
+    v1Route.MapGet("receipt/{dialogId:guid}/{transactionId:guid}", async (
+            [FromRoute] Guid dialogId,
+            [FromRoute] Guid transactionId,
+            [FromQuery(Name = "lang")] string? languageCode,
+            [FromHeader(Name = "Authorization")] string authorization,
+            [FromServices] InstanceReceipt service,
+            [FromServices] AuthorizationValidator validator,
+            CancellationToken cancellationToken) =>
+        {
+            if (!validator.ValidateDialogToken(authorization, dialogId, ["read"]))
+                return Results.Unauthorized();
+
+            var request = new GetReceiptDto(dialogId, transactionId, languageCode);
+            return await service.GetReceipt(request, cancellationToken) switch
+            {
+                GetReceiptResponse.Success success => Results.Text(success.Markdown, MediaTypes.Markdown),
+                GetReceiptResponse.NotFound => Results.NotFound(),
+                GetReceiptResponse.InvalidLanguageCode => Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["lang"] = [$"Expected one of these language codes: {InstanceReceipt.GetSupportedLanguageCodes()}"]
+                }),
+                _ => Results.InternalServerError()
+            };
+        })
+        .AllowAnonymous();
 
     app.Run();
 }

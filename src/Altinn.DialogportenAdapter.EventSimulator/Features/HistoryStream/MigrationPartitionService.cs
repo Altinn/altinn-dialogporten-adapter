@@ -1,3 +1,4 @@
+using System.Globalization;
 using Altinn.DialogportenAdapter.EventSimulator.Common.StartupLoaders;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Persistance;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
@@ -7,6 +8,8 @@ namespace Altinn.DialogportenAdapter.EventSimulator.Features.HistoryStream;
 
 internal sealed class MigrationPartitionService
 {
+    private const int MaxConcurrentInstanceSends = 16;
+
     private readonly IOrganizationRepository _organizationRepository;
     private readonly IMigrationPartitionRepository _migrationPartitionRepository;
     private readonly IMessageBus _messageBus;
@@ -23,12 +26,63 @@ internal sealed class MigrationPartitionService
 
     public async Task Handle(MigrationCommand command, CancellationToken cancellationToken)
     {
+        if (command.Instances?.Count > 0)
+        {
+            await HandleInstances(command, cancellationToken);
+            return;
+        }
+
+        await HandlePartitions(command, cancellationToken);
+    }
+
+    private async Task HandleInstances(MigrationCommand command, CancellationToken cancellationToken)
+    {
+        ValidateInstanceCommand(command);
+
+        var instanceCommands = command.Instances!
+            .Select(ParseInstanceCommand)
+            .ToList();
+
+        await Parallel.ForEachAsync(
+            instanceCommands,
+            new ParallelOptions
+            {
+                MaxDegreeOfParallelism = MaxConcurrentInstanceSends,
+                CancellationToken = cancellationToken
+            },
+            async (instanceCommand, token) =>
+            {
+                token.ThrowIfCancellationRequested();
+                await _messageBus.SendAsync(instanceCommand);
+            });
+    }
+
+    private async Task HandlePartitions(MigrationCommand command, CancellationToken cancellationToken)
+    {
+        if (command.From is null)
+        {
+            throw new ArgumentException("From is required when migrating partitions.", nameof(command));
+        }
+
+        if (command.To is null)
+        {
+            throw new ArgumentException("To is required when migrating partitions.", nameof(command));
+        }
+
+        var from = command.From.Value;
+        var to = command.To.Value;
+
+        if (from > to)
+        {
+            throw new ArgumentException("From cannot be after To.", nameof(command));
+        }
+
         if (command.Party is not null && string.IsNullOrWhiteSpace(command.Party))
         {
             throw new ArgumentException("Party cannot be empty when provided.", nameof(command));
         }
 
-        if (OrganizationStartupLoader.LocalLoadDate < command.To && !command.Force)
+        if (OrganizationStartupLoader.LocalLoadDate < to && !command.Force)
         {
             throw new InvalidOperationException($"Cannot migrate instances after {OrganizationStartupLoader.LocalLoadDate} (use force:true to override)");
         }
@@ -36,8 +90,8 @@ internal sealed class MigrationPartitionService
         var organizations = await GetOrganizations(command, cancellationToken);
 
         var partitionEntities = Enumerable
-            .Range(0, command.To.DayNumber - command.From.DayNumber + 1)
-            .Select(offset => command.To.AddDays(-offset))
+            .Range(0, to.DayNumber - from.DayNumber + 1)
+            .Select(offset => to.AddDays(-offset))
             .SelectMany(_ => organizations, (day, org) => new MigrationPartitionEntity(day, org))
             .ToList();
 
@@ -58,6 +112,51 @@ internal sealed class MigrationPartitionService
             .Select(x => _messageBus
                 .SendAsync(x)
                 .AsTask()));
+    }
+
+    private static void ValidateInstanceCommand(MigrationCommand command)
+    {
+        if (command.From is not null || command.To is not null)
+        {
+            throw new ArgumentException("From and To cannot be provided when migrating explicit instances.", nameof(command));
+        }
+
+        if (command.Organizations?.Count > 0)
+        {
+            throw new ArgumentException("Organizations cannot be provided when migrating explicit instances.", nameof(command));
+        }
+
+        if (command.Party is not null)
+        {
+            throw new ArgumentException("Party cannot be provided when migrating explicit instances. Include the party id in each instance id instead.", nameof(command));
+        }
+
+        if (command.Force)
+        {
+            throw new ArgumentException("Force cannot be provided when migrating explicit instances.", nameof(command));
+        }
+    }
+
+    private static MigrateInstanceCommand ParseInstanceCommand(string instance)
+    {
+        var instanceId = instance.AsSpan().Trim();
+        var partsEnumerator = instanceId.Split("/");
+        if (!partsEnumerator.MoveNext() || !int.TryParse(instanceId[partsEnumerator.Current], out var partyId))
+        {
+            throw new ArgumentException($"Invalid instance id '{instance}'. Expected format is '{{partyId}}/{{instanceGuid}}'.", nameof(instance));
+        }
+
+        if (!partsEnumerator.MoveNext() || !Guid.TryParse(instanceId[partsEnumerator.Current], out var instanceGuid))
+        {
+            throw new ArgumentException($"Invalid instance id '{instance}'. Expected format is '{{partyId}}/{{instanceGuid}}'.", nameof(instance));
+        }
+
+        if (partsEnumerator.MoveNext())
+        {
+            throw new ArgumentException($"Invalid instance id '{instance}'. Expected format is '{{partyId}}/{{instanceGuid}}'.", nameof(instance));
+        }
+
+        return new MigrateInstanceCommand(partyId.ToString(CultureInfo.InvariantCulture), instanceGuid);
     }
 
     private static bool ShouldSkipExistingPartitions(MigrationCommand command) =>
@@ -87,10 +186,11 @@ internal sealed class MigrationPartitionService
 }
 
 internal sealed record MigrationCommand(
-    DateOnly From,
-    DateOnly To,
+    DateOnly? From,
+    DateOnly? To,
     List<string>? Organizations,
     string? Party,
+    List<string>? Instances,
     bool Force = false)
 {
     public bool IsTest => Party is not null;
