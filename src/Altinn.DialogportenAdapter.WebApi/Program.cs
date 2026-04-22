@@ -139,6 +139,14 @@ static void BuildAndRun(string[] args)
             .Then.ScheduleRetry(1.Minutes(), 10.Minutes(), 30.Minutes())
             .Then.MoveToErrorQueue();
 
+        // UserSuppliedDialogIdNotFound may happen if the sync happens before the instance have been given an ID
+        opts.Policies
+            .OnException<UserSuppliedDialogIdNotFoundException>()
+            .OrAnyInner<UserSuppliedDialogIdNotFoundException>()
+            .RetryWithJitteredCooldown(1.Seconds(), 5.Seconds(), 20.Seconds())
+            .Then.ScheduleRetry(1.Minutes(), 10.Minutes(), 30.Minutes())
+            .Then.MoveToErrorQueue();
+
         // Attempt to handle errors most likely caused by expired/invalid tokens. If retries don't help, move to error queue for manual inspection.
         opts.Policies
             .OnException<ApiException>(ex => ex.StatusCode is HttpStatusCode.Unauthorized)
@@ -381,4 +389,3 @@ partial class Program
     [LoggerMessage(LogLevel.Critical, "Application terminated unexpectedly")]
     static partial void LogApplicationTerminatedUnexpectedly(ILogger<Program> logger, Exception exception);
 }
-

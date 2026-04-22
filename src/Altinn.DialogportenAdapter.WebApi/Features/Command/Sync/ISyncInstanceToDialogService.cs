@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using Altinn.DialogportenAdapter.Contracts;
+using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
@@ -60,7 +61,14 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
 
         if (application.GetSyncAdapterSettings().EnableUserSuppliedDialogId && instance is not null)
         {
-            if (!TryGetValidUserSuppliedDialogId(instance, out dialogId))
+            if (instance.DataValues is null
+             || !instance.DataValues.TryGetValue(Constants.InstanceDataValueDialogIdKey, out var userSuppliedDialogId))
+            {
+                throw new UserSuppliedDialogIdNotFoundException(instance.Id);
+            }
+
+            if (!Guid.TryParse(userSuppliedDialogId, out dialogId)
+             || !dialogId.IsUuidV7WithTimestampInPast())
             {
                 LogInvalidUserSuppliedDialogIdWarning(dto.InstanceId);
                 return;
@@ -232,17 +240,6 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
          || !Guid.TryParse(dialogIdString, out var instanceDialogId)
          || instanceDialogId != dialogId;
     }
-
-    private static bool TryGetValidUserSuppliedDialogId([NotNullWhen(true)] Instance? instance, out Guid dialogId)
-    {
-        dialogId = Guid.Empty;
-
-        return instance?.DataValues is not null
-         && instance.DataValues.TryGetValue(Constants.InstanceDataValueDialogIdKey, out var userSuppliedDialogId)
-         && Guid.TryParse(userSuppliedDialogId, out dialogId)
-         && dialogId.IsUuidV7WithTimestampInPast();
-    }
-
 
     private async Task<Guid?> UpsertDialog(DialogDto updated,
         DialogDto? existing,
