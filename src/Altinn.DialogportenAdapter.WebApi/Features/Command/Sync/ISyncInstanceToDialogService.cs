@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using Altinn.DialogportenAdapter.Contracts;
+using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
@@ -132,7 +133,11 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
         var mergeDto = new MergeDto(dialogId, existingDialog, application, applicationTexts, instance, events, dto.IsMigration || forceSilentUpsert);
         var updatedDialog = await _dataMerger.Merge(mergeDto, cancellationToken);
         var revision = await UpsertDialog(updatedDialog, existingDialog, syncAdapterSettings, dto.IsMigration || forceSilentUpsert, cancellationToken);
-
+        if (!StorageDialogportenDataMerger.AllPdfsGenerated(mergeDto))
+        {
+            throw new WaitForPdfException();
+        }
+        
         if (!syncAdapterSettings.DisableDelete && shouldDeleteAfterCreate && revision.HasValue)
         {
             await _dialogportenApi.Delete(

@@ -149,6 +149,13 @@ static void BuildAndRun(string[] args)
             .Then.ScheduleRetry(1.Minutes(), 10.Minutes(), 30.Minutes())
             .Then.MoveToErrorQueue();
 
+        opts.Policies
+            .OnException<WaitForPdfException>()
+            .OrAnyInner<WaitForPdfException>()
+            .RetryWithJitteredCooldown(1.Seconds(), 5.Seconds(), 20.Seconds())
+            .Then.ScheduleRetry(1.Minutes(), 10.Minutes(), 30.Minutes())
+            .Then.Discard();
+
         // Attempt to handle errors most likely caused by expired/invalid tokens. If retries don't help, move to error queue for manual inspection.
         opts.Policies
             .OnException<ApiException>(ex => ex.StatusCode is HttpStatusCode.Unauthorized)
@@ -166,14 +173,14 @@ static void BuildAndRun(string[] args)
             .RetryWithCooldown(10.Seconds(), 20.Seconds())
             .Then.ScheduleRetryIndefinitely(30.Seconds(), 60.Seconds(), 2.Minutes());
 
-            // Disabled, as bugs is any upstreams might cause a soft head-of-line-blocking,
-            // where everything gets delayed due to a few problematic messages at the front of the queue.
-            // It's better to have some failed messages in the error queue and keep processing the rest
-            // of the queue than to have everything delayed due to a few problematic messages.
-            // Detecting actual overload situations and pausing the queue processing temporarily is not trivial,
-            // and would require more advanced monitoring and alerting setup to do properly.
+        // Disabled, as bugs is any upstreams might cause a soft head-of-line-blocking,
+        // where everything gets delayed due to a few problematic messages at the front of the queue.
+        // It's better to have some failed messages in the error queue and keep processing the rest
+        // of the queue than to have everything delayed due to a few problematic messages.
+        // Detecting actual overload situations and pausing the queue processing temporarily is not trivial,
+        // and would require more advanced monitoring and alerting setup to do properly.
 
-            //.AndPauseProcessing(30.Seconds()); // Give some time for upstream to recover before processing more messages
+        //.AndPauseProcessing(30.Seconds()); // Give some time for upstream to recover before processing more messages
 
         opts.ListenToAzureServiceBusQueue(ContractConstants.AdapterQueueName)
             .ListenerCount(70.PercentOf(settings.WolverineSettings.ListenerCount));
@@ -212,21 +219,21 @@ static void BuildAndRun(string[] args)
             .AllowAnyHeader()
             .AllowAnyMethod()))
         .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-            .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
+        .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
+        {
+            options.MetadataAddress = settings.DialogportenAdapter.Authentication.JwtBearerWellKnown;
+            options.MapInboundClaims = false;
+            options.TokenValidationParameters = new TokenValidationParameters
             {
-                options.MetadataAddress = settings.DialogportenAdapter.Authentication.JwtBearerWellKnown;
-                options.MapInboundClaims = false;
-                options.TokenValidationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuerSigningKey = true,
-                    ValidateIssuer = false,
-                    ValidateAudience = false,
-                    RequireExpirationTime = true,
-                    ValidateLifetime = true,
-                    ClockSkew = TimeSpan.FromSeconds(2)
-                };
-            })
-            .Services
+                ValidateIssuerSigningKey = true,
+                ValidateIssuer = false,
+                ValidateAudience = false,
+                RequireExpirationTime = true,
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.FromSeconds(2)
+            };
+        })
+        .Services
         .AddAuthorization(options =>
         {
             options.FallbackPolicy = new AuthorizationPolicyBuilder()
@@ -258,41 +265,41 @@ static void BuildAndRun(string[] args)
 
         // Http clients
         .AddRefitClient<IStorageApi>()
-            .ConfigureHttpClient(x =>
-            {
-                x.BaseAddress = settings.DialogportenAdapter.Altinn.InternalStorageEndpoint;
-                x.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", settings.DialogportenAdapter.Altinn.SubscriptionKey);
-            })
-            .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
-            .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>()
-            .Services
+        .ConfigureHttpClient(x =>
+        {
+            x.BaseAddress = settings.DialogportenAdapter.Altinn.InternalStorageEndpoint;
+            x.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", settings.DialogportenAdapter.Altinn.SubscriptionKey);
+        })
+        .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
+        .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>()
+        .Services
         .AddRefitClient<IApplicationsApi>()
-            .ConfigureHttpClient(x =>
-            {
-                x.BaseAddress = settings.DialogportenAdapter.Altinn.InternalStorageEndpoint;
-                x.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", settings.DialogportenAdapter.Altinn.SubscriptionKey);
-            })
-            .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
-            .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>()
-            .Services
+        .ConfigureHttpClient(x =>
+        {
+            x.BaseAddress = settings.DialogportenAdapter.Altinn.InternalStorageEndpoint;
+            x.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", settings.DialogportenAdapter.Altinn.SubscriptionKey);
+        })
+        .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
+        .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>()
+        .Services
         .AddRefitClient<IDialogportenApi>()
-            .ConfigureHttpClient(x => x.BaseAddress = settings.DialogportenAdapter.Dialogporten.BaseUri)
-            .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
-            .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>()
-            .Services
+        .ConfigureHttpClient(x => x.BaseAddress = settings.DialogportenAdapter.Dialogporten.BaseUri)
+        .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
+        .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>()
+        .Services
         .AddRefitClient<IRegisterApi>()
-            .ConfigureHttpClient(x =>
-            {
-                x.BaseAddress = settings.DialogportenAdapter.Altinn.InternalRegisterEndpoint;
-                x.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", settings.DialogportenAdapter.Altinn.SubscriptionKey);
-            })
-            .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
-            .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>()
-            .Services
+        .ConfigureHttpClient(x =>
+        {
+            x.BaseAddress = settings.DialogportenAdapter.Altinn.InternalRegisterEndpoint;
+            x.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", settings.DialogportenAdapter.Altinn.SubscriptionKey);
+        })
+        .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.DefaultMaskinportenClientDefinitionKey)
+        .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>()
+        .Services
 
         // Health checks
         .AddHealthChecks()
-            .AddCheck<HealthCheck>("dialogporte_adapter_health_check");
+        .AddCheck<HealthCheck>("dialogporte_adapter_health_check");
 
     builder.ReplaceLocalDevelopmentResources();
 
@@ -313,14 +320,14 @@ static void BuildAndRun(string[] args)
         .AllowAnonymous();
 
     v1Route.MapPost("syncDialog", async (
-        [FromBody] SyncInstanceCommand request,
-        [FromServices] ISyncInstanceToDialogService syncService,
-        CancellationToken cancellationToken) =>
-    {
-        await syncService.Sync(request, cancellationToken);
-        return Results.NoContent();
-    })
-    .RequireAuthorization();
+            [FromBody] SyncInstanceCommand request,
+            [FromServices] ISyncInstanceToDialogService syncService,
+            CancellationToken cancellationToken) =>
+        {
+            await syncService.Sync(request, cancellationToken);
+            return Results.NoContent();
+        })
+        .RequireAuthorization();
 
     v1Route.MapPost("syncDialog/simple/{partyId}/{instanceGuid:guid}", async (
             [FromRoute] string partyId,
@@ -420,4 +427,3 @@ partial class Program
     [LoggerMessage(LogLevel.Critical, "Application terminated unexpectedly")]
     static partial void LogApplicationTerminatedUnexpectedly(ILogger<Program> logger, Exception exception);
 }
-

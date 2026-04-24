@@ -1,8 +1,10 @@
+using System.Diagnostics;
 using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
+using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using JasperFx.Core;
 using Microsoft.Extensions.Options;
@@ -171,9 +173,9 @@ internal sealed class StorageDialogportenDataMerger
             : SystemLabel.Default;
 
         var (party, activities) = await (
-            GetPartyUrnOrThrow(dto.Instance.InstanceOwner.PartyId, cancellationToken),
-            _activityDtoTransformer.GetActivities(dto.Events, dto.Instance.InstanceOwner, cancellationToken)
-        );
+                GetPartyUrnOrThrow(dto.Instance.InstanceOwner.PartyId, cancellationToken),
+                _activityDtoTransformer.GetActivities(dto.Events, dto.Instance.InstanceOwner, cancellationToken)
+            );
 
         var (attachments, transmissions) = GetAttachmentAndTransmissions(dto, activities);
 
@@ -267,11 +269,15 @@ internal sealed class StorageDialogportenDataMerger
         var data = dto.Instance.Data;
         var attachmentVisibility = ReceiptAttachmentVisibilityDecider.Create(dto.Application);
 
+
         if (TransmissionsDisabled())
         {
             return (data.Where(IsNotPdfReceipt).Select(CreateAttachmentDto).ToList(), []);
         }
-
+        if (!AllPdfsGenerated(dto))
+        {
+            return (data.Where(IsNotPdfReceipt).Select(CreateAttachmentDto).ToList(), []);
+        }
         var soDataElements = data
             .Where(IsPerformedBySo)
             .ToList();
@@ -303,8 +309,8 @@ internal sealed class StorageDialogportenDataMerger
         bool IsNotPdfReceipt(DataElement element) => element.DataType != PdfType;
 
         bool TransmissionsDisabled() => dto.Application.GetSyncAdapterSettings().DisableAddTransmissions ||
-                                        !_settings.DialogportenAdapter.Adapter.FeatureFlag
-                                            .EnableSubmissionTransmissions;
+            !_settings.DialogportenAdapter.Adapter.FeatureFlag
+                .EnableSubmissionTransmissions;
 
         AttachmentDto CreateAttachmentDto(DataElement element)
         {
@@ -406,6 +412,27 @@ internal sealed class StorageDialogportenDataMerger
                     .ToList()
             };
         }
+    }
+    public static bool AllPdfsGenerated(MergeDto dto)
+    {
+        var tasksThatCanCreatePdfs = dto.Application.DataTypes
+            .Where(x => x.AppLogic is not null && x.EnablePdfCreation)
+            .Select(x => new { x.Id, x.TaskId })
+            .ToList();
+
+        var dataElementsThatShouldCreatePdfs = dto.Instance.Data
+            .Count(dataElement => tasksThatCanCreatePdfs.Any(tasks => tasks.Id == dataElement.DataType));
+
+        var generatedPdfs = dto.Instance.Data
+            .Count(dataElement =>
+                dataElement.DataType == PdfType &&
+                dataElement.References
+                    .Any(reference => reference.Relation == RelationType.GeneratedFrom &&
+                        tasksThatCanCreatePdfs.Any(tasks => tasks.TaskId == reference.Value)
+                    )
+            );
+
+        return dataElementsThatShouldCreatePdfs == generatedPdfs;
     }
 
     private async Task<string> GetPartyUrnOrThrow(string partyId, CancellationToken cancellationToken)
