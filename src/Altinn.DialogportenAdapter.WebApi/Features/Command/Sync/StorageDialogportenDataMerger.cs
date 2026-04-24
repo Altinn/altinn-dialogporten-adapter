@@ -270,11 +270,7 @@ internal sealed class StorageDialogportenDataMerger
         var attachmentVisibility = ReceiptAttachmentVisibilityDecider.Create(dto.Application);
 
 
-        if (TransmissionsDisabled())
-        {
-            return (data.Where(IsNotPdfReceipt).Select(CreateAttachmentDto).ToList(), []);
-        }
-        if (!AllPdfsGenerated(dto))
+        if (TransmissionsDisabled() || !AllPdfsGenerated(dto))
         {
             return (data.Where(IsNotPdfReceipt).Select(CreateAttachmentDto).ToList(), []);
         }
