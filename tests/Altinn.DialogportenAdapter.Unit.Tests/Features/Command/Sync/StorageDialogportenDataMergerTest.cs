@@ -85,8 +85,7 @@ public class StorageDialogportenDataMergerTest
                 {
                     ["nb"] = "Test applikasjon",
                     ["en"] = "Test application"
-                },
-                DataTypes = []
+                }
             },
             ApplicationTexts: new ApplicationTexts
             {

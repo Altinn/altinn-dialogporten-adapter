@@ -134,7 +134,9 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
         var updatedDialog = await _dataMerger.Merge(mergeDto, currentAttempt, cancellationToken);
         var revision = await UpsertDialog(updatedDialog, existingDialog, syncAdapterSettings, dto.IsMigration || forceSilentUpsert, cancellationToken);
         
-        if (currentAttempt < 3 && !StorageDialogportenDataMerger.AllPdfsGenerated(mergeDto))
+        if (currentAttempt < 3
+            && !StorageDialogportenDataMerger.AllPdfsGenerated(mergeDto)
+            && updatedDialog.Activities.Any(activity => activity.Type is DialogActivityType.FormSubmitted))
         {
             throw new WaitForPdfException();
         }

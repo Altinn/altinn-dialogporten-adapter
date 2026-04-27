@@ -426,8 +426,9 @@ internal sealed class StorageDialogportenDataMerger
     /// <param name="dto"></param>
     /// <returns>True if all eligible PDFs have been generated, otherwise false.</returns>
     public static bool AllPdfsGenerated(MergeDto dto)
-    { 
-        var pdfCreatingTasks = dto.Application.DataTypes
+    {
+        var dataTypes = dto.Application.DataTypes ?? [];
+        var pdfCreatingTasks = dataTypes
             .Where(x => x.AppLogic is not null && x.EnablePdfCreation)
             .Select(x => new { x.Id, x.TaskId })
             .ToList();
@@ -439,11 +440,12 @@ internal sealed class StorageDialogportenDataMerger
 
         // Data elements that are of a PDF Generating task
         // The expected number of PDFs
-        var pdfSourceCount = dto.Instance.Data
+        var dataElements = dto.Instance.Data ?? [];
+        var pdfSourceCount = dataElements 
             .Count(dataElement => pdfCreatingTasks.Any(tasks => tasks.Id == dataElement.DataType));
 
         // Count of data elements of ref-data-as-pdf that are generated from a PDF generating task
-        var generatedPdfsCount = dto.Instance.Data
+        var generatedPdfsCount = dataElements 
             .Count(dataElement =>
                 dataElement.DataType == PdfType &&
                 dataElement.References

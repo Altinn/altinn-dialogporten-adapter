@@ -9,5 +9,5 @@ public static class SyncDialogOnInstanceUpdatedHandler
         ISyncInstanceToDialogService syncService,
         IMessageContext context,
         CancellationToken cancellationToken) =>
-        syncService.Sync(message, context.Envelope?.Attempts ?? 1, cancellationToken);
+        syncService.Sync(message, (context.Envelope?.Attempts  ?? 0) + 1, cancellationToken);
 }
