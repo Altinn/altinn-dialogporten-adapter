@@ -153,7 +153,6 @@ static void BuildAndRun(string[] args)
             .OnException<WaitForPdfException>()
             .OrAnyInner<WaitForPdfException>()
             .RetryWithJitteredCooldown(1.Seconds(), 5.Seconds(), 20.Seconds())
-            .Then.ScheduleRetry(1.Minutes(), 10.Minutes(), 30.Minutes())
             .Then.Discard();
 
         // Attempt to handle errors most likely caused by expired/invalid tokens. If retries don't help, move to error queue for manual inspection.
@@ -324,7 +323,7 @@ static void BuildAndRun(string[] args)
             [FromServices] ISyncInstanceToDialogService syncService,
             CancellationToken cancellationToken) =>
         {
-            await syncService.Sync(request, cancellationToken);
+            await syncService.Sync(request, cancellationToken: cancellationToken);
             return Results.NoContent();
         })
         .RequireAuthorization();
@@ -346,7 +345,7 @@ static void BuildAndRun(string[] args)
             }
 
             var request = new SyncInstanceCommand(instance.AppId, partyId, instanceGuid, instance.Created!.Value, isMigration ?? false);
-            await syncService.Sync(request, cancellationToken);
+            await syncService.Sync(request, cancellationToken: cancellationToken);
             return Results.NoContent();
         })
         .RequireAuthorization()

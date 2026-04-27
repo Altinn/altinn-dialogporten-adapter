@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
@@ -43,10 +42,10 @@ internal sealed class StorageDialogportenDataMerger
         _registerRepository = registerRepository ?? throw new ArgumentNullException(nameof(registerRepository));
     }
 
-    public async Task<DialogDto> Merge(MergeDto dto, CancellationToken cancellationToken)
+    public async Task<DialogDto> Merge(MergeDto dto, int currentAttempt, CancellationToken cancellationToken)
     {
         var existing = dto.ExistingDialog.DeepClone();
-        var storageDialog = await ToDialogDto(dto, cancellationToken);
+        var storageDialog = await ToDialogDto(dto, currentAttempt, cancellationToken);
 
         var syncAdapterSettings = dto.Application.GetSyncAdapterSettings();
 
@@ -165,7 +164,7 @@ internal sealed class StorageDialogportenDataMerger
         return existing;
     }
 
-    private async Task<DialogDto> ToDialogDto(MergeDto dto, CancellationToken cancellationToken)
+    private async Task<DialogDto> ToDialogDto(MergeDto dto, int currentAttempt, CancellationToken cancellationToken)
     {
         var (instanceDerivedStatus, dialogStatus) = GetStatus(dto.Instance, dto.Events);
         var systemLabel = dto.Instance.Status.IsArchived && dto.IsMigration
@@ -177,7 +176,7 @@ internal sealed class StorageDialogportenDataMerger
                 _activityDtoTransformer.GetActivities(dto.Events, dto.Instance.InstanceOwner, cancellationToken)
             );
 
-        var (attachments, transmissions) = GetAttachmentAndTransmissions(dto, activities);
+        var (attachments, transmissions) = GetAttachmentAndTransmissions(dto, activities, currentAttempt);
 
         var dialog = new DialogDto
         {
@@ -264,13 +263,13 @@ internal sealed class StorageDialogportenDataMerger
 
     private (List<AttachmentDto> attachments, List<TransmissionDto> transmissions) GetAttachmentAndTransmissions(
         MergeDto dto,
-        List<ActivityDto> activities)
+        List<ActivityDto> activities, int currentAttempt = 1)
     {
         var data = dto.Instance.Data;
         var attachmentVisibility = ReceiptAttachmentVisibilityDecider.Create(dto.Application);
 
 
-        if (TransmissionsDisabled() || !AllPdfsGenerated(dto))
+        if (TransmissionsDisabled() || !AllPdfsGenerated(dto) && currentAttempt < 3)
         {
             return (data.Where(IsNotPdfReceipt).Select(CreateAttachmentDto).ToList(), []);
         }
@@ -409,26 +408,46 @@ internal sealed class StorageDialogportenDataMerger
             };
         }
     }
+
+    /// <summary>
+    /// Determines whether all expected PDFs have been generated for the given instance and its data elements.
+    /// This method checks if the data elements configured to allow PDF creation have corresponding PDFs
+    /// already generated and associated appropriately.
+    /// </summary>
+    /// <remarks>
+    /// PDF generation depends on application configuration and runtime state,
+    /// so the expected count may not match the actual number of generated PDFs.
+    /// </remarks>
+    /// <param name="dto"></param>
+    /// <returns>True if all eligible PDFs have been generated, otherwise false.</returns>
     public static bool AllPdfsGenerated(MergeDto dto)
-    {
-        var tasksThatCanCreatePdfs = dto.Application.DataTypes
+    { 
+        var pdfCreatingTasks = dto.Application.DataTypes
             .Where(x => x.AppLogic is not null && x.EnablePdfCreation)
             .Select(x => new { x.Id, x.TaskId })
             .ToList();
 
-        var dataElementsThatShouldCreatePdfs = dto.Instance.Data
-            .Count(dataElement => tasksThatCanCreatePdfs.Any(tasks => tasks.Id == dataElement.DataType));
+        if (pdfCreatingTasks.Count == 0)
+        {
+            return true;
+        }
 
-        var generatedPdfs = dto.Instance.Data
+        // Data elements that are of a PDF Generating task
+        // The expected number of PDFs
+        var pdfSourceCount = dto.Instance.Data
+            .Count(dataElement => pdfCreatingTasks.Any(tasks => tasks.Id == dataElement.DataType));
+
+        // Count of data elements of ref-data-as-pdf that are generated from a PDF generating task
+        var generatedPdfsCount = dto.Instance.Data
             .Count(dataElement =>
                 dataElement.DataType == PdfType &&
                 dataElement.References
                     .Any(reference => reference.Relation == RelationType.GeneratedFrom &&
-                        tasksThatCanCreatePdfs.Any(tasks => tasks.TaskId == reference.Value)
+                        pdfCreatingTasks.Any(tasks => tasks.TaskId == reference.Value)
                     )
             );
 
-        return dataElementsThatShouldCreatePdfs == generatedPdfs;
+        return  pdfSourceCount == generatedPdfsCount;
     }
 
     private async Task<string> GetPartyUrnOrThrow(string partyId, CancellationToken cancellationToken)
