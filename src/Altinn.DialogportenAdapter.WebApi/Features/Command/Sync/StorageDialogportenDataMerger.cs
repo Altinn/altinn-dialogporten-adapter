@@ -285,7 +285,7 @@ internal sealed class StorageDialogportenDataMerger
 
         // Skip creating transmissions while waiting for PDF generation
         List<TransmissionDto> transmissions = [];
-        if (AllPdfsGenerated(dto) && currentAttempt >= 3)
+        if (currentAttempt >= 3 || AllPdfsGenerated(dto))
         {
             transmissions = activities
                 .Where(x => x.Type is DialogActivityType.FormSubmitted)
@@ -452,7 +452,7 @@ internal sealed class StorageDialogportenDataMerger
                     )
             );
 
-        return  pdfSourceCount == generatedPdfsCount;
+        return  pdfSourceCount <= generatedPdfsCount;
     }
 
     private async Task<string> GetPartyUrnOrThrow(string partyId, CancellationToken cancellationToken)

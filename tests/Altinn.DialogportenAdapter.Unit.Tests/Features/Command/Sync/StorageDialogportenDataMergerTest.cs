@@ -85,7 +85,8 @@ public class StorageDialogportenDataMergerTest
                 {
                     ["nb"] = "Test applikasjon",
                     ["en"] = "Test application"
-                }
+                },
+                DataTypes = []
             },
             ApplicationTexts: new ApplicationTexts
             {
@@ -111,7 +112,7 @@ public class StorageDialogportenDataMergerTest
             IsMigration: false
         );
 
-        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
 
         actualDialogDto.Should().BeEquivalentTo(new DialogDto
         {
@@ -285,8 +286,8 @@ public class StorageDialogportenDataMergerTest
             IsMigration: false
         );
 
-        var actualDialogDto1 = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
-        var actualDialogDto2 = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
+        var actualDialogDto1 = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
+        var actualDialogDto2 = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
 
         actualDialogDto1.Activities.Should().NotBeEmpty();
         actualDialogDto1.Attachments.Should().NotBeEmpty();
@@ -373,7 +374,7 @@ public class StorageDialogportenDataMergerTest
             ExistingDialog: null,
             IsMigration: false);
 
-        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
 
         actualDialogDto.Should().BeEquivalentTo(new DialogDto
         {
@@ -471,7 +472,7 @@ public class StorageDialogportenDataMergerTest
             IsMigration: false
         );
 
-        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
 
         actualDialogDto.Should().BeEquivalentTo(new DialogDto
         {
@@ -554,7 +555,7 @@ public class StorageDialogportenDataMergerTest
             IsMigration: false
         );
 
-        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
 
         actualDialogDto.Should().BeEquivalentTo(new DialogDto
         {
@@ -614,7 +615,7 @@ public class StorageDialogportenDataMergerTest
             IsMigration: false
         );
 
-        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
 
         actualDialogDto.Should().BeEquivalentTo(new DialogDto
         {
@@ -771,7 +772,7 @@ public class StorageDialogportenDataMergerTest
             IsMigration: false
         );
 
-        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
 
         actualDialogDto.Should().BeEquivalentTo(new DialogDto
         {
@@ -1264,7 +1265,7 @@ public class StorageDialogportenDataMergerTest
             IsMigration: false
         );
 
-        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
 
         actualDialogDto.Should().BeEquivalentTo(new DialogDto
         {
@@ -1719,7 +1720,7 @@ public class StorageDialogportenDataMergerTest
             ExistingDialog: null,
             IsMigration: false
         );
-        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
 
         actualDialogDto.Should().BeEquivalentTo(new DialogDto
         {
@@ -2082,7 +2083,7 @@ public class StorageDialogportenDataMergerTest
             IsMigration: false
         );
 
-        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
 
         actualDialogDto.Should().BeEquivalentTo(new DialogDto
         {
