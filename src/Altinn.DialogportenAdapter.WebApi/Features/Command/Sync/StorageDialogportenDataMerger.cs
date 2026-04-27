@@ -172,9 +172,9 @@ internal sealed class StorageDialogportenDataMerger
             : SystemLabel.Default;
 
         var (party, activities) = await (
-                GetPartyUrnOrThrow(dto.Instance.InstanceOwner.PartyId, cancellationToken),
-                _activityDtoTransformer.GetActivities(dto.Events, dto.Instance.InstanceOwner, cancellationToken)
-            );
+            GetPartyUrnOrThrow(dto.Instance.InstanceOwner.PartyId, cancellationToken),
+            _activityDtoTransformer.GetActivities(dto.Events, dto.Instance.InstanceOwner, cancellationToken)
+        );
 
         var (attachments, transmissions) = GetAttachmentAndTransmissions(dto, activities, currentAttempt);
 
@@ -304,8 +304,8 @@ internal sealed class StorageDialogportenDataMerger
         bool IsNotPdfReceipt(DataElement element) => element.DataType != PdfType;
 
         bool TransmissionsDisabled() => dto.Application.GetSyncAdapterSettings().DisableAddTransmissions ||
-            !_settings.DialogportenAdapter.Adapter.FeatureFlag
-                .EnableSubmissionTransmissions;
+                                        !_settings.DialogportenAdapter.Adapter.FeatureFlag
+                                            .EnableSubmissionTransmissions;
 
         AttachmentDto CreateAttachmentDto(DataElement element)
         {
