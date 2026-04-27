@@ -269,7 +269,7 @@ internal sealed class StorageDialogportenDataMerger
         var attachmentVisibility = ReceiptAttachmentVisibilityDecider.Create(dto.Application);
 
 
-        if (TransmissionsDisabled() || !AllPdfsGenerated(dto) && currentAttempt < 3)
+        if (TransmissionsDisabled())
         {
             return (data.Where(IsNotPdfReceipt).Select(CreateAttachmentDto).ToList(), []);
         }
@@ -283,11 +283,16 @@ internal sealed class StorageDialogportenDataMerger
             .Except(soDataElements)
             .OrderBy(x => x.Created!.Value));
 
-        var transmissions = activities
-            .Where(x => x.Type is DialogActivityType.FormSubmitted)
-            .OrderBy(x => x.CreatedAt)
-            .Select(ToTransmissionDto)
-            .ToList();
+        // Skip creating transmissions while waiting for PDF generation
+        List<TransmissionDto> transmissions = [];
+        if (AllPdfsGenerated(dto) && currentAttempt >= 3)
+        {
+            transmissions = activities
+                .Where(x => x.Type is DialogActivityType.FormSubmitted)
+                .OrderBy(x => x.CreatedAt)
+                .Select(ToTransmissionDto)
+                .ToList();
+        }
 
         var attachments = soDataElements
             // any remaining attachments not already included in transmissions
