@@ -75,6 +75,67 @@ public class StorageDialogportenDataMergerTest
         );
     }
 
+    [Fact(DisplayName = "Given multiple PDF-enabled data types on one task, AllPdfsGenerated counts expected PDFs per task")]
+    public void AllPdfsGenerated_MultiplePdfEnabledDataTypesOnSameTask_CountsExpectedPdfsPerTask()
+    {
+        var mergeDto = new MergeDto(
+            DialogId: Guid.NewGuid(),
+            ExistingDialog: null,
+            Application: AltinnApplicationBuilder
+                .NewDefaultAltinnApplication()
+                .WithDataTypes(
+                    AltinnDataTypeBuilder
+                        .NewDefaultDataType()
+                        .WithId("form-data")
+                        .WithTaskId("Task_1")
+                        .WithAppLogic(new ApplicationLogic())
+                        .WithEnablePdfCreation(true)
+                        .Build(),
+                    AltinnDataTypeBuilder
+                        .NewDefaultDataType()
+                        .WithId("attachment-data")
+                        .WithTaskId("Task_1")
+                        .WithAppLogic(new ApplicationLogic())
+                        .WithEnablePdfCreation(true)
+                        .Build())
+                .Build(),
+            ApplicationTexts: new ApplicationTexts { Translations = [] },
+            Instance: AltinnInstanceBuilder
+                .NewInProgressInstance()
+                .WithData([
+                    AltinnDataElementBuilder
+                        .NewDefaultDataElementBuilder()
+                        .WithId("form-data-element")
+                        .WithDataType("form-data")
+                        .Build(),
+                    AltinnDataElementBuilder
+                        .NewDefaultDataElementBuilder()
+                        .WithId("attachment-data-element")
+                        .WithDataType("attachment-data")
+                        .Build(),
+                    AltinnDataElementBuilder
+                        .NewDefaultDataElementBuilder()
+                        .WithId("generated-pdf")
+                        .WithDataType("ref-data-as-pdf")
+                        .WithReferences([
+                            new Reference
+                            {
+                                Value = "Task_1",
+                                Relation = RelationType.GeneratedFrom,
+                                ValueType = ReferenceType.DataElement
+                            }
+                        ])
+                        .Build()
+                ])
+                .Build(),
+            Events: new InstanceEventList { InstanceEvents = [] },
+            IsMigration: false);
+
+        var allPdfsGenerated = StorageDialogportenDataMerger.AllPdfsGenerated(mergeDto);
+
+        allPdfsGenerated.Should().BeTrue();
+    }
+
     [Fact(DisplayName = "Given a minimal MergeDto, should return a DialogDto")]
     public async Task Merge_MinimalMergeDto_ReturnsExpectedDialogDto()
     {

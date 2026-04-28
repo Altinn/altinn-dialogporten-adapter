@@ -438,11 +438,17 @@ internal sealed class StorageDialogportenDataMerger
             return true;
         }
 
-        // Data elements that are of a PDF Generating task
-        // The expected number of PDFs
         var dataElements = dto.Instance.Data ?? [];
-        var pdfSourceCount = dataElements 
-            .Count(dataElement => pdfCreatingTasks.Any(tasks => tasks.Id == dataElement.DataType));
+        var dataElementTypes = dataElements
+            .Select(dataElement => dataElement.DataType)
+            .ToHashSet();
+
+        // The expected number of PDFs is one per PDF generating task that has source data.
+        var pdfSourceCount = pdfCreatingTasks
+            .Where(task => dataElementTypes.Contains(task.Id))
+            .Select(task => task.TaskId)
+            .Distinct()
+            .Count();
 
         // Count of data elements of ref-data-as-pdf that are generated from a PDF generating task
         var generatedPdfsCount = dataElements 
