@@ -149,6 +149,9 @@ static void BuildAndRun(string[] args)
             .Then.ScheduleRetry(1.Minutes(), 10.Minutes(), 30.Minutes())
             .Then.MoveToErrorQueue();
 
+        // Wait for all PDFs to generate before creating Transmissions.
+        // Only thrown when FormSubmitted Activity is present
+        // WaitForPdfException won't block the dialog from being created/updated only prevent Transmission creation
         opts.Policies
             .OnException<WaitForPdfException>()
             .OrAnyInner<WaitForPdfException>()
