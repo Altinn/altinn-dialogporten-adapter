@@ -149,6 +149,15 @@ static void BuildAndRun(string[] args)
             .Then.ScheduleRetry(1.Minutes(), 10.Minutes(), 30.Minutes())
             .Then.MoveToErrorQueue();
 
+        // Wait for all PDFs to generate before creating Transmissions.
+        // Only thrown when FormSubmitted Activity is present
+        // WaitForPdfException won't block the dialog from being created/updated only prevent Transmission creation
+        opts.Policies
+            .OnException<WaitForPdfException>()
+            .OrAnyInner<WaitForPdfException>()
+            .RetryWithJitteredCooldown(1.Seconds(), 5.Seconds(), 20.Seconds())
+            .Then.Discard();
+
         // Attempt to handle errors most likely caused by expired/invalid tokens. If retries don't help, move to error queue for manual inspection.
         opts.Policies
             .OnException<ApiException>(ex => ex.StatusCode is HttpStatusCode.Unauthorized)
@@ -317,7 +326,7 @@ static void BuildAndRun(string[] args)
         [FromServices] ISyncInstanceToDialogService syncService,
         CancellationToken cancellationToken) =>
     {
-        await syncService.Sync(request, cancellationToken);
+        await syncService.Sync(request, cancellationToken: cancellationToken);
         return Results.NoContent();
     })
     .RequireAuthorization();
@@ -339,7 +348,7 @@ static void BuildAndRun(string[] args)
             }
 
             var request = new SyncInstanceCommand(instance.AppId, partyId, instanceGuid, instance.Created!.Value, isMigration ?? false);
-            await syncService.Sync(request, cancellationToken);
+            await syncService.Sync(request, cancellationToken: cancellationToken);
             return Results.NoContent();
         })
         .RequireAuthorization()
@@ -420,4 +429,3 @@ partial class Program
     [LoggerMessage(LogLevel.Critical, "Application terminated unexpectedly")]
     static partial void LogApplicationTerminatedUnexpectedly(ILogger<Program> logger, Exception exception);
 }
-
