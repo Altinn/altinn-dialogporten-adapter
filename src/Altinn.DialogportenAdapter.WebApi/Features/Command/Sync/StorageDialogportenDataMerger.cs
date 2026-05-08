@@ -726,7 +726,7 @@ internal sealed class StorageDialogportenDataMerger
     /// <returns>The authorization attribute</returns>
     private static string? GetAuthorizationAttributeForGuiAction(Instance instance)
     {
-        return instance.Process?.CurrentTask?.ElementId is not null
+        return !string.IsNullOrWhiteSpace(instance.Process?.CurrentTask?.ElementId)
             ? "urn:altinn:task:" + instance.Process.CurrentTask.ElementId
             : null;
     }
