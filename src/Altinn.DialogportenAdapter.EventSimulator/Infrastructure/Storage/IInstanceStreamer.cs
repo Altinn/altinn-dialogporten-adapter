@@ -121,13 +121,13 @@ internal sealed partial class InstanceStreamer : IInstanceStreamer
             }
             catch (Exception e)
             {
-                LogFailedToFetchInstanceStream(e);
-                yield break;
+                LogFailedToFetchInstanceStream(e, org, appId, partyId, from, to, pageSize, order, next);
+                throw;
             }
 
             if (result is null)
             {
-                LogNoInstanceResponseFromStorage();
+                LogNoInstanceResponseFromStorage(org, appId, partyId, from, to, pageSize, order, next);
                 break;
             }
 
@@ -144,9 +144,9 @@ internal sealed partial class InstanceStreamer : IInstanceStreamer
     [LoggerMessage(LogLevel.Debug, "Done fetching instances for {org}. New fetch in {delay} +- {jitter}%.")]
     partial void LogDoneFetchingInstancesForOrg(string org, TimeSpan delay, double jitter);
 
-    [LoggerMessage(LogLevel.Error, "Failed to fetch instance stream.")]
-    partial void LogFailedToFetchInstanceStream(Exception exception);
+    [LoggerMessage(LogLevel.Error, "Failed to fetch instance stream from Storage. Org={org}, AppId={appId}, PartyId={partyId}, From={from}, To={to}, PageSize={pageSize}, Order={order}, Next={next}.")]
+    partial void LogFailedToFetchInstanceStream(Exception exception, string? org, string? appId, string? partyId, DateTimeOffset? from, DateTimeOffset? to, int pageSize, string order, string next);
 
-    [LoggerMessage(LogLevel.Warning, "No instance response from storage.")]
-    partial void LogNoInstanceResponseFromStorage();
+    [LoggerMessage(LogLevel.Warning, "No instance response from Storage. Org={org}, AppId={appId}, PartyId={partyId}, From={from}, To={to}, PageSize={pageSize}, Order={order}, Next={next}.")]
+    partial void LogNoInstanceResponseFromStorage(string? org, string? appId, string? partyId, DateTimeOffset? from, DateTimeOffset? to, int pageSize, string order, string next);
 }

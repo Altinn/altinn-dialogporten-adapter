@@ -25,8 +25,6 @@ internal sealed class StorageDialogportenDataMerger
     private const string CopyActionLabel = "copyactionlabel";
     private const string ReadAction = "read";
     private const string DeleteAction = "delete";
-    private const string SignAction = "sign";
-    private const string WriteAction = "write";
     private const string InstantiateAction = "instantiate";
     private const string PdfType = "ref-data-as-pdf";
     private readonly Settings _settings;
@@ -669,12 +667,8 @@ internal sealed class StorageDialogportenDataMerger
     private GuiActionDto CreateGoToAction(Guid dialogId, Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
     {
         var goToActionId = dialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.GoTo);
-        var xacmlAction = instanceDerivedStatus switch
-        {
-            InstanceDerivedStatus.ArchivedConfirmed or InstanceDerivedStatus.ArchivedUnconfirmed => ReadAction,
-            InstanceDerivedStatus.AwaitingSignature => SignAction,
-            _ => WriteAction
-        };
+        // We offload the handling of missing write/sign permissions to the app
+        var xacmlAction = ReadAction;
 
         // CurrentTask may be null (ex. instance id 51499006/907c12e2-041a-4275-9d33-67620cdf15b6 tt02),
         // in which case we have no other option than to not set an authorization attribute.

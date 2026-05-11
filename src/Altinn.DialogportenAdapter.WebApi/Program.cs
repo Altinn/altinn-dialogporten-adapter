@@ -1,3 +1,4 @@
+using System.Globalization;
 using Altinn.DialogportenAdapter.Contracts;
 using Altinn.DialogportenAdapter.WebApi;
 using Altinn.DialogportenAdapter.WebApi.Common;
@@ -7,6 +8,13 @@ using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+
+// Workaround issue in Wolverine on nb_NB causing intermittent 400 Bad Request errors due to
+// attempts to auto-provision queues with a unicode negative sign
+var safeCulture = (CultureInfo)CultureInfo.CurrentCulture.Clone();
+safeCulture.NumberFormat.NegativeSign = "-";
+CultureInfo.DefaultThreadCurrentCulture = safeCulture;
+CultureInfo.CurrentCulture = safeCulture;
 
 using var loggerFactory = CreateBootstrapLoggerFactory();
 var bootstrapLogger = loggerFactory.CreateLogger<Program>();

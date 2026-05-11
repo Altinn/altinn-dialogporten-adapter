@@ -1,4 +1,5 @@
-﻿using Altinn.ApiClients.Maskinporten.Extensions;
+﻿using System.Globalization;
+using Altinn.ApiClients.Maskinporten.Extensions;
 using Altinn.ApiClients.Maskinporten.Services;
 using Altinn.DialogportenAdapter.Contracts;
 using Altinn.DialogportenAdapter.EventSimulator;
@@ -10,14 +11,24 @@ using Altinn.DialogportenAdapter.EventSimulator.Features.UpdateStream;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Adapter;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Persistance;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
+using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Azure.Data.Tables;
 using JasperFx;
 using Microsoft.AspNetCore.Mvc;
+using OpenTelemetry.Resources;
 using Refit;
 using Wolverine;
 using Wolverine.AzureServiceBus;
+using Wolverine.ErrorHandling;
 using Constants = Altinn.DialogportenAdapter.EventSimulator.Common.Constants;
 using ContractConstants = Altinn.DialogportenAdapter.Contracts.Constants;
+
+// Workaround issue in Wolverine on nb_NB causing intermittent 400 Bad Request errors due to
+// attempts to auto-provision queues with a unicode negative sign
+var safeCulture = (CultureInfo)CultureInfo.CurrentCulture.Clone();
+safeCulture.NumberFormat.NegativeSign = "-";
+CultureInfo.DefaultThreadCurrentCulture = safeCulture;
+CultureInfo.CurrentCulture = safeCulture;
 
 using var loggerFactory = CreateBootstrapLoggerFactory();
 var bootstrapLogger = loggerFactory.CreateLogger<Program>();
@@ -49,6 +60,22 @@ static Task BuildAndRun(string[] args)
 
     var settings = builder.Configuration.Get<Settings>()!;
 
+    if (builder.Configuration.TryGetApplicationInsightsConnectionString(out var appInsightsConnectionString))
+    {
+        builder.Services
+            .AddOpenTelemetry()
+            .ConfigureResource(x => x.AddAttributes([
+                new("service.name", "platform-dialogporten-eventsimulator")
+            ]))
+            .UseAzureMonitor(x =>
+            {
+                x.ConnectionString = appInsightsConnectionString;
+                x.SamplingRatio = 0.05F;
+                x.EnableLiveMetrics = false;
+                x.StorageDirectory = "/tmp/logtelemetry";
+            });
+    }
+
     builder.Services.AddWolverine(opts =>
     {
         opts.ConfigureAdapterDefaults(
@@ -60,9 +87,18 @@ static Task BuildAndRun(string[] args)
             .ListenerCount(settings.WolverineSettings.ListenerCount)
             .ProcessInline());
         opts.Policies.AllSenders(x => x.SendInline());
+        opts.OnException<HttpRequestException>()
+            .ScheduleRetry(TimeSpan.FromMinutes(5))
+            .Then.MoveToErrorQueue();
+        opts.OnException<TaskCanceledException>(x => !x.CancellationToken.IsCancellationRequested)
+            .ScheduleRetry(TimeSpan.FromMinutes(30))
+            .Then.MoveToErrorQueue();
 
-        opts.ListenToAzureServiceBusQueue(ContractConstants.EventSimulatorQueueName);
+        opts.ListenToAzureServiceBusQueue(ContractConstants.EventSimulatorQueueName)
+            .ConfigureQueue(x => x.LockDuration = TimeSpan.FromMinutes(5));
         opts.PublishMessage<MigratePartitionCommand>()
+            .ToAzureServiceBusQueue(ContractConstants.EventSimulatorQueueName);
+        opts.PublishMessage<MigrateInstanceCommand>()
             .ToAzureServiceBusQueue(ContractConstants.EventSimulatorQueueName);
         opts.PublishMessage<SyncInstanceCommand>()
             .ToAzureServiceBusQueue(ContractConstants.AdapterHistoryQueueName);
@@ -106,7 +142,11 @@ static Task BuildAndRun(string[] args)
         })
         .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.MaskinportenClientDefinitionKey);
     builder.Services.AddHttpClient(Constants.MaskinportenClientDefinitionKey)
-        .ConfigureHttpClient(x => x.BaseAddress = settings.DialogportenAdapter.Altinn.ApiStorageEndpoint)
+        .ConfigureHttpClient(x =>
+        {
+            x.BaseAddress = settings.DialogportenAdapter.Altinn.ApiStorageEndpoint;
+            x.Timeout = TimeSpan.FromSeconds(600);
+        })
         .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(Constants.MaskinportenClientDefinitionKey);
     builder.Services.AddTransient<IStorageApi>(x => RestService
         .For<IStorageApi>(x.GetRequiredService<IHttpClientFactory>()
