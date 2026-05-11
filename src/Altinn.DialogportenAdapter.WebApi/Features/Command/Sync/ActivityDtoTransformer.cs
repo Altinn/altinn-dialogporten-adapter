@@ -55,14 +55,19 @@ internal sealed class ActivityDtoTransformer
                 continue;
             }
 
-            createdFound = createdFound || activityType == DialogActivityType.DialogCreated;
-            
-            // Only bump timestamp of Formsaved if the last activity is a FormSaved and the current event is also a FormSaved
             // We ignore "Saved" events from the service owner, as they are typically related to transformations performed by the app
             // as a consequence of the instance being saved by the end user, and do not represent an explicit action performed by the service owner.
             // These events are usually interleaved, breaking the collapsing of "Saved" events performed by the end user.
+            if (activityType == DialogActivityType.FormSaved && !string.IsNullOrWhiteSpace(@event.User.OrgId))
+            {
+                continue;
+            }
+            
+            createdFound = createdFound || activityType == DialogActivityType.DialogCreated;
+            
+            // Only bump timestamp of Formsaved if the last activity is a FormSaved and the current event is also a FormSaved
             var lastActivity = activities.LastOrDefault();
-            if (lastActivity?.Type == DialogActivityType.FormSaved && activityType == DialogActivityType.FormSaved && string.IsNullOrWhiteSpace(@event.User.OrgId))
+            if (lastActivity?.Type == DialogActivityType.FormSaved && activityType == DialogActivityType.FormSaved)
             {
                 if (GetPerformedBy(@event.User, instanceOwner, actorUrnByUserId).ActorId == activities.Last().PerformedBy.ActorId)
                 {
