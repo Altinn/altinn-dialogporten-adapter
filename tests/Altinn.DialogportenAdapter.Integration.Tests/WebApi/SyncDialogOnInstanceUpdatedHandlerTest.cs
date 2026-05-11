@@ -225,8 +225,8 @@ public class SyncDialogOnInstanceUpdatedHandlerTest(DialogportenAdapterApplicati
         var dialogLog = WaitForDialogPostedLogEntry(TimeSpan.FromMilliseconds(4000));
         await Task.WhenAll(dlqMessage, dialogLog);
 
-        dlqMessage?.Result.Should().BeNull();
-        dialogLog?.Result.Should().BeNull();
+        (await dlqMessage).Should().BeNull();
+        (await dialogLog).Should().BeNull();
         var failedRequests = _application.DialogportenApi.FindLogEntries(Request.Create().DpGetDialog(dialogId)).Count;
 
         failedRequests.Should().BeGreaterThan(5);
