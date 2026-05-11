@@ -46,15 +46,30 @@ internal sealed class ActivityDtoTransformer
                 InstanceEventType.SentToPayment => DialogActivityType.SentToPayment,
                 InstanceEventType.SentToSendIn => DialogActivityType.SentToSendIn,
                 InstanceEventType.SentToFormFill => DialogActivityType.SentToFormFill,
+                InstanceEventType.Saved => DialogActivityType.FormSaved,
                 _ => (DialogActivityType?)null
             };
 
-            if (!activityType.HasValue)
+            if (activityType is null)
             {
                 continue;
             }
 
             createdFound = createdFound || activityType == DialogActivityType.DialogCreated;
+            
+            // Only bump timestamp of Formsaved if the last activity is a FormSaved and the current event is also a FormSaved
+            // We ignore "Saved" events from the service owner, as they are typically related to transformations performed by the app
+            // as a consequence of the instance being saved by the end user, and do not represent an explicit action performed by the service owner.
+            // These events are usually interleaved, breaking the collapsing of "Saved" events performed by the end user.
+            var lastActivity = activities.LastOrDefault();
+            if (lastActivity?.Type == DialogActivityType.FormSaved && activityType == DialogActivityType.FormSaved && string.IsNullOrWhiteSpace(@event.User.OrgId))
+            {
+                if (GetPerformedBy(@event.User, instanceOwner, actorUrnByUserId).ActorId == activities.Last().PerformedBy.ActorId)
+                {
+                    lastActivity.CreatedAt = @event.Created;
+                    continue;
+                }
+            }
 
             activities.Add(new ActivityDto
             {
@@ -63,38 +78,10 @@ internal sealed class ActivityDtoTransformer
                 CreatedAt = @event.Created,
                 PerformedBy = GetPerformedBy(@event.User, instanceOwner, actorUrnByUserId),
                 Description = activityType == DialogActivityType.Information // Todo: This never happens. The Information type is never handled
-                    ? [ new LocalizationDto { LanguageCode = "nb", Value = eventType.ToString() } ]
-                    : [ ]
+                    ? [new LocalizationDto { LanguageCode = "nb", Value = eventType.ToString() }]
+                    : []
             });
         }
-
-        var savedEvents = events.InstanceEvents
-            .OrderBy(x => x.Created)
-            .Where(x => StringComparer.OrdinalIgnoreCase.Equals(x.EventType, "Saved"))
-            // We ignore "Saved" events from the service owner, as they are typically related to transformations performed by the app
-            // as a consequence of the instance being saved by the end user, and do not represent an explicit action performed by the service owner.
-            // These events are usually interleaved, breaking the collapsing of "Saved" events performed by the end user.
-            .Where(x => string.IsNullOrWhiteSpace(x.User.OrgId))
-            .Aggregate((SavedActivities: new List<ActivityDto>(), PreviousActivity: (ActivityDto?)null), (state, @event) =>
-            {
-                var currentActor = GetPerformedBy(@event.User, instanceOwner, actorUrnByUserId);
-                if (IsPerformedBy(state.PreviousActivity, currentActor))
-                {
-                    state.PreviousActivity.CreatedAt = @event.Created;
-                    return state;
-                }
-
-                state.SavedActivities.Add(state.PreviousActivity = new ActivityDto
-                {
-                    Id = @event.Id!.Value.ToVersion7(@event.Created!.Value),
-                    Type = DialogActivityType.FormSaved,
-                    CreatedAt = @event.Created,
-                    PerformedBy = currentActor
-                });
-                return state;
-            }, state => state.SavedActivities);
-
-        activities.AddRange(savedEvents);
         return activities;
     }
 
