@@ -15,6 +15,7 @@ using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
 using Wolverine;
 using Xunit;
+using ZiggyCreatures.Caching.Fusion;
 
 namespace Altinn.DialogportenAdapter.Integration.Tests.Common;
 
@@ -43,6 +44,7 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         app.AltinnApi.LogUnhandledRequests(app.App.Logger, "AltinnApi").ResetAllExceptFallbackMapping();
         app.StorageApi.LogUnhandledRequests(app.App.Logger, "StorageApi").ResetAllExceptFallbackMapping();
 
+        await app.App.Services.GetRequiredService<IFusionCache>().ClearAsync();
         await DrainLeftoverMessages();
         await AdapterQueueDlqReceiver.DisposeAsync();
 
@@ -135,7 +137,8 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
 
     protected Arrangement ArrangeDefaults()
     {
-        var appId = "skd/formueinntekt-skattemelding-v2";
+        var testName = TestContext.Current.Test!.TestDisplayName;
+        var appId = "ttd/formueinntekt-skattemelding-v2";
         var partyId = 2;
         var instanceCreatedAt = DateTimeOffset.UtcNow;
         var instanceId = Guid.NewGuid();
@@ -152,7 +155,12 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
             .AtPriority(short.MaxValue - 1)
             .RespondWith(Response.Create()
                 .WithStatusCode(HttpStatusCode.OK)
-                .WithBody(JsonSerializer.Serialize(AltinnApplicationBuilder.NewDefaultAltinnApplication().Build())));
+                .WithBody(JsonSerializer.Serialize(
+                    AltinnApplicationBuilder
+                        .NewDefaultAltinnApplication()
+                        .WithLastChangedBy(testName)
+                        .Build()
+                    )));
 
         app.StorageApi
             .Given(Request.Create().StorageGetApplicationTexts(appId, "nb"))
@@ -198,6 +206,7 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
                 .WithStatusCode(HttpStatusCode.OK)
                 .WithBody(JsonSerializer.Serialize(AltinnInstanceBuilder
                     .NewInProgressInstance()
+                    .WithCreatedBy(testName)
                     .WithInstanceOwner(new InstanceOwner
                     {
                         PartyId = $"{partyId}",
@@ -213,8 +222,14 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
                 {
                     InstanceEvents =
                     [
-                        AltinnInstanceEventBuilder.NewCreatedByPlatformUserInstanceEvent(1).Build(),
-                        AltinnInstanceEventBuilder.NewSubmittedByPlatformUserInstanceEvent(1).Build()
+                        AltinnInstanceEventBuilder
+                            .NewCreatedByPlatformUserInstanceEvent(1)
+                            .WithAdditionalInfo(testName)
+                            .Build(),
+                        AltinnInstanceEventBuilder
+                            .NewSubmittedByPlatformUserInstanceEvent(1)
+                            .WithAdditionalInfo(testName)
+                            .Build()
                     ]
                 })));
 
@@ -236,7 +251,7 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
                         PersonIdentifier: null,
                         OrganizationIdentifier: "12345678",
                         ExternalUrn: "urn:altinn:organization:identifier-no:12345678",
-                        DisplayName: "KRASS VIRKSOMHET"
+                        DisplayName: testName
                     )
                 ]))));
 

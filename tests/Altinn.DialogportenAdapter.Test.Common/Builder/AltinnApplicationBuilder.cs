@@ -215,6 +215,12 @@ public class AltinnApplicationBuilder
         return this;
     }
 
+    public AltinnApplicationBuilder WithLastChangedBy(string lastChangedBy)
+    {
+        _application.LastChangedBy = lastChangedBy;
+        return this;
+    }
+
     public Application Build()
     {
         return _application.DeepClone();
