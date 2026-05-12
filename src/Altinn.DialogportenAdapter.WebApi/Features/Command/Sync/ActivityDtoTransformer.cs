@@ -67,13 +67,12 @@ internal sealed class ActivityDtoTransformer
             createdFound = createdFound || activityType == DialogActivityType.DialogCreated;
             var performedBy = GetPerformedBy(@event.User, instanceOwner, actorUrnByUserId);
             // Only bump timestamp of Formsaved if the last activity is a FormSaved and the current event is also a FormSaved
-            if (previousActivity?.Type == DialogActivityType.FormSaved && activityType == DialogActivityType.FormSaved)
+            if (previousActivity?.Type == DialogActivityType.FormSaved 
+                && activityType == DialogActivityType.FormSaved 
+                && performedBy.ActorId == previousActivity.PerformedBy.ActorId)
             {
-                if (performedBy.ActorId == previousActivity.PerformedBy.ActorId)
-                {
-                    previousActivity.CreatedAt = @event.Created;
-                    continue;
-                }
+                previousActivity.CreatedAt = @event.Created;
+                continue;
             }
             
             var activity = new ActivityDto
