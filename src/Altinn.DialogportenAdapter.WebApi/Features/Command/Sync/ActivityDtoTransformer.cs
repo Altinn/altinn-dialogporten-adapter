@@ -65,7 +65,7 @@ internal sealed class ActivityDtoTransformer
             }
             
             createdFound = createdFound || activityType == DialogActivityType.DialogCreated;
-            var performedBy = GetPerformedBy(@event.User, instanceOwner, actorUrnByUserId);
+            var performedBy = GetPerformedBy(@event.User, actorUrnByUserId);
             // Only bump timestamp of Formsaved if the last activity is a FormSaved and the current event is also a FormSaved
             if (previousActivity?.Type == DialogActivityType.FormSaved 
                 && activityType == DialogActivityType.FormSaved 
@@ -81,9 +81,7 @@ internal sealed class ActivityDtoTransformer
                 Type = activityType.Value,
                 CreatedAt = @event.Created,
                 PerformedBy = performedBy,
-                Description = activityType == DialogActivityType.Information // Todo: This never happens. The Information type is never handled
-                    ? [new LocalizationDto { LanguageCode = "nb", Value = eventType.ToString() }]
-                    : []
+                Description = []
             };
             previousActivity = activity;
             activities.Add(activity);
@@ -116,7 +114,7 @@ internal sealed class ActivityDtoTransformer
         return actorUrnByUserUrn.ToDictionary(x => int.Parse(x.Key, CultureInfo.InvariantCulture), x => x.Value);
     }
 
-    private static ActorDto GetPerformedBy(PlatformUser user, InstanceOwner instanceOwner, Dictionary<int, string> actorUrnByUserId)
+    private static ActorDto GetPerformedBy(PlatformUser user, Dictionary<int, string> actorUrnByUserId)
     {
         if (user.UserId.HasValue && actorUrnByUserId.TryGetValue(user.UserId.Value, out var actorUrn))
         {
