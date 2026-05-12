@@ -69,7 +69,7 @@ internal sealed class ActivityDtoTransformer
             // Only bump timestamp of Formsaved if the last activity is a FormSaved and the current event is also a FormSaved
             if (previousActivity?.Type == DialogActivityType.FormSaved 
                 && activityType == DialogActivityType.FormSaved 
-                && performedBy.ActorId == previousActivity.PerformedBy.ActorId)
+                && IsPerformedBy(previousActivity, performedBy))
             {
                 previousActivity.CreatedAt = @event.Created;
                 continue;
