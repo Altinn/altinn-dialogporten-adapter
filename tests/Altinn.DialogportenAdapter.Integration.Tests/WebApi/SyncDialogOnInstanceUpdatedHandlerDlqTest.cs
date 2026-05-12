@@ -199,8 +199,8 @@ public class SyncDialogOnInstanceUpdatedHandlerDlqTest(DialogportenAdapterApplic
         ));
 
         // Assert
-        var dlqMessage = WaitForDlqMessage(TimeSpan.FromMilliseconds(4000));
-        var dialogLog = WaitForDialogPostedLogEntry(TimeSpan.FromMilliseconds(4000));
+        var dlqMessage = WaitForDlqMessage(TimeSpan.FromSeconds(4));
+        var dialogLog = WaitForRequest(Request.Create().DpPostDialog(), TimeSpan.FromSeconds(4));
         await Task.WhenAll(dlqMessage, dialogLog);
 
         (await dlqMessage).Should().BeNull();

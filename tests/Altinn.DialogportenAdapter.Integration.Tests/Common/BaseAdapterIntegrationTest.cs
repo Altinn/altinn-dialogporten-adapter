@@ -5,12 +5,12 @@ using Altinn.DialogportenAdapter.Contracts;
 using Altinn.DialogportenAdapter.Integration.Tests.Common.Extensions;
 using Altinn.DialogportenAdapter.Test.Common.Builder;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
-using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.Platform.Storage.Interface.Models;
 using Azure.Messaging.ServiceBus;
 using Microsoft.Extensions.DependencyInjection;
 using WireMock.Logging;
+using WireMock.Matchers.Request;
 using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
 using Wolverine;
@@ -58,9 +58,9 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         await bus.SendAsync(command);
     }
 
-    protected async Task<ServiceBusReceivedMessage?> WaitForDlqMessage(TimeSpan? timeoutSeconds = null)
+    protected async Task<ServiceBusReceivedMessage?> WaitForDlqMessage(TimeSpan? timeout = null)
     {
-        var maxWait = timeoutSeconds ?? TimeSpan.FromSeconds(10);
+        var maxWait = timeout ?? TimeSpan.FromSeconds(10);
         var message = await AdapterQueueDlqReceiver.ReceiveMessageAsync(maxWait, TestContext.Current.CancellationToken);
 
         if (message != null)
@@ -72,11 +72,11 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         return message;
     }
 
-    protected async Task<ILogEntry?> WaitForDialogPostedLogEntry(TimeSpan? timeout = null)
+    protected async Task<ILogEntry?> WaitForRequest(IRequestMatcher request, TimeSpan? timeout = null)
     {
         var entry = await Time.WaitUntilAsync(() =>
         {
-            var entries = app.DialogportenApi.FindLogEntries(Request.Create().DpPostDialog());
+            var entries = app.DialogportenApi.FindLogEntries(request);
             return entries.Count > 0 ? entries[0] : null;
         }, timeout ?? TimeSpan.FromSeconds(10));
 
@@ -88,43 +88,48 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         return entry;
     }
 
-    protected async Task<DialogDto> WaitForDialogPostedOrFail()
+    protected async Task<T> WaitForRequestOrFail<T>(
+        IRequestMatcher requestMatcher,
+        int expectedStatusCode,
+        TimeSpan? timeout = null
+    )
     {
-        var postDialog = WaitForDialogPostedLogEntry(TimeSpan.FromSeconds(10));
-        var getDlqMessage = WaitForDlqMessage(TimeSpan.FromSeconds(9));
-        await Task.WhenAny(postDialog, getDlqMessage);
+        var maxWait = timeout ?? TimeSpan.FromSeconds(10);
+        var request = WaitForRequest(requestMatcher, maxWait);
+        var getDlqMessage = WaitForDlqMessage(maxWait.Subtract(TimeSpan.FromSeconds(1)));
+        await Task.WhenAny(request, getDlqMessage);
 
         if (getDlqMessage.IsCompleted && getDlqMessage.Result != null)
         {
             var reason = getDlqMessage.Result.DeadLetterErrorDescription;
-            Assert.Fail($"Expected a dialog to be posted. But dlq got message instead: {reason}");
+            Assert.Fail($"Expected request to complete. But dlq got message instead: {reason}");
         }
 
-        if (postDialog.Result == null)
+        if (request.Result == null)
         {
-            Assert.Fail("Expected a dialog to be posted. Did you forget to set up a wiremock post dialog request?");
+            Assert.Fail($"Expected request. Did you forget to set up a wiremock request?");
         }
 
-        var statusCode = (int)postDialog.Result.ResponseMessage!.StatusCode!;
-        if (statusCode != 201)
+        var statusCode = (int)request.Result.ResponseMessage!.StatusCode!;
+        if (statusCode != expectedStatusCode)
         {
             var dlqMessage = await getDlqMessage;
             if (dlqMessage != null)
             {
                 var reason = dlqMessage.DeadLetterErrorDescription;
-                Assert.Fail($"Expected post dialog to return status code 201, was {statusCode}. Dlq reason: {reason}");
+                Assert.Fail($"Expected request to return status code {expectedStatusCode}, was {statusCode}. Dlq reason: {reason}");
             }
 
-            Assert.Fail($"Expected a dlq message when statusCode != 201, code was {statusCode}");
+            Assert.Fail($"Expected a dlq message when statusCode != {expectedStatusCode}, code was {statusCode}");
         }
 
-        var body = postDialog.Result.RequestMessage?.Body;
+        var body = request.Result.RequestMessage?.Body;
         if (body == null)
         {
             Assert.Fail("Expected a request with a body");
         }
 
-        return JsonSerializer.Deserialize<DialogDto>(body)!;
+        return JsonSerializer.Deserialize<T>(body)!;
     }
 
     protected sealed record Arrangement(
