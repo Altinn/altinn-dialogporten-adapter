@@ -25,6 +25,7 @@ internal sealed class ActivityDtoTransformer
         var createdFound = false;
         var actorUrnByUserId = await LookupUsers(events.InstanceEvents, cancellationToken);
 
+        ActivityDto? previousActivity = null;
         foreach (var @event in events.InstanceEvents.OrderBy(x => x.Created))
         {
             if (!Enum.TryParse<InstanceEventType>(@event.EventType, ignoreCase: true, out var eventType))
@@ -66,17 +67,16 @@ internal sealed class ActivityDtoTransformer
             createdFound = createdFound || activityType == DialogActivityType.DialogCreated;
             
             // Only bump timestamp of Formsaved if the last activity is a FormSaved and the current event is also a FormSaved
-            var lastActivity = activities.LastOrDefault();
-            if (lastActivity?.Type == DialogActivityType.FormSaved && activityType == DialogActivityType.FormSaved)
+            if (previousActivity?.Type == DialogActivityType.FormSaved && activityType == DialogActivityType.FormSaved)
             {
                 if (GetPerformedBy(@event.User, instanceOwner, actorUrnByUserId).ActorId == activities.Last().PerformedBy.ActorId)
                 {
-                    lastActivity.CreatedAt = @event.Created;
+                    previousActivity.CreatedAt = @event.Created;
                     continue;
                 }
             }
-
-            activities.Add(new ActivityDto
+            
+            var activity = new ActivityDto
             {
                 Id = @event.Id!.Value.ToVersion7(@event.Created!.Value),
                 Type = activityType.Value,
@@ -85,7 +85,9 @@ internal sealed class ActivityDtoTransformer
                 Description = activityType == DialogActivityType.Information // Todo: This never happens. The Information type is never handled
                     ? [new LocalizationDto { LanguageCode = "nb", Value = eventType.ToString() }]
                     : []
-            });
+            };
+            previousActivity = activity;
+            activities.Add(activity);
         }
         return activities;
     }
