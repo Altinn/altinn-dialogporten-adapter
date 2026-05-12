@@ -65,11 +65,11 @@ internal sealed class ActivityDtoTransformer
             }
             
             createdFound = createdFound || activityType == DialogActivityType.DialogCreated;
-            
+            var performedBy = GetPerformedBy(@event.User, instanceOwner, actorUrnByUserId);
             // Only bump timestamp of Formsaved if the last activity is a FormSaved and the current event is also a FormSaved
             if (previousActivity?.Type == DialogActivityType.FormSaved && activityType == DialogActivityType.FormSaved)
             {
-                if (GetPerformedBy(@event.User, instanceOwner, actorUrnByUserId).ActorId == activities.Last().PerformedBy.ActorId)
+                if (performedBy.ActorId == activities.Last().PerformedBy.ActorId)
                 {
                     previousActivity.CreatedAt = @event.Created;
                     continue;
@@ -81,7 +81,7 @@ internal sealed class ActivityDtoTransformer
                 Id = @event.Id!.Value.ToVersion7(@event.Created!.Value),
                 Type = activityType.Value,
                 CreatedAt = @event.Created,
-                PerformedBy = GetPerformedBy(@event.User, instanceOwner, actorUrnByUserId),
+                PerformedBy = performedBy,
                 Description = activityType == DialogActivityType.Information // Todo: This never happens. The Information type is never handled
                     ? [new LocalizationDto { LanguageCode = "nb", Value = eventType.ToString() }]
                     : []
