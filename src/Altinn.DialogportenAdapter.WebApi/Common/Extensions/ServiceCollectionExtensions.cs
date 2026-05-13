@@ -3,6 +3,7 @@ using Altinn.ApiClients.Dialogporten;
 using Altinn.ApiClients.Maskinporten.Extensions;
 using Altinn.ApiClients.Maskinporten.Services;
 using Altinn.DialogportenAdapter.Contracts;
+using Altinn.DialogportenAdapter.WebApi.Common.Exceptions;
 using Altinn.DialogportenAdapter.WebApi.Common.Health;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Delete;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
@@ -127,6 +128,15 @@ internal static class ServiceCollectionExtensions
                     .OrAnyInner<PartyNotFoundException>()
                     .RetryWithJitteredCooldown(clock.Seconds(1), clock.Seconds(5), clock.Seconds(20))
                     .Then.ScheduleRetry(clock.Minutes(1), clock.Minutes(10), clock.Minutes(30))
+                    .Then.MoveToErrorQueue();
+
+                // DialogNotFoundForPurgeException may happen if the dialog is created and purged almost immediately
+                // Since we have no ordering of events, the purge event can come first. Reschedule for later.
+
+                opts.Policies
+                    .OnException<DialogNotFoundForPurgeException>()
+                    .OrAnyInner<DialogNotFoundForPurgeException>()
+                    .ScheduleRetry(clock.Minutes(1), clock.Minutes(10), clock.Minutes(30))
                     .Then.MoveToErrorQueue();
 
                 // Attempt to handle errors most likely caused by expired/invalid tokens. If retries don't help, move to error queue for manual inspection.

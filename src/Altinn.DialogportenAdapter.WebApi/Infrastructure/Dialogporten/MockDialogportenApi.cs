@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Headers;
 using Refit;
 
 namespace Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
@@ -52,18 +51,28 @@ internal sealed partial class MockDialogportenApi : IDialogportenApi
         return Task.FromResult<IApiResponse>(apiResponse);
     }
 
-    public Task Delete(Guid dialogId, Guid revision, bool isSilentUpdate = false,
+    public Task<IApiResponse> Delete(Guid dialogId, Guid revision, bool isSilentUpdate = false,
         CancellationToken cancellationToken = default)
     {
         Log.LogDeleteCalled(_logger, dialogId, revision);
-        return Task.CompletedTask;
+        var apiResponse = new ApiResponse<object>(
+            settings: _refitSettings,
+            response: new HttpResponseMessage(HttpStatusCode.OK),
+            content: null,
+            error: null);
+        return Task.FromResult<IApiResponse>(apiResponse);
     }
 
-    public Task Purge(Guid dialogId, Guid revision, bool isSilentUpdate = false,
+    public Task<IApiResponse> Purge(Guid dialogId, Guid revision, bool isSilentUpdate = false,
         CancellationToken cancellationToken = default)
     {
         Log.LogPurgeCalled(_logger, dialogId, revision);
-        return Task.CompletedTask;
+        var apiResponse = new ApiResponse<object>(
+            settings: _refitSettings,
+            response: new HttpResponseMessage(HttpStatusCode.OK),
+            content: null,
+            error: null);
+        return Task.FromResult<IApiResponse>(apiResponse);
     }
 
     public Task<IApiResponse> Restore(Guid dialogId, Guid revision, bool isSilentUpdate = false,

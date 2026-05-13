@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Net;
 using Altinn.DialogportenAdapter.Contracts;
+using Altinn.DialogportenAdapter.WebApi.Common.Exceptions;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
@@ -96,23 +98,33 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
         if (ShouldPurgeDialog(instance, existingDialog))
         {
             if (syncAdapterSettings.DisableDelete) return;
-            await _dialogportenApi.Purge(
+            var response = await _dialogportenApi.Purge(
                 dialogId,
                 existingDialog.Revision!.Value,
                 isSilentUpdate: dto.IsMigration,
                 cancellationToken: cancellationToken);
-            return;
+
+            if (response.IsSuccessful) return;
+
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                throw new DialogNotFoundForPurgeException(dialogId, existingDialog.Revision.Value);
+            }
+
+            throw response.Error;
         }
 
         if (ShouldSoftDeleteDialog(instance, existingDialog))
         {
             if (syncAdapterSettings.DisableDelete) return;
-            await _dialogportenApi.Delete(
+            var response = await _dialogportenApi.Delete(
                 dialogId,
                 existingDialog.Revision!.Value,
                 isSilentUpdate: dto.IsMigration,
                 cancellationToken: cancellationToken);
-            return;
+
+            if (response.IsSuccessful) return;
+            throw response.Error;
         }
 
         if (ShouldRestoreDialog(instance, existingDialog))
@@ -135,11 +147,14 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
 
         if (!syncAdapterSettings.DisableDelete && shouldDeleteAfterCreate && revision.HasValue)
         {
-            await _dialogportenApi.Delete(
+            var response = await _dialogportenApi.Delete(
                 dialogId,
                 revision.Value,
                 isSilentUpdate: true,
                 cancellationToken: cancellationToken);
+
+            if (response.IsSuccessful) return;
+            throw response.Error;
         }
     }
 
