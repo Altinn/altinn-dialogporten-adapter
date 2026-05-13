@@ -60,7 +60,10 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         return await eventProcessingResult;
     }
 
-    private async Task<ServiceBusReceivedMessage?> WaitForDlqMessage(CancellationToken cancellationToken, TimeSpan? timeout = null)
+    private async Task<ServiceBusReceivedMessage?> WaitForDlqMessage(
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    )
     {
         var maxWait = timeout ?? TimeSpan.FromSeconds(10);
         var message = await AdapterQueueDlqReceiver.ReceiveMessageAsync(maxWait, cancellationToken);
@@ -93,7 +96,7 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var syncJobCompleteSignal = app.AppScope.ServiceProvider.GetRequiredService<SyncCompletionSignal>();
         var syncJob = syncJobCompleteSignal.Completed.Task.WaitAsync(maxWait, cts.Token);
-        var getDlqMessage = WaitForDlqMessage(cts.Token, maxWait);
+        var getDlqMessage = WaitForDlqMessage(maxWait, cts.Token);
 
         await Task.WhenAny(syncJob, getDlqMessage);
         await cts.CancelAsync();
