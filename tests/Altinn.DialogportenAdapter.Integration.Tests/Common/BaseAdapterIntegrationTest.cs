@@ -93,7 +93,8 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var syncJobCompleteSignal = app.AppScope.ServiceProvider.GetRequiredService<SyncCompletionSignal>();
         var syncJob = syncJobCompleteSignal.Completed.Task.WaitAsync(maxWait, cts.Token);
-        var getDlqMessage = WaitForDlqMessage(cts.Token, maxWait.Subtract(TimeSpan.FromSeconds(1)));
+        var getDlqMessage = WaitForDlqMessage(cts.Token, maxWait);
+
         await Task.WhenAny(syncJob, getDlqMessage);
         await cts.CancelAsync();
         syncJobCompleteSignal.Reset();
