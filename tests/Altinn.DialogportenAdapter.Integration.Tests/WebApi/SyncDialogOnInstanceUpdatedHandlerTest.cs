@@ -1,4 +1,5 @@
-﻿using Altinn.DialogportenAdapter.Contracts;
+﻿using System.Net;
+using Altinn.DialogportenAdapter.Contracts;
 using Altinn.DialogportenAdapter.Integration.Tests.Common;
 using Altinn.DialogportenAdapter.Integration.Tests.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
@@ -30,7 +31,7 @@ public class SyncDialogOnInstanceUpdatedHandlerTest(DialogportenAdapterApplicati
         ));
 
         // Assert
-        var dialog = await WaitForRequestOrFail<DialogDto>(Request.Create().DpPostDialog(), 201);
+        var dialog = await WaitForRequestBodyOrFail<DialogDto>(Request.Create().DpPostDialog(), HttpStatusCode.Created);
         var requests = _application.DialogportenApi.FindLogEntries(Request.Create().DpPostDialog()).Count;
         dialog.Should().NotBeNull();
         requests.Should().Be(1);

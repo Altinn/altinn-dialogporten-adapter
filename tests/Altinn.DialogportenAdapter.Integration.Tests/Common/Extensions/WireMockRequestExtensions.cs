@@ -12,6 +12,11 @@ public static class WireMockRequestExtensions
             return requestBuilder.UsingPost().WithPath("/api/v1/serviceowner/dialogs");
         }
 
+        public IRequestBuilder DpPurgeDialog(Guid dialogId)
+        {
+            return requestBuilder.UsingPost().WithPath($"/api/v1/serviceowner/dialogs/{dialogId}/actions/purge");
+        }
+
         public IRequestBuilder DpGetDialog(Guid dialogId)
         {
             return requestBuilder.UsingGet().WithPath($"/api/v1/serviceowner/dialogs/{dialogId}");

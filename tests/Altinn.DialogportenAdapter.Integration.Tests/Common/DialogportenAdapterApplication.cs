@@ -5,6 +5,7 @@ using Altinn.DialogportenAdapter.Integration.Tests.Common.Extensions;
 using Altinn.DialogportenAdapter.Integration.Tests.Common.Services;
 using Altinn.DialogportenAdapter.WebApi;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
+using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 using Azure.Core;
 using Azure.Messaging.ServiceBus;
 using Azure.Messaging.ServiceBus.Administration;
@@ -158,7 +159,8 @@ public class DialogportenAdapterApplication : IAsyncLifetime
 
         builder.Services
             .ConfigureDialogportenAdapterServices(builder.Configuration, builder.Environment, new QuickClock())
-            .RemoveAll<IMaskinportenService>().AddTransient<IMaskinportenService, FakeMaskinportenService>();
+            .RemoveAll<IMaskinportenService>().AddTransient<IMaskinportenService, FakeMaskinportenService>()
+            .Decorate<ISyncInstanceToDialogService, SyncInstanceToDialogServiceDecorator>();
 
         return builder.Build();
     }

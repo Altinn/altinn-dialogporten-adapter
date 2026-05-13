@@ -58,27 +58,48 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         await bus.SendAsync(command);
     }
 
-    protected async Task<ServiceBusReceivedMessage?> WaitForDlqMessage(TimeSpan? timeout = null)
+    protected Task<ServiceBusReceivedMessage?> WaitForDlqMessage(TimeSpan? timeout = null)
+    {
+        return WaitForDlqMessage(TestContext.Current.CancellationToken, timeout);
+    }
+
+    protected async Task<ServiceBusReceivedMessage?> WaitForDlqMessage(CancellationToken cancellationToken, TimeSpan? timeout = null)
     {
         var maxWait = timeout ?? TimeSpan.FromSeconds(10);
-        var message = await AdapterQueueDlqReceiver.ReceiveMessageAsync(maxWait, TestContext.Current.CancellationToken);
+        var message = await AdapterQueueDlqReceiver.ReceiveMessageAsync(maxWait, cancellationToken);
 
         if (message != null)
         {
-            await AdapterQueueDlqReceiver.CompleteMessageAsync(message);
+            await AdapterQueueDlqReceiver.CompleteMessageAsync(message, cancellationToken);
             _unhandledEvents.TryDequeue(out _);
         }
 
         return message;
     }
 
-    protected async Task<ILogEntry?> WaitForRequest(IRequestMatcher request, TimeSpan? timeout = null)
+    protected Task<ILogEntry?> WaitForRequest(
+        IRequestMatcher request,
+        TimeSpan? timeout = null
+    )
     {
-        var entry = await Time.WaitUntilAsync(() =>
-        {
-            var entries = app.DialogportenApi.FindLogEntries(request);
-            return entries.Count > 0 ? entries[0] : null;
-        }, timeout ?? TimeSpan.FromSeconds(10));
+        return WaitForRequest(request, TestContext.Current.CancellationToken, timeout);
+    }
+
+    protected async Task<ILogEntry?> WaitForRequest(
+        IRequestMatcher request,
+        CancellationToken cancellationToken,
+        TimeSpan? timeout = null
+    )
+    {
+        var entry = await Time.WaitUntilAsync(
+            condition: () =>
+            {
+                var entries = app.DialogportenApi.FindLogEntries(request);
+                return entries.Count > 0 ? entries[0] : null;
+            },
+            timeout: timeout ?? TimeSpan.FromSeconds(10),
+            cancellationToken: cancellationToken
+        );
 
         if (entry != null)
         {
@@ -88,17 +109,36 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         return entry;
     }
 
-    protected async Task<T> WaitForRequestOrFail<T>(
+    protected async Task<T> WaitForRequestBodyOrFail<T>(
         IRequestMatcher requestMatcher,
-        int expectedStatusCode,
+        HttpStatusCode expectedStatusCode = HttpStatusCode.OK,
+        TimeSpan? timeout = null
+    )
+    {
+        var request = await WaitForRequestOrFail(requestMatcher, expectedStatusCode, timeout);
+        var body = request.RequestMessage?.Body;
+        if (body == null)
+        {
+            Assert.Fail("Expected a request with a body");
+        }
+
+        return JsonSerializer.Deserialize<T>(body)!;
+    }
+
+    protected async Task<ILogEntry> WaitForRequestOrFail(
+        IRequestMatcher requestMatcher,
+        HttpStatusCode expectedStatusCode = HttpStatusCode.OK,
         TimeSpan? timeout = null
     )
     {
         var maxWait = timeout ?? TimeSpan.FromSeconds(10);
-        var request = WaitForRequest(requestMatcher, maxWait);
-        var getDlqMessage = WaitForDlqMessage(maxWait.Subtract(TimeSpan.FromSeconds(1)));
+        var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var request = WaitForRequest(requestMatcher, cts.Token, maxWait);
+        var getDlqMessage = WaitForDlqMessage(cts.Token, maxWait.Subtract(TimeSpan.FromSeconds(1)));
         await Task.WhenAny(request, getDlqMessage);
+        await cts.CancelAsync();
 
+        getDlqMessage.Dispose();
         if (getDlqMessage.IsCompleted && getDlqMessage.Result != null)
         {
             var reason = getDlqMessage.Result.DeadLetterErrorDescription;
@@ -111,25 +151,20 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         }
 
         var statusCode = (int)request.Result.ResponseMessage!.StatusCode!;
-        if (statusCode != expectedStatusCode)
+        if (statusCode != (int)expectedStatusCode)
         {
             var dlqMessage = await getDlqMessage;
             if (dlqMessage != null)
             {
                 var reason = dlqMessage.DeadLetterErrorDescription;
-                Assert.Fail($"Expected request to return status code {expectedStatusCode}, was {statusCode}. Dlq reason: {reason}");
+                Assert.Fail(
+                    $"Expected request to return status code {expectedStatusCode}, was {statusCode}. Dlq reason: {reason}");
             }
 
             Assert.Fail($"Expected a dlq message when statusCode != {expectedStatusCode}, code was {statusCode}");
         }
 
-        var body = request.Result.RequestMessage?.Body;
-        if (body == null)
-        {
-            Assert.Fail("Expected a request with a body");
-        }
-
-        return JsonSerializer.Deserialize<T>(body)!;
+        return request.Result;
     }
 
     protected sealed record Arrangement(
@@ -165,7 +200,7 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
                         .NewDefaultAltinnApplication()
                         .WithLastChangedBy(testName)
                         .Build()
-                    )));
+                )));
 
         app.StorageApi
             .Given(Request.Create().StorageGetApplicationTexts(appId, "nb"))
@@ -285,7 +320,8 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         {
             if (DateTimeOffset.UtcNow > timeoutAt)
             {
-                Assert.Fail($"Unable to drain dql: Timeout after {timeoutSeconds} seconds. This invalidates the whole test suite. Look for the test that failed to drain!");
+                Assert.Fail(
+                    $"Unable to drain dql: Timeout after {timeoutSeconds} seconds. This invalidates the whole test suite. Look for the test that failed to drain!");
             }
 
             var message = await AdapterQueueDlqReceiver.ReceiveMessageAsync(
