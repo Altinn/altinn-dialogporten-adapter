@@ -158,6 +158,7 @@ public class DialogportenAdapterApplication : IAsyncLifetime
         OverrideConfiguration(builder.Configuration);
 
         builder.Services
+            .AddSingleton<SyncCompletionSignal>()
             .ConfigureDialogportenAdapterServices(builder.Configuration, builder.Environment, new QuickClock())
             .RemoveAll<IMaskinportenService>().AddTransient<IMaskinportenService, FakeMaskinportenService>()
             .Decorate<ISyncInstanceToDialogService, SyncInstanceToDialogServiceDecorator>();

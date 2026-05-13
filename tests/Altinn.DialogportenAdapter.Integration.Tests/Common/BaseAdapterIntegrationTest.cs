@@ -3,14 +3,13 @@ using System.Net;
 using System.Text.Json;
 using Altinn.DialogportenAdapter.Contracts;
 using Altinn.DialogportenAdapter.Integration.Tests.Common.Extensions;
+using Altinn.DialogportenAdapter.Integration.Tests.Common.Services;
 using Altinn.DialogportenAdapter.Test.Common.Builder;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.Platform.Storage.Interface.Models;
 using Azure.Messaging.ServiceBus;
 using Microsoft.Extensions.DependencyInjection;
-using WireMock.Logging;
-using WireMock.Matchers.Request;
 using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
 using Wolverine;
@@ -44,6 +43,7 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         app.AltinnApi.LogUnhandledRequests(app.App.Logger, "AltinnApi").ResetAllExceptFallbackMapping();
         app.StorageApi.LogUnhandledRequests(app.App.Logger, "StorageApi").ResetAllExceptFallbackMapping();
 
+        app.AppScope.ServiceProvider.GetRequiredService<SyncCompletionSignal>().Reset();
         await app.App.Services.GetRequiredService<IFusionCache>().ClearAsync();
         await DrainLeftoverMessages();
         await AdapterQueueDlqReceiver.DisposeAsync();
@@ -51,19 +51,16 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         GC.SuppressFinalize(this);
     }
 
-    protected async Task Send<T>(T command) where T : notnull
+    protected async Task<EventProcessingResult> SendAndWait<T>(T command) where T : notnull
     {
         _unhandledEvents.Enqueue(command);
         var bus = app.StorageScope.ServiceProvider.GetRequiredService<IMessageBus>();
+        var eventProcessingResult = GetEventProcessingResult();
         await bus.SendAsync(command);
+        return await eventProcessingResult;
     }
 
-    protected Task<ServiceBusReceivedMessage?> WaitForDlqMessage(TimeSpan? timeout = null)
-    {
-        return WaitForDlqMessage(TestContext.Current.CancellationToken, timeout);
-    }
-
-    protected async Task<ServiceBusReceivedMessage?> WaitForDlqMessage(CancellationToken cancellationToken, TimeSpan? timeout = null)
+    private async Task<ServiceBusReceivedMessage?> WaitForDlqMessage(CancellationToken cancellationToken, TimeSpan? timeout = null)
     {
         var maxWait = timeout ?? TimeSpan.FromSeconds(10);
         var message = await AdapterQueueDlqReceiver.ReceiveMessageAsync(maxWait, cancellationToken);
@@ -77,94 +74,44 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         return message;
     }
 
-    protected Task<ILogEntry?> WaitForRequest(
-        IRequestMatcher request,
-        TimeSpan? timeout = null
-    )
+    protected record EventProcessingResult(bool IsSuccess, ServiceBusReceivedMessage? DlqMessage)
     {
-        return WaitForRequest(request, TestContext.Current.CancellationToken, timeout);
-    }
-
-    protected async Task<ILogEntry?> WaitForRequest(
-        IRequestMatcher request,
-        CancellationToken cancellationToken,
-        TimeSpan? timeout = null
-    )
-    {
-        var entry = await Time.WaitUntilAsync(
-            condition: () =>
-            {
-                var entries = app.DialogportenApi.FindLogEntries(request);
-                return entries.Count > 0 ? entries[0] : null;
-            },
-            timeout: timeout ?? TimeSpan.FromSeconds(10),
-            cancellationToken: cancellationToken
-        );
-
-        if (entry != null)
+        public void ShouldBeSuccessful()
         {
-            _unhandledEvents.TryDequeue(out _);
-        }
+            if (IsSuccess) return;
 
-        return entry;
+            var expectation = "Expected IsSuccess to be True, but found False";
+            Assert.Fail(DlqMessage != null
+                ? $"{expectation}. DlqMessage: {DlqMessage.DeadLetterReason} - {DlqMessage.DeadLetterErrorDescription}"
+                : $"{expectation}. No dlq event either. Did we time out?");
+        }
     }
 
-    protected async Task<T> WaitForRequestBodyOrFail<T>(
-        IRequestMatcher requestMatcher,
-        HttpStatusCode expectedStatusCode = HttpStatusCode.OK,
-        TimeSpan? timeout = null
-    )
-    {
-        var request = await WaitForRequestOrFail(requestMatcher, expectedStatusCode, timeout);
-        var body = request.RequestMessage?.Body;
-        if (body == null)
-        {
-            Assert.Fail("Expected a request with a body");
-        }
-
-        return JsonSerializer.Deserialize<T>(body)!;
-    }
-
-    protected async Task<ILogEntry> WaitForRequestOrFail(
-        IRequestMatcher requestMatcher,
-        HttpStatusCode expectedStatusCode = HttpStatusCode.OK,
-        TimeSpan? timeout = null
-    )
+    private async Task<EventProcessingResult> GetEventProcessingResult(TimeSpan? timeout = null)
     {
         var maxWait = timeout ?? TimeSpan.FromSeconds(10);
         var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var request = WaitForRequest(requestMatcher, cts.Token, maxWait);
+        var syncJobCompleteSignal = app.AppScope.ServiceProvider.GetRequiredService<SyncCompletionSignal>();
+        var syncJob = syncJobCompleteSignal.Completed.Task.WaitAsync(maxWait, cts.Token);
         var getDlqMessage = WaitForDlqMessage(cts.Token, maxWait.Subtract(TimeSpan.FromSeconds(1)));
-        await Task.WhenAny(request, getDlqMessage);
+        await Task.WhenAny(syncJob, getDlqMessage);
         await cts.CancelAsync();
+        syncJobCompleteSignal.Reset();
 
-        getDlqMessage.Dispose();
-        if (getDlqMessage.IsCompleted && getDlqMessage.Result != null)
+        if (getDlqMessage.IsCompleted && !getDlqMessage.IsCanceled && getDlqMessage.Result != null)
         {
-            var reason = getDlqMessage.Result.DeadLetterErrorDescription;
-            Assert.Fail($"Expected request to complete. But dlq got message instead: {reason}");
+            _unhandledEvents.TryDequeue(out _);
+            return new EventProcessingResult(false, getDlqMessage.Result);
         }
 
-        if (request.Result == null)
+        if (!syncJob.IsCompletedSuccessfully)
         {
-            Assert.Fail($"Expected request. Did you forget to set up a wiremock request?");
+            return new EventProcessingResult(false, null);
+            //Assert.Fail("Expected job to complete or any dlq event. Did the sync job throw an exception?");
         }
 
-        var statusCode = (int)request.Result.ResponseMessage!.StatusCode!;
-        if (statusCode != (int)expectedStatusCode)
-        {
-            var dlqMessage = await getDlqMessage;
-            if (dlqMessage != null)
-            {
-                var reason = dlqMessage.DeadLetterErrorDescription;
-                Assert.Fail(
-                    $"Expected request to return status code {expectedStatusCode}, was {statusCode}. Dlq reason: {reason}");
-            }
-
-            Assert.Fail($"Expected a dlq message when statusCode != {expectedStatusCode}, code was {statusCode}");
-        }
-
-        return request.Result;
+        _unhandledEvents.TryDequeue(out _);
+        return new EventProcessingResult(true, null);
     }
 
     protected sealed record Arrangement(

@@ -1,5 +1,4 @@
-﻿using System.Net;
-using Altinn.DialogportenAdapter.Contracts;
+﻿using Altinn.DialogportenAdapter.Contracts;
 using Altinn.DialogportenAdapter.Integration.Tests.Common;
 using Altinn.DialogportenAdapter.Integration.Tests.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
@@ -10,10 +9,10 @@ using Xunit;
 namespace Altinn.DialogportenAdapter.Integration.Tests.WebApi;
 
 [Collection(nameof(AdapterCollectionFixture))]
-public class SyncDialogOnInstanceUpdatedHandlerTest(DialogportenAdapterApplication application)
-    : BaseAdapterIntegrationTest(application)
+public class SyncDialogOnInstanceUpdatedHandlerTest(DialogportenAdapterApplication app)
+    : BaseAdapterIntegrationTest(app)
 {
-    private readonly DialogportenAdapterApplication _application = application;
+    private readonly DialogportenAdapterApplication _app = app;
 
     [Fact]
     public async Task GivenAllApisWorkProperlyThenDialogIsSaved()
@@ -22,7 +21,7 @@ public class SyncDialogOnInstanceUpdatedHandlerTest(DialogportenAdapterApplicati
         var arrangement = ArrangeDefaults();
 
         // Act
-        await Send(new SyncInstanceCommand(
+        var result = await SendAndWait(new SyncInstanceCommand(
             AppId: arrangement.AppId,
             PartyId: $"{arrangement.PartyId}",
             InstanceId: arrangement.InstanceId,
@@ -31,9 +30,10 @@ public class SyncDialogOnInstanceUpdatedHandlerTest(DialogportenAdapterApplicati
         ));
 
         // Assert
-        var dialog = await WaitForRequestBodyOrFail<DialogDto>(Request.Create().DpPostDialog(), HttpStatusCode.Created);
-        var requests = _application.DialogportenApi.FindLogEntries(Request.Create().DpPostDialog()).Count;
-        dialog.Should().NotBeNull();
-        requests.Should().Be(1);
+        result.ShouldBeSuccessful();
+        var logEntries = _app.DialogportenApi.FindLogEntries(Request.Create().DpPostDialog());
+
+        logEntries.Count.Should().Be(1);
+        logEntries[0].RequestMessage!.Deserialize<DialogDto>().Should().NotBeNull();
     }
 }

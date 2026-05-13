@@ -14,10 +14,10 @@ using ZiggyCreatures.Caching.Fusion;
 namespace Altinn.DialogportenAdapter.Integration.Tests.WebApi;
 
 [Collection(nameof(AdapterCollectionFixture))]
-public class SyncDialogOnInstanceUpdatedHandlerDlqTest(DialogportenAdapterApplication application)
-    : BaseAdapterIntegrationTest(application)
+public class SyncDialogOnInstanceUpdatedHandlerDlqTest(DialogportenAdapterApplication app)
+    : BaseAdapterIntegrationTest(app)
 {
-    private readonly DialogportenAdapterApplication _application = application;
+    private readonly DialogportenAdapterApplication _app = app;
 
     [Fact]
     public async Task GivenPostDialogReturnsConflictThenDlqAfter3Retries()
@@ -25,13 +25,13 @@ public class SyncDialogOnInstanceUpdatedHandlerDlqTest(DialogportenAdapterApplic
         // Arrange
         var arrangement = ArrangeDefaults();
 
-        _application.DialogportenApi
+        _app.DialogportenApi
             .Given(Request.Create().DpPostDialog())
             .RespondWith(Response.Create()
                 .WithStatusCode(HttpStatusCode.Conflict));
 
         // Act
-        await Send(new SyncInstanceCommand(
+        var result = await SendAndWait(new SyncInstanceCommand(
             AppId: arrangement.AppId,
             PartyId: $"{arrangement.PartyId}",
             InstanceId: arrangement.InstanceId,
@@ -40,11 +40,11 @@ public class SyncDialogOnInstanceUpdatedHandlerDlqTest(DialogportenAdapterApplic
         ));
 
         // Assert
-        var dlqMessage = await WaitForDlqMessage();
-        var requests = _application.DialogportenApi.FindLogEntries(Request.Create().DpPostDialog()).Count;
+        var requests = _app.DialogportenApi.FindLogEntries(Request.Create().DpPostDialog()).Count;
 
-        dlqMessage.Should().NotBeNull();
-        dlqMessage.DeadLetterErrorDescription.Should().Contain("Conflict");
+        result.IsSuccess.Should().BeFalse();
+        result.DlqMessage.Should().NotBeNull();
+        result.DlqMessage.DeadLetterErrorDescription.Should().Contain("Conflict");
         requests.Should().Be(4); // 3 retries + 1 requests
     }
 
@@ -55,13 +55,13 @@ public class SyncDialogOnInstanceUpdatedHandlerDlqTest(DialogportenAdapterApplic
         var arrangement = ArrangeDefaults();
         var dialogId = arrangement.DialogId;
 
-        _application.DialogportenApi
+        _app.DialogportenApi
             .Given(Request.Create().DpGetDialog(dialogId))
             .RespondWith(Response.Create()
                 .WithStatusCode(HttpStatusCode.PreconditionFailed));
 
         // Act
-        await Send(new SyncInstanceCommand(
+        var result = await SendAndWait(new SyncInstanceCommand(
             AppId: arrangement.AppId,
             PartyId: $"{arrangement.PartyId}",
             InstanceId: arrangement.InstanceId,
@@ -70,12 +70,12 @@ public class SyncDialogOnInstanceUpdatedHandlerDlqTest(DialogportenAdapterApplic
         ));
 
         // Assert
-        var dlqMessage = await WaitForDlqMessage();
-        var getRequests = _application.DialogportenApi.FindLogEntries(Request.Create().DpGetDialog(dialogId)).Count;
-        var postRequests = _application.DialogportenApi.FindLogEntries(Request.Create().DpPostDialog()).Count;
+        var getRequests = _app.DialogportenApi.FindLogEntries(Request.Create().DpGetDialog(dialogId)).Count;
+        var postRequests = _app.DialogportenApi.FindLogEntries(Request.Create().DpPostDialog()).Count;
 
-        dlqMessage.Should().NotBeNull();
-        dlqMessage.DeadLetterErrorDescription.Should().Contain("Precondition Failed");
+        result.IsSuccess.Should().BeFalse();
+        result.DlqMessage.Should().NotBeNull();
+        result.DlqMessage.DeadLetterErrorDescription.Should().Contain("Precondition Failed");
         getRequests.Should().Be(4); // 3 retries + 1 requests
         postRequests.Should().Be(0);
     }
@@ -86,13 +86,13 @@ public class SyncDialogOnInstanceUpdatedHandlerDlqTest(DialogportenAdapterApplic
         // Arrange
         var arrangement = ArrangeDefaults();
 
-        _application.DialogportenApi
+        _app.DialogportenApi
             .Given(Request.Create().DpPostDialog())
             .RespondWith(Response.Create()
                 .WithStatusCode(HttpStatusCode.UnprocessableEntity));
 
         // Act
-        await Send(new SyncInstanceCommand(
+        var result = await SendAndWait(new SyncInstanceCommand(
             AppId: arrangement.AppId,
             PartyId: $"{arrangement.PartyId}",
             InstanceId: arrangement.InstanceId,
@@ -101,11 +101,10 @@ public class SyncDialogOnInstanceUpdatedHandlerDlqTest(DialogportenAdapterApplic
         ));
 
         // Assert
-        var dlqMessage = await WaitForDlqMessage();
-        var requests = _application.DialogportenApi.FindLogEntries(Request.Create().DpPostDialog()).Count;
+        var requests = _app.DialogportenApi.FindLogEntries(Request.Create().DpPostDialog()).Count;
 
-        dlqMessage.Should().NotBeNull();
-        dlqMessage.DeadLetterErrorDescription.Should().Contain("Unprocessable Entity");
+        result.DlqMessage.Should().NotBeNull();
+        result.DlqMessage.DeadLetterErrorDescription.Should().Contain("Unprocessable Entity");
         requests.Should().Be(10); // 9 retries + 1 requests
     }
 
@@ -113,20 +112,20 @@ public class SyncDialogOnInstanceUpdatedHandlerDlqTest(DialogportenAdapterApplic
     public async Task GivenNoPartiesFoundInRegisterThenDlqAfter6Retries()
     {
         // Arrange
-        await _application.AppScope.ServiceProvider
+        await _app.AppScope.ServiceProvider
             .GetRequiredService<IFusionCache>()
             .ClearAsync(token: TestContext.Current.CancellationToken);
 
         var arrangement = ArrangeDefaults();
 
-        _application.RegisterApi
+        _app.RegisterApi
             .Given(Request.Create().RegisterPostPartySearch())
             .RespondWith(Response.Create()
                 .WithStatusCode(HttpStatusCode.OK)
                 .WithBody(JsonSerializer.Serialize(new PartyQueryResponse([]))));
 
         // Act
-        await Send(new SyncInstanceCommand(
+        var result = await SendAndWait(new SyncInstanceCommand(
             AppId: arrangement.AppId,
             PartyId: $"{arrangement.PartyId}",
             InstanceId: arrangement.InstanceId,
@@ -135,12 +134,11 @@ public class SyncDialogOnInstanceUpdatedHandlerDlqTest(DialogportenAdapterApplic
         ));
 
         // Assert
-        var dlqMessage = await WaitForDlqMessage();
-        var searchRequests = _application.RegisterApi.FindLogEntries(Request.Create().RegisterPostPartySearch()).Count;
-        var postRequests = _application.DialogportenApi.FindLogEntries(Request.Create().DpPostDialog()).Count;
+        var searchRequests = _app.RegisterApi.FindLogEntries(Request.Create().RegisterPostPartySearch()).Count;
+        var postRequests = _app.DialogportenApi.FindLogEntries(Request.Create().DpPostDialog()).Count;
 
-        dlqMessage.Should().NotBeNull();
-        dlqMessage.DeadLetterErrorDescription.Should().Contain("Party with id 2 not found");
+        result.DlqMessage.Should().NotBeNull();
+        result.DlqMessage.DeadLetterErrorDescription.Should().Contain("Party with id 2 not found");
         searchRequests.Should().Be(14); // (6 retries + 1 requests) * 2 events
         postRequests.Should().Be(0);
     }
@@ -152,13 +150,13 @@ public class SyncDialogOnInstanceUpdatedHandlerDlqTest(DialogportenAdapterApplic
         var arrangement = ArrangeDefaults();
         var dialogId = arrangement.DialogId;
 
-        _application.DialogportenApi
+        _app.DialogportenApi
             .Given(Request.Create().DpGetDialog(dialogId))
             .RespondWith(Response.Create()
                 .WithStatusCode(HttpStatusCode.Unauthorized));
 
         // Act
-        await Send(new SyncInstanceCommand(
+        var result = await SendAndWait(new SyncInstanceCommand(
             AppId: arrangement.AppId,
             PartyId: $"{arrangement.PartyId}",
             InstanceId: arrangement.InstanceId,
@@ -167,12 +165,12 @@ public class SyncDialogOnInstanceUpdatedHandlerDlqTest(DialogportenAdapterApplic
         ));
 
         // Assert
-        var dlqMessage = await WaitForDlqMessage();
-        var getRequests = _application.DialogportenApi.FindLogEntries(Request.Create().DpGetDialog(dialogId)).Count;
-        var postRequests = _application.DialogportenApi.FindLogEntries(Request.Create().DpPostDialog()).Count;
+        var getRequests = _app.DialogportenApi.FindLogEntries(Request.Create().DpGetDialog(dialogId)).Count;
+        var postRequests = _app.DialogportenApi.FindLogEntries(Request.Create().DpPostDialog()).Count;
 
-        dlqMessage.Should().NotBeNull();
-        dlqMessage.DeadLetterErrorDescription.Should().Contain("Unauthorized");
+        result.IsSuccess.Should().BeFalse();
+        result.DlqMessage.Should().NotBeNull();
+        result.DlqMessage.DeadLetterErrorDescription.Should().Contain("Unauthorized");
         getRequests.Should().Be(8); // (3 retries + 1 requests) * 2 extra request after token refresh attempt
         postRequests.Should().Be(0);
     }
@@ -184,13 +182,13 @@ public class SyncDialogOnInstanceUpdatedHandlerDlqTest(DialogportenAdapterApplic
         var arrangement = ArrangeDefaults();
         var dialogId = arrangement.DialogId;
 
-        _application.DialogportenApi
+        _app.DialogportenApi
             .Given(Request.Create().DpGetDialog(dialogId))
             .RespondWith(Response.Create()
                 .WithStatusCode(HttpStatusCode.ServiceUnavailable));
 
         // Act
-        await Send(new SyncInstanceCommand(
+        var result = await SendAndWait(new SyncInstanceCommand(
             AppId: arrangement.AppId,
             PartyId: $"{arrangement.PartyId}",
             InstanceId: arrangement.InstanceId,
@@ -199,14 +197,13 @@ public class SyncDialogOnInstanceUpdatedHandlerDlqTest(DialogportenAdapterApplic
         ));
 
         // Assert
-        var dlqMessage = WaitForDlqMessage(TimeSpan.FromSeconds(4));
-        var dialogLog = WaitForRequest(Request.Create().DpPostDialog(), TimeSpan.FromSeconds(4));
-        await Task.WhenAll(dlqMessage, dialogLog);
+        result.IsSuccess.Should().BeFalse();
+        result.DlqMessage.Should().BeNull();
 
-        (await dlqMessage).Should().BeNull();
-        (await dialogLog).Should().BeNull();
-        var failedRequests = _application.DialogportenApi.FindLogEntries(Request.Create().DpGetDialog(dialogId)).Count;
+        var getDialogRequests = _app.DialogportenApi.FindLogEntries(Request.Create().DpGetDialog(dialogId)).Count;
+        var postDialogLogsRequests = _app.DialogportenApi.FindLogEntries(Request.Create().DpPostDialog()).Count;
 
-        failedRequests.Should().BeGreaterThan(5);
+        getDialogRequests.Should().BeGreaterThan(5);
+        postDialogLogsRequests.Should().Be(0);
     }
 }
