@@ -1,6 +1,6 @@
 using Altinn.ApiClients.Maskinporten.Config;
+using Altinn.DialogportenAdapter.Test.Common.Builder;
 using Altinn.DialogportenAdapter.Unit.Tests.Common.AssertHelpers;
-using Altinn.DialogportenAdapter.Unit.Tests.Common.Builder;
 using Altinn.DialogportenAdapter.WebApi;
 using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;

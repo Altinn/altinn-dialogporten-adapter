@@ -1,7 +1,7 @@
-using Altinn.DialogportenAdapter.Unit.Tests.Common.Extensions;
+using Altinn.DialogportenAdapter.Test.Common.Extensions;
 using Altinn.Platform.Storage.Interface.Models;
 
-namespace Altinn.DialogportenAdapter.Unit.Tests.Common.Builder;
+namespace Altinn.DialogportenAdapter.Test.Common.Builder;
 
 public class AltinnApplicationBuilder
 {
@@ -212,6 +212,12 @@ public class AltinnApplicationBuilder
     public AltinnApplicationBuilder WithDisallowUserInstantiation(bool disallowUserInstantiation)
     {
         _application.DisallowUserInstantiation = disallowUserInstantiation;
+        return this;
+    }
+
+    public AltinnApplicationBuilder WithLastChangedBy(string lastChangedBy)
+    {
+        _application.LastChangedBy = lastChangedBy;
         return this;
     }
 
