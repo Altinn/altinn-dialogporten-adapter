@@ -156,7 +156,7 @@ static void BuildAndRun(string[] args)
             .OnException<WaitForPdfException>()
             .OrAnyInner<WaitForPdfException>()
             .RetryWithJitteredCooldown(1.Seconds(), 5.Seconds(), 20.Seconds())
-            .Then.Discard();
+            .Then.MoveToErrorQueue();
 
         // Attempt to handle errors most likely caused by expired/invalid tokens. If retries don't help, move to error queue for manual inspection.
         opts.Policies
