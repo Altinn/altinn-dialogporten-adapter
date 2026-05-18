@@ -77,7 +77,16 @@ internal sealed partial class MockDialogportenApi : IDialogportenApi
             error: null);
         return Task.FromResult<IApiResponse>(apiResponse);
     }
-    public Task<IApiResponse<PaginatedListOfDialogs>> SearchByServiceOwnerLabels(IEnumerable<string> serviceOwnerLabels, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+    public Task<IApiResponse<PaginatedListOfDialogs>> SearchByServiceOwnerLabels(IEnumerable<string> serviceOwnerLabels, CancellationToken cancellationToken = default)
+    {
+        Log.LogSearchByServiceOwnerLabelsCalled(_logger, serviceOwnerLabels);
+        var apiResponse = new ApiResponse<PaginatedListOfDialogs>(
+            response: new HttpResponseMessage(HttpStatusCode.NotFound),
+            content: null,
+            settings: _refitSettings,
+            error: null);
+        return Task.FromResult<IApiResponse<PaginatedListOfDialogs>>(apiResponse);
+    }
 
     public Task<IApiResponse> UpdateFormSavedActivityTime(Guid dialogId, Guid activityId, Guid revision, DateTimeOffset newCreatedAt,
         CancellationToken cancellationToken = default)
@@ -113,6 +122,9 @@ internal sealed partial class MockDialogportenApi : IDialogportenApi
 
         [LoggerMessage(EventId = 7, Level = LogLevel.Debug, Message = "MockDialogportenApi.UpdateFormSavedActivityTime called with dialogId: {DialogId}, activityId: {ActivityId}, revision: {Revision}, newCreatedAt: {NewCreatedAt}")]
         public static partial void LogUpdateFormSavedActivityTimeCalled(ILogger logger, Guid dialogId, Guid activityId, Guid revision, DateTimeOffset newCreatedAt);
+        
+        [LoggerMessage(EventId = 8, Level = LogLevel.Debug, Message = "MockDialogportenApi.SearchByServiceOwnerLabels called with serviceOwnerLabels: {ServiceOwnerLabels}")]
+        public static partial void LogSearchByServiceOwnerLabelsCalled(ILogger logger, IEnumerable<string> serviceOwnerLabels);
     }
 }
 
