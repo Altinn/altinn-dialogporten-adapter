@@ -77,6 +77,7 @@ internal sealed partial class MockDialogportenApi : IDialogportenApi
             error: null);
         return Task.FromResult<IApiResponse>(apiResponse);
     }
+    public Task<IApiResponse<PaginatedListOfDialogs>> SearchByServiceOwnerLabels(IEnumerable<string> serviceOwnerLabels, CancellationToken cancellationToken = default) => throw new NotImplementedException();
 
     public Task<IApiResponse> UpdateFormSavedActivityTime(Guid dialogId, Guid activityId, Guid revision, DateTimeOffset newCreatedAt,
         CancellationToken cancellationToken = default)
