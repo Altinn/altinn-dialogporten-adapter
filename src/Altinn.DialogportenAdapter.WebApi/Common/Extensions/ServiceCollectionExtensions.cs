@@ -129,6 +129,15 @@ internal static class ServiceCollectionExtensions
                     .Then.ScheduleRetry(clock.Minutes(1), clock.Minutes(10), clock.Minutes(30))
                     .Then.MoveToErrorQueue();
 
+                // Wait for all PDFs to generate before creating Transmissions.
+                // Only thrown when FormSubmitted Activity is present
+                // WaitForPdfException won't block the dialog from being created/updated only prevent Transmission creation
+                opts.Policies
+                    .OnException<WaitForPdfException>()
+                    .OrAnyInner<WaitForPdfException>()
+                    .RetryWithJitteredCooldown(clock.Seconds(1), clock.Seconds(5), clock.Seconds(20))
+                    .Then.MoveToErrorQueue();
+
                 // Attempt to handle errors most likely caused by expired/invalid tokens. If retries don't help, move to error queue for manual inspection.
                 opts.Policies
                     .OnException<ApiException>(ex => ex.StatusCode is HttpStatusCode.Unauthorized)
@@ -335,8 +344,7 @@ internal static class ServiceCollectionExtensions
             return services;
         }
 
-        private IServiceCollection Replace<TService, TImplementation>(
-            ServiceLifetime lifetime)
+        private IServiceCollection Replace<TService, TImplementation>(ServiceLifetime lifetime)
             where TService : class
             where TImplementation : class, TService
         {

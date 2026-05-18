@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using Altinn.DialogportenAdapter.Contracts;
+using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
@@ -11,7 +12,7 @@ namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 
 public interface ISyncInstanceToDialogService
 {
-    Task Sync(SyncInstanceCommand dto, CancellationToken cancellationToken = default);
+    Task Sync(SyncInstanceCommand dto, int currentAttempt = 1, CancellationToken cancellationToken = default);
 }
 
 internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialogService
@@ -36,7 +37,7 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public async Task Sync(SyncInstanceCommand dto, CancellationToken cancellationToken = default)
+    public async Task Sync(SyncInstanceCommand dto, int currentAttempt = 1, CancellationToken cancellationToken = default)
     {
         // To avoid performing requests needlessly, we attempt to load the app from cache first to see if
         // sync is disabled in which case we can skip the rest of the processing.
@@ -130,9 +131,16 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
 
         // Create or update the dialog with the fetched data
         var mergeDto = new MergeDto(dialogId, existingDialog, application, applicationTexts, instance, events, dto.IsMigration || forceSilentUpsert);
-        var updatedDialog = await _dataMerger.Merge(mergeDto, cancellationToken);
+        var updatedDialog = await _dataMerger.Merge(mergeDto, currentAttempt, cancellationToken);
         var revision = await UpsertDialog(updatedDialog, existingDialog, syncAdapterSettings, dto.IsMigration || forceSilentUpsert, cancellationToken);
-
+        
+        if (currentAttempt < 3
+            && !StorageDialogportenDataMerger.AllPdfsGenerated(mergeDto)
+            && updatedDialog.Activities.Any(activity => activity.Type is DialogActivityType.FormSubmitted))
+        {
+            throw new WaitForPdfException();
+        }
+        
         if (!syncAdapterSettings.DisableDelete && shouldDeleteAfterCreate && revision.HasValue)
         {
             await _dialogportenApi.Delete(
