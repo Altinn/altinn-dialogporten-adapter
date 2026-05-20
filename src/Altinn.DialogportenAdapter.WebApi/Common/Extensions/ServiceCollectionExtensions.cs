@@ -130,9 +130,9 @@ internal static class ServiceCollectionExtensions
                     .Then.ScheduleRetry(clock.Minutes(1), clock.Minutes(10), clock.Minutes(30))
                     .Then.MoveToErrorQueue();
 
-                // DialogNotFoundForPurgeException may happen if the dialog is created and purged almost immediately
-                // Since we have no ordering of events, the purge event can come first. Reschedule for later.
-
+                // We sometimes see Purge returning 404, indicating the dialog has already been purged.
+                // This is probably due to a race where two events in quick succession decide to purge the dialog.
+                // A retry will make the adapter discard the event next run bt the intended way.
                 opts.Policies
                     .OnException<DialogNotFoundForPurgeException>()
                     .OrAnyInner<DialogNotFoundForPurgeException>()
