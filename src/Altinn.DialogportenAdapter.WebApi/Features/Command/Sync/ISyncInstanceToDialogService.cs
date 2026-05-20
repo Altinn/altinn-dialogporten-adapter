@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using Altinn.DialogportenAdapter.Contracts;
+using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Exceptions;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
@@ -44,7 +45,6 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
         // sync is disabled in which case we can skip the rest of the processing.
         var (isCached, cachedApp) =
             await _applicationRepository.TryGetApplicationIfCached(dto.AppId, cancellationToken);
-
         if (isCached && cachedApp is not null && cachedApp.GetSyncAdapterSettings().DisableSync)
         {
             return;
@@ -55,11 +55,51 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
 
         // Fetch events, application, instance and existing dialog in parallel
         var (existingDialog, application, instance, events) = await (
-                _dialogportenApi.Get(dialogId, cancellationToken).ContentOrDefault(),
-                _applicationRepository.GetApplication(dto.AppId, cancellationToken),
-                _storageApi.GetInstance(dto.PartyId, dto.InstanceId, cancellationToken).ContentOrDefault(),
-                _storageApi.GetInstanceEvents(dto.PartyId, dto.InstanceId, Constants.SupportedEventTypes, cancellationToken).ContentOrDefault()
-            );
+            _dialogportenApi.Get(dialogId, cancellationToken).ContentOrDefault(),
+            _applicationRepository.GetApplication(dto.AppId, cancellationToken),
+            _storageApi.GetInstance(dto.PartyId, dto.InstanceId, cancellationToken).ContentOrDefault(),
+            _storageApi.GetInstanceEvents(dto.PartyId, dto.InstanceId, Constants.SupportedEventTypes, cancellationToken).ContentOrDefault()
+        );
+
+        if (application.GetSyncAdapterSettings().EnableUserSuppliedDialogId)
+        {
+            if (instance is not null)
+            {
+                if (instance.DataValues is null
+                 || !instance.DataValues.TryGetValue(Constants.InstanceDataValueDialogIdKey, out var userSuppliedDialogId))
+                {
+                    throw new UserSuppliedDialogIdNotFoundException(instance.Id);
+                }
+
+                if (!Guid.TryParse(userSuppliedDialogId, out dialogId)
+                 || !dialogId.IsUuidV7WithTimestampInPast())
+                {
+                    LogInvalidUserSuppliedDialogIdWarning(dto.InstanceId);
+                    return;
+                }
+
+                existingDialog = await _dialogportenApi.Get(dialogId, cancellationToken).ContentOrDefault();
+
+                // Check if DialogId is already in use by someone else
+                if (existingDialog?.ServiceOwnerContext != null && existingDialog.ServiceOwnerContext.ServiceOwnerLabels.All(x => x.Value != $"urn:altinn:integration:storage:{instance.Id}"))
+                {
+                    LogInvalidUserSuppliedDialogIdWarning(dto.InstanceId);
+                    return;
+                }
+            }
+            else
+            {
+                var dialogSearch = await _dialogportenApi.SearchByServiceOwnerLabels([$"urn:altinn:integration:storage:{dto.PartyId}/{dto.InstanceId}"], cancellationToken).ContentOrDefault();
+                if (dialogSearch == null || dialogSearch.Items.Count != 1)
+                {
+                    LogNoOpWarning(dto.PartyId, dto.InstanceId, dto.InstanceCreatedAt, dto.IsMigration);
+                    return;
+                }
+                existingDialog = dialogSearch.Items.First();
+            }
+        }
+
+
         if (instance is null && existingDialog is null)
         {
             LogNoOpWarning(dto.PartyId, dto.InstanceId, dto.InstanceCreatedAt, dto.IsMigration);
@@ -229,7 +269,8 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
          || instanceDialogId != dialogId;
     }
 
-    private async Task<Guid?> UpsertDialog(DialogDto updated,
+    private async Task<Guid?> UpsertDialog(
+        DialogDto updated,
         DialogDto? existing,
         SyncAdapterSettings settings,
         bool isMigration,
@@ -256,7 +297,8 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
     // PostgreSQL has a minimum time precision of 1 microsecond. To avoid issues with updates where the CreatedAt time is changed by less than this precision,
     // we define an epsilon value of 1 microsecond to use when comparing timestamps.
     private static readonly TimeSpan Epsilon = TimeSpan.FromMicroseconds(1);
-    private async Task<Guid> UpdateDialog(DialogDto updated, DialogDto? existing, bool isMigration,
+    private async Task<Guid> UpdateDialog(
+        DialogDto updated, DialogDto? existing, bool isMigration,
         CancellationToken cancellationToken)
     {
         var activityUpdateRequests = existing?.Activities
@@ -287,7 +329,8 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
         return updated.Revision.Value;
     }
 
-    private async Task<Guid> RestoreDialog(Guid dialogId,
+    private async Task<Guid> RestoreDialog(
+        Guid dialogId,
         Guid revision,
         bool disableAltinnEvents,
         CancellationToken cancellationToken)
@@ -312,7 +355,8 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
             .ToList();
     }
 
-    private Task UpdateInstanceWithDialogId(SyncInstanceCommand dto, Guid dialogId,
+    private Task UpdateInstanceWithDialogId(
+        SyncInstanceCommand dto, Guid dialogId,
         CancellationToken cancellationToken)
     {
         return _storageApi.UpdateDataValues(dto.PartyId, dto.InstanceId, new()
@@ -329,4 +373,7 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
 
     [LoggerMessage(LogLevel.Information, "Instance id={Id} is soft-deleted in storage and does not exist in Dialogporten. Creating and deleting immediately afterwards.")]
     partial void LogCreateDialogInSoftDeleteState(string id);
+
+    [LoggerMessage(LogLevel.Warning, "Instance id={Id} has invalid user supplied dialog id. NoOp.")]
+    partial void LogInvalidUserSuppliedDialogIdWarning(Guid id);
 }

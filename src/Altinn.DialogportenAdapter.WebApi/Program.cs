@@ -175,4 +175,3 @@ partial class Program
     [LoggerMessage(LogLevel.Critical, "Application terminated unexpectedly")]
     static partial void LogApplicationTerminatedUnexpectedly(ILogger<Program> logger, Exception exception);
 }
-
