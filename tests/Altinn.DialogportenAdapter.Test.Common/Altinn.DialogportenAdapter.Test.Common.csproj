@@ -1,0 +1,5 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Altinn.Platform.Storage.Interface" Version="4.7.0" />
+  </ItemGroup>
+</Project>

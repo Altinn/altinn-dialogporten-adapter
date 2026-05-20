@@ -64,13 +64,13 @@ jobs:
           dotnet-sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: TestResults
           path: '**/TestResults/*.trx'
       - name: Process unit test result
         if: always()
-        uses: NasAmin/trx-parser@359b39f5319df4478443ef1f0eb952f159896995 # v0.7.0
+        uses: NasAmin/trx-parser@c720607ac80bcd6124fcb482e96e0bfe159f5b2f # v0.8.1
         with:
           TRX_PATH: ${{ github.workspace }}/TestResults
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
