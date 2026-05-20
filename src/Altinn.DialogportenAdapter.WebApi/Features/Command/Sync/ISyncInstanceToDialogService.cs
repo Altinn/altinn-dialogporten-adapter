@@ -1,8 +1,8 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
-using System.Text.Json;
 using Altinn.DialogportenAdapter.Contracts;
+using Altinn.DialogportenAdapter.WebApi.Common.Exceptions;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
@@ -106,20 +106,9 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
 
             if (response.IsSuccessful) return;
 
-            if (response.StatusCode == HttpStatusCode.NotFound && response.Error.HasContent)
+            if (response.StatusCode == HttpStatusCode.NotFound)
             {
-                var content = JsonSerializer.Deserialize<DialogportenSimpleProblemDetails>(response.Error.Content);
-                if (content is not null && content.Status == 404)
-                {
-                    LogPurgeWarning(
-                        dto.PartyId,
-                        dto.InstanceId,
-                        dialogId,
-                        existingDialog.Revision.Value,
-                        content.TraceId
-                    );
-                    return;
-                }
+                throw new DialogNotFoundForPurgeException(dialogId, existingDialog.Revision.Value);
             }
 
             throw response.Error;
@@ -337,10 +326,6 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
 
     [LoggerMessage(LogLevel.Warning, "No dialog or instance found for request. {PartyId},{InstanceId},{InstanceCreatedAt},{IsMigration}.")]
     partial void LogNoOpWarning(string partyId, Guid instanceId, DateTimeOffset instanceCreatedAt, bool isMigration);
-
-
-    [LoggerMessage(LogLevel.Warning, "Can't purge dialog. Endpoint returned 404. Assuming already purged. {PartyId},{InstanceId},{dialogId}{revision},{traceId}.")]
-    partial void LogPurgeWarning(string partyId, Guid instanceId, Guid dialogId, Guid revision, string traceId);
 
     [LoggerMessage(LogLevel.Information, "Instance id={Id} is soft-deleted in storage and does not exist in Dialogporten. Creating and deleting immediately afterwards.")]
     partial void LogCreateDialogInSoftDeleteState(string id);

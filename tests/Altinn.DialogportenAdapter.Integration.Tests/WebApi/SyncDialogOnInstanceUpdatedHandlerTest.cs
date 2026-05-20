@@ -43,14 +43,13 @@ public class SyncDialogOnInstanceUpdatedHandlerTest(DialogportenAdapterApplicati
     }
 
     [Fact]
-    public async Task GivenGetInstanceReturnsNotFoundAndExistingDialogThenDialogIsPurged()
+    public async Task GivenGetInstanceReturnsNotFoundThenDialogIsPurged()
     {
         // Arrange
         var arrangement = ArrangeDefaults();
-        var dialogId = arrangement.DialogId;
 
         _app.DialogportenApi
-            .Given(Request.Create().DpGetDialog(dialogId))
+            .Given(Request.Create().DpGetDialog(arrangement.DialogId))
             .RespondWith(Response.Create()
                 .WithStatusCode(HttpStatusCode.OK)
                 .WithBody(JsonSerializer.Serialize(new DialogDto
@@ -64,7 +63,7 @@ public class SyncDialogOnInstanceUpdatedHandlerTest(DialogportenAdapterApplicati
                 .WithStatusCode(HttpStatusCode.NotFound));
 
         _app.DialogportenApi
-            .Given(Request.Create().DpPurgeDialog(dialogId))
+            .Given(Request.Create().DpPurgeDialog(arrangement.DialogId))
             .RespondWith(Response.Create()
                 .WithStatusCode(HttpStatusCode.OK));
 
@@ -79,66 +78,7 @@ public class SyncDialogOnInstanceUpdatedHandlerTest(DialogportenAdapterApplicati
 
         // Assert
         result.ShouldBeSuccessful();
-        var purgeReqs = _app.DialogportenApi.FindLogEntries(Request.Create().DpPurgeDialog(dialogId)).Count;
-        var postReqs = _app.DialogportenApi.FindLogEntries(Request.Create().DpPostDialog()).Count;
-        purgeReqs.Should().Be(1);
-        postReqs.Should().Be(0);
-    }
-
-    [Fact]
-    public async Task GivenPurgeDialogReturnsNotFoundThenAssumeAlreadyPurged()
-    {
-        // Arrange
-        var arrangement = ArrangeDefaults();
-        var dialogId = arrangement.DialogId;
-
-        _app.DialogportenApi
-            .Given(Request.Create().DpGetDialog(dialogId))
-            .RespondWith(Response.Create()
-                .WithStatusCode(HttpStatusCode.OK)
-                .WithBody(JsonSerializer.Serialize(new DialogDto
-                {
-                    Revision = Guid.NewGuid()
-                })));
-
-        _app.StorageApi
-            .Given(Request.Create().StorageGetInstance(arrangement.PartyId, arrangement.InstanceId))
-            .RespondWith(Response.Create()
-                .WithStatusCode(HttpStatusCode.NotFound));
-
-        _app.DialogportenApi
-            .Given(Request.Create().DpPurgeDialog(dialogId))
-            .RespondWith(Response.Create()
-                .WithStatusCode(HttpStatusCode.NotFound)
-                .WithBody(
-                    $$"""
-                              {
-                                "type": "https://datatracker.ietf.org/doc/html/rfc7231#section-6.5.4",
-                                "title": "Resource not found.",
-                                "status": 404,
-                                "instance": "/api/v1/serviceowner/dialogs/{{dialogId}}/actions/purge",
-                                "errors": {
-                                  "DialogEntity": [
-                                    "Entity 'DialogEntity' with the following key(s) was not found: ({{dialogId}})."
-                                  ]
-                                },
-                                "traceId": "00-edeb32504e8b90d0ed578c6647316daf-2e15b2a2598daa08-00"
-                              }
-                      """)
-            );
-
-        // Act
-        var result = await SendAndWait(new SyncInstanceCommand(
-            AppId: arrangement.AppId,
-            PartyId: $"{arrangement.PartyId}",
-            InstanceId: arrangement.InstanceId,
-            InstanceCreatedAt: arrangement.InstanceCreatedAt,
-            IsMigration: false
-        ));
-
-        // Assert
-        result.ShouldBeSuccessful();
-        var purgeReqs = _app.DialogportenApi.FindLogEntries(Request.Create().DpPurgeDialog(dialogId)).Count;
+        var purgeReqs = _app.DialogportenApi.FindLogEntries(Request.Create().DpPurgeDialog(arrangement.DialogId)).Count;
         var postReqs = _app.DialogportenApi.FindLogEntries(Request.Create().DpPostDialog()).Count;
         purgeReqs.Should().Be(1);
         postReqs.Should().Be(0);
