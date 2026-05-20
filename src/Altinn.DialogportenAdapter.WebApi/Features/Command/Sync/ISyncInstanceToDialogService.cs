@@ -102,16 +102,16 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
                 dialogId,
                 existingDialog.Revision!.Value,
                 isSilentUpdate: dto.IsMigration,
-                cancellationToken: cancellationToken);
+                cancellationToken: cancellationToken
+            );
 
-            if (response.IsSuccessful) return;
+            var problem = DpSimpleProblemDetails.FromFailedApiResponseIf(
+                response,
+                x => x.StatusCode == HttpStatusCode.NotFound
+            );
+            if (problem == null) return;
 
-            if (response.StatusCode == HttpStatusCode.NotFound)
-            {
-                throw new DialogNotFoundForPurgeException(dialogId, existingDialog.Revision.Value);
-            }
-
-            throw response.Error;
+            throw new DialogNotFoundForPurgeException(dialogId, existingDialog.Revision.Value, problem.TraceId);
         }
 
         if (ShouldSoftDeleteDialog(instance, existingDialog))
