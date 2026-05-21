@@ -108,14 +108,14 @@ public static class Regulars
                 };
         }
 
-        public static GuiActionDto Delete(Guid dialogId)
+        public static GuiActionDto Delete(Guid dialogId, string? authorizationAttribute = null)
         {
             return new GuiActionDto
             {
                 Id = dialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.Delete),
                 Action = "delete",
                 Url = "http://adapter.localhost/api/v1/instance/instance-id",
-                AuthorizationAttribute = null,
+                AuthorizationAttribute = authorizationAttribute,
                 IsDeleteDialogAction = true,
                 HttpMethod = HttpVerb.DELETE,
                 Priority = DialogGuiActionPriority.Secondary,
