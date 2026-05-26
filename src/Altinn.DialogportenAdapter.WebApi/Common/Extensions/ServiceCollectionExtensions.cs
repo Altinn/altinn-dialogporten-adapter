@@ -248,7 +248,7 @@ internal static class ServiceCollectionExtensions
                 .ConfigureHttpClient(x =>
                 {
                     x.BaseAddress = settings.DialogportenAdapter.Dialogporten.BaseUri;
-                    x.Timeout = TimeSpan.FromMinutes(10);
+                    x.Timeout = TimeSpan.FromMinutes(15); // See also SyncInstanceCommand.cs
                 })
                 .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(clientKey)
                 .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>();
