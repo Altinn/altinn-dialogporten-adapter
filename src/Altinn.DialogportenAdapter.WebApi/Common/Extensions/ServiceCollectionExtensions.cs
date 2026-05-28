@@ -138,6 +138,14 @@ internal static class ServiceCollectionExtensions
                     .RetryWithJitteredCooldown(clock.Seconds(1), clock.Seconds(5), clock.Seconds(20))
                     .Then.MoveToErrorQueue();
 
+                // UserSuppliedDialogIdNotFound may happen if the sync happens before the instance have been given an ID
+                opts.Policies
+                    .OnException<UserSuppliedDialogIdNotFoundException>()
+                    .OrAnyInner<UserSuppliedDialogIdNotFoundException>()
+                    .RetryWithJitteredCooldown(clock.Seconds(1), clock.Seconds(5), clock.Seconds(20))
+                    .Then.ScheduleRetry(clock.Seconds(1), clock.Seconds(5), clock.Seconds(20))
+                    .Then.MoveToErrorQueue();
+
                 // Attempt to handle errors most likely caused by expired/invalid tokens. If retries don't help, move to error queue for manual inspection.
                 opts.Policies
                     .OnException<ApiException>(ex => ex.StatusCode is HttpStatusCode.Unauthorized)
@@ -246,7 +254,11 @@ internal static class ServiceCollectionExtensions
 
             services
                 .AddRefitClient<IDialogportenApi>()
-                .ConfigureHttpClient(x => x.BaseAddress = settings.DialogportenAdapter.Dialogporten.BaseUri)
+                .ConfigureHttpClient(x =>
+                {
+                    x.BaseAddress = settings.DialogportenAdapter.Dialogporten.BaseUri;
+                    x.Timeout = TimeSpan.FromMinutes(15); // See also SyncInstanceCommand.cs
+                })
                 .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(clientKey)
                 .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>();
 

@@ -157,14 +157,7 @@ public class StorageDialogportenDataMergerTest
             {
                 InstanceEvents =
                 [
-                    new InstanceEvent
-                    {
-                        User = new PlatformUser
-                        {
-                            UserId = 1,
-                            OrgId = "org",
-                        }
-                    }
+                    AltinnInstanceEventBuilder.NewCreatedByPlatformUserInstanceEvent(UserId1).Build(),
                 ]
             },
             Instance: AltinnInstanceBuilder.NewInProgressInstance().Build(),
@@ -202,6 +195,90 @@ public class StorageDialogportenDataMergerTest
             [
                 Regulars.GuiActions.Delete(mergeDto.DialogId),
                 Regulars.GuiActions.GoTo(mergeDto.DialogId),
+            ],
+            ApiActions = [Regulars.ApiActions.GetSourceApiAction(mergeDto.DialogId)],
+            Activities = [],
+            Deleted = false
+        });
+    }
+
+    [Fact(DisplayName = "Given process has elementId, should return a DialogDto where api and gui actions have AuthorizationAttribute")]
+    public async Task Merge_ProcessWithElementId_ReturnsDialogDtoWhereActionsHaveAuthorizationAttribute()
+    {
+        var mergeDto = new MergeDto(
+            Application: new Application
+            {
+                Title = new Dictionary<string, string>
+                {
+                    ["nb"] = "Test applikasjon",
+                    ["en"] = "Test application"
+                },
+            },
+            ApplicationTexts: new ApplicationTexts
+            {
+                Translations = []
+            },
+            DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
+            Events: new InstanceEventList
+            {
+                InstanceEvents =
+                [
+                    AltinnInstanceEventBuilder.NewCreatedByPlatformUserInstanceEvent(UserId1).Build(),
+                ]
+            },
+            Instance: AltinnInstanceBuilder.NewInProgressInstance()
+                .WithProcess(new ProcessState
+                {
+                    Started = null,
+                    StartEvent = null,
+                    CurrentTask = new ProcessElementInfo
+                    {
+                        Flow = null,
+                        Started = null,
+                        ElementId = "element-id",
+                        Name = null,
+                        AltinnTaskType = null,
+                        Ended = null,
+                        FlowType = null
+                    },
+                    Ended = null,
+                    EndEvent = null
+                })
+                .Build(),
+            ExistingDialog: null,
+            IsMigration: false
+        );
+
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
+
+        actualDialogDto.Should().BeEquivalentTo(new DialogDto
+        {
+            Id = Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
+            IsApiOnly = false,
+            Revision = null,
+            ServiceResource = "urn:altinn:resource:app_urn:altinn:instance-id",
+            Party = "urn:actor.by.party.id.party1",
+            Progress = null,
+            ExtendedStatus = null,
+            ExternalReference = null,
+            VisibleFrom = null,
+            DueAt = null,
+            Process = null,
+            PrecedingProcess = null,
+            ExpiresAt = null,
+            CreatedAt = new DateTime(1000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+            UpdatedAt = new DateTime(1000, 2, 1, 1, 1, 1, DateTimeKind.Utc),
+            Status = DialogStatus.InProgress,
+            SystemLabel = SystemLabel.Default,
+            ServiceOwnerContext = Regulars.ServiceOwnerContexts.DefaultContext,
+            Content = Regulars.Content.ReadyForSubmission,
+            SearchTags = [],
+            Attachments = [],
+            Transmissions = [],
+            GuiActions =
+            [
+                Regulars.GuiActions.Delete(mergeDto.DialogId, "urn:altinn:task:element-id"),
+                Regulars.GuiActions.GoTo(mergeDto.DialogId, "urn:altinn:task:element-id"),
             ],
             ApiActions = [Regulars.ApiActions.GetSourceApiAction(mergeDto.DialogId)],
             Activities = [],

@@ -267,7 +267,7 @@ public class StorageDialogportenDataMergerUpdateTest
             Transmissions = [],
             GuiActions =
             [
-                Regulars.GuiActions.Delete(dialogId),
+                Regulars.GuiActions.Delete(dialogId, "urn:altinn:task:element-id"),
                 Regulars.GuiActions.GoTo(dialogId, "urn:altinn:task:element-id"),
             ],
             ApiActions = [Regulars.ApiActions.GetSourceApiAction(mergeDto.DialogId)],
