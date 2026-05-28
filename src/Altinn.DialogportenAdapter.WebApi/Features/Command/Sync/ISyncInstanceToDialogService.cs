@@ -173,9 +173,10 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
         var updatedDialog = await _dataMerger.Merge(mergeDto, currentAttempt, cancellationToken);
         var revision = await UpsertDialog(updatedDialog, existingDialog, syncAdapterSettings, dto.IsMigration || forceSilentUpsert, cancellationToken);
         
-        if (currentAttempt < 3
-            && !StorageDialogportenDataMerger.AllPdfsGenerated(mergeDto)
-            && updatedDialog.Activities.Any(activity => activity.Type is DialogActivityType.FormSubmitted))
+        // We throw an exception if PDFs are not generated and a form submission activity is present.
+        // Regardless of the current attempt so it will end up in DLQ
+        if (!StorageDialogportenDataMerger.AllPdfsGenerated(mergeDto) &&
+            updatedDialog.Activities.Any(activity => activity.Type is DialogActivityType.FormSubmitted))
         {
             throw new WaitForPdfException();
         }

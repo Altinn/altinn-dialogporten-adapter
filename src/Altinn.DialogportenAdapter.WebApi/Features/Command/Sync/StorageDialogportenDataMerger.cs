@@ -285,7 +285,7 @@ internal sealed class StorageDialogportenDataMerger
 
         // Skip creating transmissions while waiting for PDF generation
         List<TransmissionDto> transmissions = [];
-        if (currentAttempt >= 3 || AllPdfsGenerated(dto))
+        if (currentAttempt > 3 || AllPdfsGenerated(dto))
         {
             transmissions = activities
                 .Where(x => x.Type is DialogActivityType.FormSubmitted)
