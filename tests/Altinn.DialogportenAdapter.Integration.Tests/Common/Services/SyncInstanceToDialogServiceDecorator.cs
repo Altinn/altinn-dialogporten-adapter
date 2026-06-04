@@ -7,9 +7,9 @@ internal sealed class SyncInstanceToDialogServiceDecorator(
     SyncInstanceToDialogService inner,
     SyncCompletionSignal signal) : ISyncInstanceToDialogService
 {
-    public async Task Sync(SyncInstanceCommand dto, CancellationToken cancellationToken = default)
+    public async Task Sync(SyncInstanceCommand dto, int currentAttempt = 1, CancellationToken cancellationToken = default)
     {
-        await inner.Sync(dto, cancellationToken);
+        await inner.Sync(dto, currentAttempt, cancellationToken);
         signal.Completed.TrySetResult();
     }
 }
