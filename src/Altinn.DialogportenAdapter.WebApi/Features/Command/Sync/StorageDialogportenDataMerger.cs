@@ -265,23 +265,24 @@ internal sealed class StorageDialogportenDataMerger
         MergeDto dto,
         List<ActivityDto> activities, int currentAttempt = 1)
     {
-        var data = dto.Instance.Data;
+
+        var realCreatedData = RealCreate(dto).ToList();
         var attachmentVisibility = ReceiptAttachmentVisibilityDecider.Create(dto.Application);
 
 
         if (TransmissionsDisabled())
         {
-            return (data.Where(IsNotPdfReceipt).Select(CreateAttachmentDto).ToList(), []);
+            return (realCreatedData.Where(x => IsNotPdfReceipt(x.dataElement)).Select(x => CreateAttachmentDto(x.dataElement)).ToList(), []);
         }
-        var soDataElements = data
-            .Where(IsPerformedBySo)
+        var soDataElements = realCreatedData
+            .Where(x => IsPerformedBySo(x.dataElement))
             .ToList();
 
         // Only user data elements should be included as attachments to transmissions,
         // SO data elements are included as attachments to the dialog itself
-        var userDataElements = new Queue<DataElement>(data
+        var userDataElements = new Queue<(DataElement dataElement, DateTime? created)>(realCreatedData
             .Except(soDataElements)
-            .OrderBy(x => x.Created!.Value));
+            .OrderBy(x => x.created));
 
         // Skip creating transmissions while waiting for PDF generation
         List<TransmissionDto> transmissions = [];
@@ -299,8 +300,8 @@ internal sealed class StorageDialogportenDataMerger
             .Concat(userDataElements)
             // PDF receipts does not belong to the dialog itself, and should
             // only be included as attachments to transmissions.
-            .Where(IsNotPdfReceipt)
-            .Select(CreateAttachmentDto)
+            .Where(x => IsNotPdfReceipt(x.dataElement))
+            .Select(x => CreateAttachmentDto(x.dataElement))
             .ToList();
 
         return (attachments, transmissions);
@@ -309,8 +310,8 @@ internal sealed class StorageDialogportenDataMerger
         bool IsNotPdfReceipt(DataElement element) => element.DataType != PdfType;
 
         bool TransmissionsDisabled() => dto.Application.GetSyncAdapterSettings().DisableAddTransmissions ||
-                                        !_settings.DialogportenAdapter.Adapter.FeatureFlag
-                                            .EnableSubmissionTransmissions;
+            !_settings.DialogportenAdapter.Adapter.FeatureFlag
+                .EnableSubmissionTransmissions;
 
         AttachmentDto CreateAttachmentDto(DataElement element)
         {
@@ -407,8 +408,8 @@ internal sealed class StorageDialogportenDataMerger
                     }
                 },
                 Attachments = userDataElements
-                    .DequeueWhile(e => e.Created <= activityDto.CreatedAt || isA2)
-                    .Select(x => CreateTransmissionAttachmentDto(x, transmissionId))
+                    .DequeueWhile(e => e.created <= activityDto.CreatedAt || isA2)
+                    .Select(x => CreateTransmissionAttachmentDto(x.dataElement, transmissionId))
                     .ToList()
             };
         }
@@ -462,6 +463,34 @@ internal sealed class StorageDialogportenDataMerger
 
         return  pdfSourceCount <= generatedPdfsCount;
     }
+
+    private static IEnumerable<(DataElement dataElement, DateTime? created)> RealCreate(MergeDto dto)
+    {
+        var dataElements = dto.Instance.Data ?? [];
+        var dataTypes = dto.Application.DataTypes ?? [];
+
+        var dataTypesWithTaskId = dataTypes.Where(x => !string.IsNullOrEmpty(x.TaskId)).ToList();
+        foreach (var dataElement in dataElements)
+        {
+            var created = dataElement.Created;
+            if (dataElement.References is not null && dataElement.References.Any(x => x.Relation == RelationType.GeneratedFrom))
+            {
+                var idFromTask = GetIdFromTask(dataTypesWithTaskId, dataElement);
+                if (idFromTask is not null)
+                {
+                    created = dataElements.Where(x => x.DataType == idFromTask).Select(x => x.Created).FirstOrDefault();
+                }
+            }
+            yield return (dataElement, created);
+        }
+    }
+
+    private static string? GetIdFromTask(IEnumerable<DataType> dataTypes, DataElement dataElement) =>
+        dataTypes
+            .Where(x => x.TaskId == dataElement.References
+                .Where(x => x.Relation == RelationType.GeneratedFrom).First().Value)
+            .Select(x => x.Id)
+            .FirstOrDefault();
 
     private async Task<string> GetPartyUrnOrThrow(string partyId, CancellationToken cancellationToken)
     {

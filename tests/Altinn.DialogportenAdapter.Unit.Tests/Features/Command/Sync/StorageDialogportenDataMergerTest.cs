@@ -249,7 +249,7 @@ public class StorageDialogportenDataMergerTest
             IsMigration: false
         );
 
-        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
 
         actualDialogDto.Should().BeEquivalentTo(new DialogDto
         {
