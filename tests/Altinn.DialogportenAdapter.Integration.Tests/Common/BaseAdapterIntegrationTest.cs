@@ -48,6 +48,8 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         await DrainLeftoverMessages();
         await AdapterQueueDlqReceiver.DisposeAsync();
 
+        GetSyncJobCompleteSignal().Reset();
+
         GC.SuppressFinalize(this);
     }
 
@@ -94,27 +96,37 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
     {
         var maxWait = timeout ?? TimeSpan.FromSeconds(10);
         var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var syncJobCompleteSignal = app.AppScope.ServiceProvider.GetRequiredService<SyncCompletionSignal>();
-        var syncJob = syncJobCompleteSignal.Completed.Task.WaitAsync(maxWait, cts.Token);
+        var syncJob = GetSyncJobCompleteSignal().Completed.Task.WaitAsync(maxWait, cts.Token);
         var getDlqMessage = WaitForDlqMessage(maxWait, cts.Token);
 
         await Task.WhenAny(syncJob, getDlqMessage);
-        await cts.CancelAsync();
-        syncJobCompleteSignal.Reset();
 
-        if (getDlqMessage.IsCompleted && !getDlqMessage.IsCanceled && getDlqMessage.Result != null)
+        if (getDlqMessage.IsFaulted)
         {
-            _unhandledEvents.TryDequeue(out _);
+            await cts.CancelAsync();
+            Assert.Fail("Unexpected error: WaitForDlqMessage should not throw");
+        }
+
+        if (getDlqMessage.IsCompletedSuccessfully && getDlqMessage.Result != null)
+        {
+            await cts.CancelAsync();
             return new EventProcessingResult(false, getDlqMessage.Result);
         }
 
-        if (!syncJob.IsCompletedSuccessfully)
+        if (syncJob.IsCompletedSuccessfully)
         {
-            return new EventProcessingResult(false, null);
+            await cts.CancelAsync();
+            _unhandledEvents.TryDequeue(out _);
+            return new EventProcessingResult(true, null);
         }
+        await cts.CancelAsync();
 
-        _unhandledEvents.TryDequeue(out _);
-        return new EventProcessingResult(true, null);
+        return new EventProcessingResult(false, null);
+    }
+
+    private SyncCompletionSignal GetSyncJobCompleteSignal()
+    {
+        return app.AppScope.ServiceProvider.GetRequiredService<SyncCompletionSignal>();
     }
 
     protected sealed record Arrangement(
@@ -271,11 +283,11 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
             if (DateTimeOffset.UtcNow > timeoutAt)
             {
                 Assert.Fail(
-                    $"Unable to drain dql: Timeout after {timeoutSeconds} seconds. This invalidates the whole test suite. Look for the test that failed to drain!");
+                    $"Unable to drain dql: Timeout after {timeoutSeconds} seconds. This invalidates the whole test suite. Look for the test that failed to drain! {_unhandledEvents.Count} undrained messages");
             }
 
             var message = await AdapterQueueDlqReceiver.ReceiveMessageAsync(
-                TimeSpan.FromMilliseconds(50),
+                TimeSpan.FromMilliseconds(200),
                 TestContext.Current.CancellationToken
             );
 
