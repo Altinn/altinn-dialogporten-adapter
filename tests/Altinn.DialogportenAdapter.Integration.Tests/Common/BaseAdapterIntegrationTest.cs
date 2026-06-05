@@ -111,7 +111,6 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         if (!syncJob.IsCompletedSuccessfully)
         {
             return new EventProcessingResult(false, null);
-            //Assert.Fail("Expected job to complete or any dlq event. Did the sync job throw an exception?");
         }
 
         _unhandledEvents.TryDequeue(out _);
