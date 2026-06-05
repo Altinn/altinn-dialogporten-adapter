@@ -20,7 +20,7 @@ public class DpSimpleProblemDetails
             var method = response.RequestMessage?.Method;
             var uri = response.RequestMessage?.RequestUri;
             throw new InvalidOperationException($"Request failed and error is null: {method} {uri}");
-        };
+        }
 
         if (condition.Invoke(response) && response.Error.HasContent)
         {
