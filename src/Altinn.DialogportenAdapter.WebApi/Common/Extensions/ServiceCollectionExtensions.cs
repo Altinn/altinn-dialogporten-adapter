@@ -255,7 +255,11 @@ internal static class ServiceCollectionExtensions
 
             services
                 .AddRefitClient<IDialogportenApi>()
-                .ConfigureHttpClient(x => x.BaseAddress = settings.DialogportenAdapter.Dialogporten.BaseUri)
+                .ConfigureHttpClient(x =>
+                {
+                    x.BaseAddress = settings.DialogportenAdapter.Dialogporten.BaseUri;
+                    x.Timeout = TimeSpan.FromMinutes(15); // See also SyncInstanceCommand.cs
+                })
                 .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(clientKey)
                 .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>();
 

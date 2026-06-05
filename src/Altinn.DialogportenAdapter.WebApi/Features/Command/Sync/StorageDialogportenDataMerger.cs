@@ -671,17 +671,11 @@ internal sealed class StorageDialogportenDataMerger
         // We offload the handling of missing write/sign permissions to the app
         var xacmlAction = ReadAction;
 
-        // CurrentTask may be null (ex. instance id 51499006/907c12e2-041a-4275-9d33-67620cdf15b6 tt02),
-        // in which case we have no other option than to not set an authorization attribute.
-        var authorizationAttribute = instance.Process?.CurrentTask?.ElementId is not null
-            ? "urn:altinn:task:" + instance.Process.CurrentTask.ElementId
-            : null;
-
         return new GuiActionDto
         {
             Id = goToActionId,
             Action = xacmlAction,
-            AuthorizationAttribute = authorizationAttribute,
+            AuthorizationAttribute = GetAuthorizationAttributeForGuiAction(instance),
             Priority = DialogGuiActionPriority.Primary,
             Title = GetPrimaryActionLabel(instance, applicationTexts, instanceDerivedStatus),
             Url = CreateGoToUrl()
@@ -709,17 +703,33 @@ internal sealed class StorageDialogportenDataMerger
         var adapterBaseUri = _settings.DialogportenAdapter.Adapter.BaseUri
             .ToString()
             .TrimEnd('/');
+
         return new GuiActionDto
         {
             Id = dialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.Delete),
             Action = DeleteAction,
+            AuthorizationAttribute = GetAuthorizationAttributeForGuiAction(instance),
             Priority = DialogGuiActionPriority.Secondary,
             IsDeleteDialogAction = true,
-            Title =
-                GetDeleteActionLabel(instance, applicationTexts, instanceDerivedStatus),
+            Title = GetDeleteActionLabel(instance, applicationTexts, instanceDerivedStatus),
             Url = $"{adapterBaseUri}/api/v1/instance/{instance.Id}",
-            HttpMethod = HttpVerb.DELETE
+            HttpMethod = HttpVerb.DELETE,
         };
+    }
+
+    /// <summary>
+    /// Builds and returns an authorization attribute
+    /// Returns null of the instance has no process or current task
+    ///
+    /// Example where CurrentTask is null: instance id 51499006/907c12e2-041a-4275-9d33-67620cdf15b6 tt02
+    /// </summary>
+    /// <param name="instance">The instance</param>
+    /// <returns>The authorization attribute</returns>
+    private static string? GetAuthorizationAttributeForGuiAction(Instance instance)
+    {
+        return !string.IsNullOrWhiteSpace(instance.Process?.CurrentTask?.ElementId)
+            ? "urn:altinn:task:" + instance.Process.CurrentTask.ElementId
+            : null;
     }
 
     private IEnumerable<GuiActionDto> CreateCopyAction(Guid dialogId, Instance instance, Application application, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
