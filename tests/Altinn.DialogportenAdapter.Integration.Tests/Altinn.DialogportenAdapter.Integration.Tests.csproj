@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Altinn.ApiClients.Dialogporten" Version="1.114.8" />
+    <PackageReference Include="Altinn.ApiClients.Dialogporten" Version="1.116.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
     <PackageReference Include="AwesomeAssertions" Version="9.4.0" />
     <PackageReference Include="NSubstitute" Version="5.3.0" />
