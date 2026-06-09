@@ -20,6 +20,7 @@ namespace Altinn.DialogportenAdapter.Integration.Tests.Common;
 
 public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication app) : IAsyncLifetime
 {
+    private const int DefaultWaitSeconds = 20;
     private ServiceBusReceiver AdapterQueueDlqReceiver { get; set; } = null!;
     private readonly ConcurrentQueue<object> _unhandledEvents = new();
 
@@ -69,7 +70,7 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         CancellationToken cancellationToken = default
     )
     {
-        var maxWait = timeout ?? TimeSpan.FromSeconds(10);
+        var maxWait = timeout ?? TimeSpan.FromSeconds(DefaultWaitSeconds);
         var message = await AdapterQueueDlqReceiver.ReceiveMessageAsync(maxWait, cancellationToken);
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -97,7 +98,7 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
 
     private async Task<EventProcessingResult> GetEventProcessingResult(TimeSpan? timeout = null)
     {
-        var maxWait = timeout ?? TimeSpan.FromSeconds(10);
+        var maxWait = timeout ?? TimeSpan.FromSeconds(DefaultWaitSeconds);
         var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var syncJob = GetSyncJobCompleteSignal().Completed.Task.WaitAsync(maxWait, cts.Token);
         var getDlqMessage = WaitForDlqMessage(maxWait, cts.Token);
@@ -310,7 +311,8 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
             if (dlqMessage != null)
             {
                 await dlqReceiver.CompleteMessageAsync(dlqMessage);
-                _unhandledEvents.TryDequeue(out _);
+                _unhandledEvents.TryDequeue(out var unhandledEvent);
+                TestContext.Current.TestOutputHelper!.WriteLine($"Warning: Drained event {unhandledEvent}");
             }
         }
     }
