@@ -3,6 +3,7 @@ using System.Text.Json;
 using Altinn.DialogportenAdapter.Contracts;
 using Altinn.DialogportenAdapter.Integration.Tests.Common;
 using Altinn.DialogportenAdapter.Integration.Tests.Common.Extensions;
+using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using AwesomeAssertions;
 using Microsoft.Extensions.DependencyInjection;
@@ -205,5 +206,69 @@ public class SyncDialogOnInstanceUpdatedHandlerDlqTest(DialogportenAdapterApplic
 
         getDialogRequests.Should().BeGreaterThan(5);
         postDialogLogsRequests.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task GivenPurgeDialogReturnsNotFoundThenDlqAfter3Retries()
+    {
+        // Arrange
+        var arrangement = ArrangeDefaults();
+        var dialogId = arrangement.DialogId;
+        var traceId = "00-edeb32504e8b90d0ed578c6647316daf-2e15b2a2598daa08-00";
+
+        _app.DialogportenApi
+            .Given(Request.Create().DpGetDialog(dialogId))
+            .RespondWith(Response.Create()
+                .WithStatusCode(HttpStatusCode.OK)
+                .WithBody(JsonSerializer.Serialize(new DialogDto
+                {
+                    Revision = Guid.NewGuid()
+                })));
+
+        _app.StorageApi
+            .Given(Request.Create().StorageGetInstance(arrangement.PartyId, arrangement.InstanceId))
+            .RespondWith(Response.Create()
+                .WithStatusCode(HttpStatusCode.NotFound));
+
+        _app.DialogportenApi
+            .Given(Request.Create().DpPurgeDialog(dialogId))
+            .RespondWith(Response.Create()
+                .WithStatusCode(HttpStatusCode.NotFound)
+                .WithBody(
+                    $$"""
+                              {
+                                "type": "https://datatracker.ietf.org/doc/html/rfc7231#section-6.5.4",
+                                "title": "Resource not found.",
+                                "status": 404,
+                                "instance": "/api/v1/serviceowner/dialogs/{{dialogId}}/actions/purge",
+                                "errors": {
+                                  "DialogEntity": [
+                                    "Entity 'DialogEntity' with the following key(s) was not found: ({{dialogId}})."
+                                  ]
+                                },
+                                "traceId": "{{traceId}}"
+                              }
+                      """)
+            );
+
+        // Act
+        var result = await SendAndWait(new SyncInstanceCommand(
+            AppId: arrangement.AppId,
+            PartyId: $"{arrangement.PartyId}",
+            InstanceId: arrangement.InstanceId,
+            InstanceCreatedAt: arrangement.InstanceCreatedAt,
+            IsMigration: false
+        ));
+
+        // Assert
+        var purgeRequests = _app.DialogportenApi.FindLogEntries(Request.Create().DpPurgeDialog(dialogId)).Count;
+        var postRequests = _app.DialogportenApi.FindLogEntries(Request.Create().DpPostDialog()).Count;
+
+        result.IsSuccess.Should().BeFalse();
+        result.DlqMessage.Should().NotBeNull();
+        result.DlqMessage.DeadLetterErrorDescription.Should().Contain("Can't purge");
+        result.DlqMessage.DeadLetterErrorDescription.Should().Contain(traceId);
+        purgeRequests.Should().Be(4); // 3 retries + 1 requests
+        postRequests.Should().Be(0);
     }
 }
