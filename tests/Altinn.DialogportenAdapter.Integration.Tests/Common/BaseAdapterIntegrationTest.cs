@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Net;
 using System.Text.Json;
 using Altinn.DialogportenAdapter.Contracts;
@@ -70,7 +71,8 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         if (message != null)
         {
             await AdapterQueueDlqReceiver.CompleteMessageAsync(message, CancellationToken.None);
-            _unhandledEvents.TryDequeue(out _);
+            _unhandledEvents.TryDequeue(out var handledEvent);
+            Log($"Debug: Received event on DLQ {handledEvent}");
         }
 
         return message;
@@ -114,7 +116,8 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         {
             await cts.CancelAsync();
             await IgnoreCancellation(getDlqMessage);
-            _unhandledEvents.TryDequeue(out _);
+            _unhandledEvents.TryDequeue(out var handledEvent);
+            Log($"Debug: An event was successfully handled {handledEvent}");
 
             return new EventProcessingResult(true, null);
         }
@@ -133,7 +136,7 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         }
         catch (OperationCanceledException)
         {
-            // Ignore
+            Log($"Debug: Ignored a task that was cancelled");
         }
     }
 
@@ -293,6 +296,8 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
     private async Task DrainLeftoverMessages()
     {
         if (_unhandledEvents.IsEmpty) return;
+        Log("Warning: Found unhandled messages, draining leftover messages");
+
         var timeoutSeconds = 60;
         var start = DateTimeOffset.UtcNow;
         await using var dlqReceiver = CreateReceiver();
@@ -306,7 +311,7 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
             }
 
             var dlqMessage = await dlqReceiver.ReceiveMessageAsync(
-                TimeSpan.FromSeconds(timeoutSeconds),
+                TimeSpan.FromSeconds(timeoutSeconds / 3),
                 TestContext.Current.CancellationToken
             );
 
@@ -314,7 +319,7 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
             {
                 await dlqReceiver.CompleteMessageAsync(dlqMessage);
                 _unhandledEvents.TryDequeue(out var unhandledEvent);
-                TestContext.Current.TestOutputHelper!.WriteLine($"Warning: Drained event {unhandledEvent}");
+                Log($"Warning: Drained event {unhandledEvent}");
             }
         }
     }
@@ -329,5 +334,11 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
                 PrefetchCount = 0
             }
         );
+    }
+
+    private static void Log(string message)
+    {
+        var time = DateTime.UtcNow.ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture);
+        TestContext.Current.TestOutputHelper!.WriteLine($"{time} ({Environment.CurrentManagedThreadId}): {message}");
     }
 }
