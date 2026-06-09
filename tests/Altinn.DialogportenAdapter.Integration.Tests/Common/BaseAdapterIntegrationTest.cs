@@ -25,13 +25,7 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
 
     public ValueTask InitializeAsync()
     {
-        AdapterQueueDlqReceiver = app.ServiceBusClient.CreateReceiver(
-            Constants.AdapterQueueName,
-            new ServiceBusReceiverOptions
-            {
-                SubQueue = SubQueue.DeadLetter,
-            }
-        );
+        AdapterQueueDlqReceiver = CreateDlqReceiver();
 
         return ValueTask.CompletedTask;
     }
@@ -42,22 +36,20 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         app.RegisterApi.LogUnhandledRequests(app.App.Logger, "RegisterApi").ResetAllExceptFallbackMapping();
         app.AltinnApi.LogUnhandledRequests(app.App.Logger, "AltinnApi").ResetAllExceptFallbackMapping();
         app.StorageApi.LogUnhandledRequests(app.App.Logger, "StorageApi").ResetAllExceptFallbackMapping();
-
-        app.AppScope.ServiceProvider.GetRequiredService<SyncCompletionSignal>().Reset();
-        await app.App.Services.GetRequiredService<IFusionCache>().ClearAsync();
-        await DrainLeftoverMessages();
         await AdapterQueueDlqReceiver.DisposeAsync();
 
+        await app.App.Services.GetRequiredService<IFusionCache>().ClearAsync();
+        await DrainLeftoverMessages();
         GetSyncJobCompleteSignal().Reset();
 
         GC.SuppressFinalize(this);
     }
 
-    protected async Task<EventProcessingResult> SendAndWait<T>(T command) where T : notnull
+    protected async Task<EventProcessingResult> SendAndWait<T>(T command, TimeSpan? timeout = null) where T : notnull
     {
         _unhandledEvents.Enqueue(command);
         var bus = app.StorageScope.ServiceProvider.GetRequiredService<IMessageBus>();
-        var eventProcessingResult = GetEventProcessingResult();
+        var eventProcessingResult = GetEventProcessingResult(timeout);
         await bus.SendAsync(command);
         return await eventProcessingResult;
     }
@@ -119,6 +111,7 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
             _unhandledEvents.TryDequeue(out _);
             return new EventProcessingResult(true, null);
         }
+
         await cts.CancelAsync();
 
         return new EventProcessingResult(false, null);
@@ -268,16 +261,21 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
     }
 
     /// <summary>
-    /// Drains all remaining messages off the dlq.
+    /// Drains all remaining messages from the previous test to prevent cross-test contamination.
     ///
-    /// This is important for isolating each test, so that messages from the previous test doesn't affect the next.
-    /// Draining just the dlq should be sufficient, because we reset the WireMock stubs so all apis return 501.
-    /// This should make any lingering messages go to the dlq.
+    /// After WireMock is reset, any message still being processed will hit 501 → immediate DLQ.
+    /// However, a message sitting in the scheduled state (ScheduleRetryIndefinitely) must wait for
+    /// the emulator's SQL poll cycle before it gets delivered and can 501 → DLQ. That poll can take
+    /// 10–60 s under load. We short-circuit by cancelling scheduled messages directly via their
+    /// sequence numbers, which is instantaneous and bypasses the SQL poll entirely.
+    /// Any message that was actively being processed at reset time still flows → 501 → DLQ normally.
     /// </summary>
     private async Task DrainLeftoverMessages()
     {
-        var timeoutSeconds = 30;
+        if (_unhandledEvents.IsEmpty) return;
+        var timeoutSeconds = 60;
         var timeoutAt = DateTimeOffset.UtcNow.AddSeconds(timeoutSeconds);
+        await using var dlqReceiver = CreateDlqReceiver();
         while (!_unhandledEvents.IsEmpty)
         {
             if (DateTimeOffset.UtcNow > timeoutAt)
@@ -286,16 +284,27 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
                     $"Unable to drain dql: Timeout after {timeoutSeconds} seconds. This invalidates the whole test suite. Look for the test that failed to drain! {_unhandledEvents.Count} undrained messages");
             }
 
-            var message = await AdapterQueueDlqReceiver.ReceiveMessageAsync(
+            var dlqMessage = await dlqReceiver.ReceiveMessageAsync(
                 TimeSpan.FromMilliseconds(200),
                 TestContext.Current.CancellationToken
             );
 
-            if (message != null)
+            if (dlqMessage != null)
             {
-                await AdapterQueueDlqReceiver.CompleteMessageAsync(message);
+                await dlqReceiver.CompleteMessageAsync(dlqMessage);
                 _unhandledEvents.TryDequeue(out _);
             }
         }
+    }
+
+    private ServiceBusReceiver CreateDlqReceiver()
+    {
+        return app.ServiceBusClient.CreateReceiver(
+            Constants.AdapterQueueName,
+            new ServiceBusReceiverOptions
+            {
+                SubQueue = SubQueue.DeadLetter,
+            }
+        );
     }
 }
