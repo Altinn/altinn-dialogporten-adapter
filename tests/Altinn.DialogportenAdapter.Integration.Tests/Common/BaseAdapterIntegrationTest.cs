@@ -69,7 +69,7 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         cancellationToken.ThrowIfCancellationRequested();
         if (message != null)
         {
-            await AdapterQueueDlqReceiver.CompleteMessageAsync(message, cancellationToken);
+            await AdapterQueueDlqReceiver.CompleteMessageAsync(message, CancellationToken.None);
             _unhandledEvents.TryDequeue(out _);
         }
 
