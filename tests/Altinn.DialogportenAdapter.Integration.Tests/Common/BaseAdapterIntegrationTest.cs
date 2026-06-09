@@ -25,22 +25,32 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
 
     public ValueTask InitializeAsync()
     {
-        AdapterQueueDlqReceiver = CreateDlqReceiver();
+        AdapterQueueDlqReceiver = app.ServiceBusClient.CreateReceiver(
+            Constants.AdapterQueueName,
+            new ServiceBusReceiverOptions
+            {
+                SubQueue = SubQueue.DeadLetter,
+                PrefetchCount = 0
+            }
+        );
 
         return ValueTask.CompletedTask;
     }
 
     public async ValueTask DisposeAsync()
     {
+        // Dispose asap, so a test doesn't accidentally consume a fallback mapping
+        await AdapterQueueDlqReceiver.DisposeAsync();
+
         app.DialogportenApi.LogUnhandledRequests(app.App.Logger, "DialogportenApi").ResetAllExceptFallbackMapping();
         app.RegisterApi.LogUnhandledRequests(app.App.Logger, "RegisterApi").ResetAllExceptFallbackMapping();
         app.AltinnApi.LogUnhandledRequests(app.App.Logger, "AltinnApi").ResetAllExceptFallbackMapping();
         app.StorageApi.LogUnhandledRequests(app.App.Logger, "StorageApi").ResetAllExceptFallbackMapping();
-        await AdapterQueueDlqReceiver.DisposeAsync();
 
-        await app.App.Services.GetRequiredService<IFusionCache>().ClearAsync();
-        await DrainLeftoverMessages();
         GetSyncJobCompleteSignal().Reset();
+        var clearCache = app.App.Services.GetRequiredService<IFusionCache>().ClearAsync().AsTask();
+        var drainMessages = DrainLeftoverMessages();
+        await Task.WhenAll(clearCache, drainMessages);
 
         GC.SuppressFinalize(this);
     }
@@ -62,6 +72,7 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         var maxWait = timeout ?? TimeSpan.FromSeconds(10);
         var message = await AdapterQueueDlqReceiver.ReceiveMessageAsync(maxWait, cancellationToken);
 
+        cancellationToken.ThrowIfCancellationRequested();
         if (message != null)
         {
             await AdapterQueueDlqReceiver.CompleteMessageAsync(message, cancellationToken);
@@ -274,18 +285,25 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
     {
         if (_unhandledEvents.IsEmpty) return;
         var timeoutSeconds = 60;
-        var timeoutAt = DateTimeOffset.UtcNow.AddSeconds(timeoutSeconds);
-        await using var dlqReceiver = CreateDlqReceiver();
+        var start = DateTimeOffset.UtcNow;
+        await using var dlqReceiver = app.ServiceBusClient.CreateReceiver(
+            Constants.AdapterQueueName,
+            new ServiceBusReceiverOptions
+            {
+                SubQueue = SubQueue.DeadLetter,
+            }
+        );
         while (!_unhandledEvents.IsEmpty)
         {
-            if (DateTimeOffset.UtcNow > timeoutAt)
+            var elapsed = DateTimeOffset.UtcNow - start;
+            if (elapsed.Seconds > timeoutSeconds)
             {
                 Assert.Fail(
-                    $"Unable to drain dql: Timeout after {timeoutSeconds} seconds. This invalidates the whole test suite. Look for the test that failed to drain! {_unhandledEvents.Count} undrained messages");
+                    $"Unable to drain dql: Timeout after {elapsed} seconds. This invalidates the whole test suite. Look for the test that failed to drain! {_unhandledEvents.Count} undrained messages");
             }
 
             var dlqMessage = await dlqReceiver.ReceiveMessageAsync(
-                TimeSpan.FromMilliseconds(200),
+                TimeSpan.FromSeconds(timeoutSeconds),
                 TestContext.Current.CancellationToken
             );
 
@@ -295,16 +313,5 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
                 _unhandledEvents.TryDequeue(out _);
             }
         }
-    }
-
-    private ServiceBusReceiver CreateDlqReceiver()
-    {
-        return app.ServiceBusClient.CreateReceiver(
-            Constants.AdapterQueueName,
-            new ServiceBusReceiverOptions
-            {
-                SubQueue = SubQueue.DeadLetter,
-            }
-        );
     }
 }
