@@ -120,6 +120,7 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         }
 
         await cts.CancelAsync();
+        await IgnoreCancellation(getDlqMessage);
 
         return new EventProcessingResult(false, null);
     }
