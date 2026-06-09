@@ -115,7 +115,7 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         if (syncJob.IsCompletedSuccessfully)
         {
             await cts.CancelAsync();
-            await IgnoreCancellation(getDlqMessage);
+            await IgnoreCancellation(getDlqMessage, "Got success event");
             _unhandledEvents.TryDequeue(out var handledEvent);
             Log($"Debug: An event was successfully handled {handledEvent}");
 
@@ -123,12 +123,12 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         }
 
         await cts.CancelAsync();
-        await IgnoreCancellation(getDlqMessage);
+        await IgnoreCancellation(getDlqMessage, "No success or DLQ event");
 
         return new EventProcessingResult(false, null);
     }
 
-    private static async Task IgnoreCancellation(Task task)
+    private static async Task IgnoreCancellation(Task task,  string cancellationReason)
     {
         try
         {
@@ -136,7 +136,7 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         }
         catch (OperationCanceledException)
         {
-            Log($"Debug: Ignored a task that was cancelled");
+            Log($"Debug: Ignored a task that was cancelled:  {cancellationReason}");
         }
     }
 
@@ -282,23 +282,21 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
 
         return new Arrangement(appId, partyId, instanceCreatedAt, instanceId, dialogId);
     }
-
     /// <summary>
-    /// Drains all remaining messages from the previous test to prevent cross-test contamination.
+    /// Drains all remaining messages off the dlq.
     ///
-    /// After WireMock is reset, any message still being processed will hit 501 → immediate DLQ.
-    /// However, a message sitting in the scheduled state (ScheduleRetryIndefinitely) must wait for
-    /// the emulator's SQL poll cycle before it gets delivered and can 501 → DLQ. That poll can take
-    /// 10–60 s under load. We short-circuit by cancelling scheduled messages directly via their
-    /// sequence numbers, which is instantaneous and bypasses the SQL poll entirely.
-    /// Any message that was actively being processed at reset time still flows → 501 → DLQ normally.
+    /// This is important for isolating each test, so that messages from the previous test doesn't affect the next.
+    /// Draining just the dlq should be sufficient, because we reset the WireMock stubs so all apis return 501.
+    /// This should make any lingering messages go to the dlq.
+    /// The default LockDuration in the service bus is 1 minute.
+    /// Thats why this method should have a generous timeout, in case any messages are locked by another receiver.
     /// </summary>
     private async Task DrainLeftoverMessages()
     {
         if (_unhandledEvents.IsEmpty) return;
         Log("Warning: Found unhandled messages, draining leftover messages");
 
-        var timeoutSeconds = 60;
+        var timeoutSeconds = 120;
         var start = DateTimeOffset.UtcNow;
         await using var dlqReceiver = CreateReceiver();
         while (!_unhandledEvents.IsEmpty)
