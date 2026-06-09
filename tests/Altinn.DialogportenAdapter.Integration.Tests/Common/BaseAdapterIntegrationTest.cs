@@ -131,7 +131,7 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         {
             await task;
         }
-        catch (TaskCanceledException)
+        catch (OperationCanceledException)
         {
             // Ignore
         }
