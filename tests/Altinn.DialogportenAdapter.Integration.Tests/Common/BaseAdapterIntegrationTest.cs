@@ -26,14 +26,7 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
 
     public ValueTask InitializeAsync()
     {
-        AdapterQueueDlqReceiver = app.ServiceBusClient.CreateReceiver(
-            Constants.AdapterQueueName,
-            new ServiceBusReceiverOptions
-            {
-                SubQueue = SubQueue.DeadLetter,
-                PrefetchCount = 0
-            }
-        );
+        AdapterQueueDlqReceiver = CreateReceiver();
 
         return ValueTask.CompletedTask;
     }
@@ -287,13 +280,7 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         if (_unhandledEvents.IsEmpty) return;
         var timeoutSeconds = 60;
         var start = DateTimeOffset.UtcNow;
-        await using var dlqReceiver = app.ServiceBusClient.CreateReceiver(
-            Constants.AdapterQueueName,
-            new ServiceBusReceiverOptions
-            {
-                SubQueue = SubQueue.DeadLetter,
-            }
-        );
+        await using var dlqReceiver = CreateReceiver();
         while (!_unhandledEvents.IsEmpty)
         {
             var elapsed = DateTimeOffset.UtcNow - start;
@@ -315,5 +302,17 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
                 TestContext.Current.TestOutputHelper!.WriteLine($"Warning: Drained event {unhandledEvent}");
             }
         }
+    }
+
+    private ServiceBusReceiver CreateReceiver()
+    {
+        return app.ServiceBusClient.CreateReceiver(
+            Constants.AdapterQueueName,
+            new ServiceBusReceiverOptions
+            {
+                SubQueue = SubQueue.DeadLetter,
+                PrefetchCount = 0
+            }
+        );
     }
 }
