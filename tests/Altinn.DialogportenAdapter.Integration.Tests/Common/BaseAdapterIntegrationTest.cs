@@ -113,13 +113,27 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         if (syncJob.IsCompletedSuccessfully)
         {
             await cts.CancelAsync();
+            await IgnoreCancellation(getDlqMessage);
             _unhandledEvents.TryDequeue(out _);
+
             return new EventProcessingResult(true, null);
         }
 
         await cts.CancelAsync();
 
         return new EventProcessingResult(false, null);
+    }
+
+    private static async Task IgnoreCancellation(Task task)
+    {
+        try
+        {
+            await task;
+        }
+        catch (TaskCanceledException)
+        {
+            // Ignore
+        }
     }
 
     private SyncCompletionSignal GetSyncJobCompleteSignal()
