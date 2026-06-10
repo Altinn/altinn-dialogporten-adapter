@@ -268,7 +268,6 @@ internal sealed class StorageDialogportenDataMerger
     {
 
         var realCreatedData = RealCreate(dto).ToList();
-        var data = dto.Instance.Data.Where(x => !ShouldSkipDataElement(x));
         var attachmentVisibility = ReceiptAttachmentVisibilityDecider.Create(dto.Application);
 
 
@@ -311,8 +310,6 @@ internal sealed class StorageDialogportenDataMerger
         bool IsPerformedBySo(DataElement element) => element.LastChangedBy.Length == 9;
         bool IsNotPdfReceipt(DataElement element) => element.DataType != PdfType;
 
-        // We hide the A1 "Signatures.html" from DP/AF
-        bool ShouldSkipDataElement(DataElement element) => IsA1Instance(dto.Instance) && element.DataType == "signature-presentation";
 
         bool TransmissionsDisabled() => dto.Application.GetSyncAdapterSettings().DisableAddTransmissions ||
             !_settings.DialogportenAdapter.Adapter.FeatureFlag
@@ -471,7 +468,8 @@ internal sealed class StorageDialogportenDataMerger
 
     private static IEnumerable<(DataElement dataElement, DateTime? created)> RealCreate(MergeDto dto)
     {
-        var dataElements = dto.Instance.Data ?? [];
+        
+        var dataElements = dto.Instance.Data.Where(x => !ShouldSkipDataElement(x)).ToList();
         var dataTypes = dto.Application.DataTypes ?? [];
 
         var dataTypesWithTaskId = dataTypes.Where(x => !string.IsNullOrEmpty(x.TaskId)).ToList();
@@ -488,6 +486,10 @@ internal sealed class StorageDialogportenDataMerger
             }
             yield return (dataElement, created);
         }
+        yield break;
+
+        // We hide the A1 "Signatures.html" from DP/AF
+        bool ShouldSkipDataElement(DataElement element) => IsA1Instance(dto.Instance) && element.DataType == "signature-presentation";
     }
 
     private static string? GetIdFromTask(IEnumerable<DataType> dataTypes, DataElement dataElement) =>
@@ -683,6 +685,7 @@ internal sealed class StorageDialogportenDataMerger
     {
         return instance.DataValues is not null && instance.DataValues.ContainsKey("A1ArchRef");
     }
+    
 
     /// <summary>
     /// This method attempts to create a summary for the instance. This will employ the following heuristics:
