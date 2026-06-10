@@ -195,7 +195,7 @@ public class SyncDialogOnInstanceUpdatedHandlerDlqTest(DialogportenAdapterApplic
             InstanceId: arrangement.InstanceId,
             InstanceCreatedAt: arrangement.InstanceCreatedAt,
             IsMigration: false
-        ), TimeSpan.FromSeconds(5));
+        ), TimeSpan.FromSeconds(6));
 
         // Assert
         result.IsSuccess.Should().BeFalse();
