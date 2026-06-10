@@ -66,7 +66,7 @@ public class DialogportenAdapterApplication : IAsyncLifetime
                 .UntilMessageIsLogged("SQL Server is now ready for client connections"))
             .Build();
 
-        string projectRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", ".."));
+        var projectRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", ".."));
         var asbImage = "mcr.microsoft.com/azure-messaging/servicebus-emulator@" +
                        "sha256:a00c9626c8960f6b9be6178aa91a7ac8f1a102c0d9deda7603a1ba0ac9d9ab51";
         _asbContainer = new ServiceBusBuilder(asbImage)
