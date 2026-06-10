@@ -43,7 +43,8 @@ internal sealed class InstanceService
         }
 
         var dialogId = request.InstanceGuid.ToVersion7(instance.Created!.Value);
-        if (!ValidateDialogToken(request.DialogToken, dialogId))
+
+        if (!ValidateDialogToken(request.DialogToken, dialogId, instance))
         {
             return new DeleteResponse.UnAuthorized();
         }
@@ -65,14 +66,32 @@ internal sealed class InstanceService
         return new DeleteResponse.Success();
     }
 
-    private bool ValidateDialogToken(ReadOnlySpan<char> token, Guid dialogId)
+    private bool ValidateDialogToken(ReadOnlySpan<char> token, Guid dialogId, Instance instance)
     {
         const string bearerPrefix = "Bearer ";
         token = token.StartsWith(bearerPrefix, StringComparison.OrdinalIgnoreCase)
             ? token[bearerPrefix.Length..]
             : token;
         var result = _dialogTokenValidator.Validate(token, dialogId, ["delete"]);
+
+        if (!result.IsValid)
+        {
+            // The dialog token might contain an action including the current task, ie "delete,urn:altinn:task:Task_1"
+            // We need to check that as well
+            var currentTaskId = GetCurrentProcessTask(instance);
+            if (currentTaskId != null)
+            {
+                result = _dialogTokenValidator.Validate(token, dialogId, [$"delete,{currentTaskId}"]);
+            }
+        }
         return result.IsValid;
+    }
+
+    private static string? GetCurrentProcessTask(Instance instance)
+    {
+        return !string.IsNullOrWhiteSpace(instance.Process?.CurrentTask?.ElementId)
+            ? "urn:altinn:task:" + instance.Process.CurrentTask.ElementId
+            : null;
     }
 
     private static bool IsDeletable(Instance instance, Application app)

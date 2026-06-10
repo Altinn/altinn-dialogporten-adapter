@@ -3,6 +3,7 @@ using Altinn.ApiClients.Dialogporten;
 using Altinn.ApiClients.Maskinporten.Extensions;
 using Altinn.ApiClients.Maskinporten.Services;
 using Altinn.DialogportenAdapter.Contracts;
+using Altinn.DialogportenAdapter.WebApi.Common.Exceptions;
 using Altinn.DialogportenAdapter.WebApi.Common.Health;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Delete;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
@@ -127,6 +128,15 @@ internal static class ServiceCollectionExtensions
                     .OrAnyInner<PartyNotFoundException>()
                     .RetryWithJitteredCooldown(clock.Seconds(1), clock.Seconds(5), clock.Seconds(20))
                     .Then.ScheduleRetry(clock.Minutes(1), clock.Minutes(10), clock.Minutes(30))
+                    .Then.MoveToErrorQueue();
+
+                // We sometimes see Purge returning 404, indicating the dialog has already been purged.
+                // This is probably due to a race where two events in quick succession decide to purge the dialog.
+                // A retry will make the adapter discard the event next run bt the intended way.
+                opts.Policies
+                    .OnException<DialogNotFoundForPurgeException>()
+                    .OrAnyInner<DialogNotFoundForPurgeException>()
+                    .ScheduleRetry(clock.Minutes(1), clock.Minutes(10), clock.Minutes(30))
                     .Then.MoveToErrorQueue();
 
                 // Wait for all PDFs to generate before creating Transmissions.
@@ -356,7 +366,8 @@ internal static class ServiceCollectionExtensions
             return services;
         }
 
-        private IServiceCollection Replace<TService, TImplementation>(ServiceLifetime lifetime)
+        private IServiceCollection Replace<TService, TImplementation>(
+            ServiceLifetime lifetime)
             where TService : class
             where TImplementation : class, TService
         {

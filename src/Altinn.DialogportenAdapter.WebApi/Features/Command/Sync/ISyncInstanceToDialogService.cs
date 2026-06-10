@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Net;
 using Altinn.DialogportenAdapter.Contracts;
 using Altinn.DialogportenAdapter.WebApi.Common;
+using Altinn.DialogportenAdapter.WebApi.Common.Exceptions;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
@@ -79,10 +81,14 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
                 existingDialog = await _dialogportenApi.Get(dialogId, cancellationToken).ContentOrDefault();
 
                 // Check if DialogId is already in use by someone else
-                if (existingDialog?.ServiceOwnerContext != null && existingDialog.ServiceOwnerContext.ServiceOwnerLabels.All(x => x.Value != $"urn:altinn:integration:storage:{instance.Id}"))
+                if (existingDialog?.ServiceOwnerContext != null)
                 {
-                    LogInvalidUserSuppliedDialogIdWarning(dto.InstanceId);
-                    return;
+                    var storageLabels = existingDialog.ServiceOwnerContext.ServiceOwnerLabels.Where(x => x.Value.StartsWith("urn:altinn:integration:storage:", StringComparison.InvariantCulture));
+                    if (storageLabels.Any(x => x.Value != $"urn:altinn:integration:storage:{instance.Id}"))
+                    {
+                        LogInvalidUserSuppliedDialogIdWarning(dto.InstanceId);
+                        return;
+                    }
                 }
             }
             else
@@ -136,23 +142,33 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
         if (ShouldPurgeDialog(instance, existingDialog))
         {
             if (syncAdapterSettings.DisableDelete) return;
-            await _dialogportenApi.Purge(
+            var response = await _dialogportenApi.Purge(
                 dialogId,
                 existingDialog.Revision!.Value,
                 isSilentUpdate: dto.IsMigration,
-                cancellationToken: cancellationToken);
-            return;
+                cancellationToken: cancellationToken
+            );
+
+            var problem = DpSimpleProblemDetails.FromFailedApiResponseIf(
+                response,
+                x => x.StatusCode == HttpStatusCode.NotFound
+            );
+            if (problem == null) return;
+
+            throw new DialogNotFoundForPurgeException(dialogId, existingDialog.Revision.Value, problem.TraceId);
         }
 
         if (ShouldSoftDeleteDialog(instance, existingDialog))
         {
             if (syncAdapterSettings.DisableDelete) return;
-            await _dialogportenApi.Delete(
+            var response = await _dialogportenApi.Delete(
                 dialogId,
                 existingDialog.Revision!.Value,
                 isSilentUpdate: dto.IsMigration,
                 cancellationToken: cancellationToken);
-            return;
+
+            if (response.IsSuccessful) return;
+            throw response.Error;
         }
 
         if (ShouldRestoreDialog(instance, existingDialog))
@@ -183,11 +199,14 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
         
         if (!syncAdapterSettings.DisableDelete && shouldDeleteAfterCreate && revision.HasValue)
         {
-            await _dialogportenApi.Delete(
+            var response = await _dialogportenApi.Delete(
                 dialogId,
                 revision.Value,
                 isSilentUpdate: true,
                 cancellationToken: cancellationToken);
+
+            if (response.IsSuccessful) return;
+            throw response.Error;
         }
     }
 
