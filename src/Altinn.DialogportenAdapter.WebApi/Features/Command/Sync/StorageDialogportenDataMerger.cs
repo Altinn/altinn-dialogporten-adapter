@@ -266,10 +266,8 @@ internal sealed class StorageDialogportenDataMerger
         MergeDto dto,
         List<ActivityDto> activities, int currentAttempt = 1)
     {
-
         var realCreatedData = RealCreate(dto).ToList();
         var attachmentVisibility = ReceiptAttachmentVisibilityDecider.Create(dto.Application);
-
 
         if (TransmissionsDisabled())
         {
@@ -309,7 +307,6 @@ internal sealed class StorageDialogportenDataMerger
 
         bool IsPerformedBySo(DataElement element) => element.LastChangedBy.Length == 9;
         bool IsNotPdfReceipt(DataElement element) => element.DataType != PdfType;
-
 
         bool TransmissionsDisabled() => dto.Application.GetSyncAdapterSettings().DisableAddTransmissions ||
             !_settings.DialogportenAdapter.Adapter.FeatureFlag
