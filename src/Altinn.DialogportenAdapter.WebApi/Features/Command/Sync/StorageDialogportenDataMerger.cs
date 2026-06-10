@@ -265,7 +265,7 @@ internal sealed class StorageDialogportenDataMerger
         MergeDto dto,
         List<ActivityDto> activities)
     {
-        var data = dto.Instance.Data;
+        var data = dto.Instance.Data.Where(x => !ShouldSkipDataElement(x));
         var attachmentVisibility = ReceiptAttachmentVisibilityDecider.Create(dto.Application);
 
         if (TransmissionsDisabled())
@@ -302,6 +302,9 @@ internal sealed class StorageDialogportenDataMerger
 
         bool IsPerformedBySo(DataElement element) => element.LastChangedBy.Length == 9;
         bool IsNotPdfReceipt(DataElement element) => element.DataType != PdfType;
+
+        // We hide the A1 "Signatures.html" from DP/AF
+        bool ShouldSkipDataElement(DataElement element) => IsA1Instance(dto.Instance) && element.DataType == "signature-presentation";
 
         bool TransmissionsDisabled() => dto.Application.GetSyncAdapterSettings().DisableAddTransmissions ||
                                         !_settings.DialogportenAdapter.Adapter.FeatureFlag
@@ -578,7 +581,7 @@ internal sealed class StorageDialogportenDataMerger
 
     private static bool IsConsideredConfirmed(Instance instance)
     {
-        if (IsA2Instance(instance)) // Archived in Altinn 2, always considered confirmed
+        if (IsA2Instance(instance) || IsA1Instance(instance)) // Archived in Altinn 1/2, always considered confirmed
         {
             return true;
         }
@@ -589,6 +592,11 @@ internal sealed class StorageDialogportenDataMerger
     private static bool IsA2Instance(Instance instance)
     {
         return instance.DataValues is not null && instance.DataValues.ContainsKey("A2ArchRef");
+    }
+
+    private static bool IsA1Instance(Instance instance)
+    {
+        return instance.DataValues is not null && instance.DataValues.ContainsKey("A1ArchRef");
     }
 
     /// <summary>
