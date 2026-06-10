@@ -34,20 +34,22 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
 
     public async ValueTask DisposeAsync()
     {
-        // Dispose asap, so a test doesn't accidentally consume a fallback mapping
-        await AdapterQueueDlqReceiver.DisposeAsync();
+        try
+        {
+            app.DialogportenApi.LogUnhandledRequests(app.App.Logger, "DialogportenApi").ResetAllExceptFallbackMapping();
+            app.RegisterApi.LogUnhandledRequests(app.App.Logger, "RegisterApi").ResetAllExceptFallbackMapping();
+            app.AltinnApi.LogUnhandledRequests(app.App.Logger, "AltinnApi").ResetAllExceptFallbackMapping();
+            app.StorageApi.LogUnhandledRequests(app.App.Logger, "StorageApi").ResetAllExceptFallbackMapping();
 
-        app.DialogportenApi.LogUnhandledRequests(app.App.Logger, "DialogportenApi").ResetAllExceptFallbackMapping();
-        app.RegisterApi.LogUnhandledRequests(app.App.Logger, "RegisterApi").ResetAllExceptFallbackMapping();
-        app.AltinnApi.LogUnhandledRequests(app.App.Logger, "AltinnApi").ResetAllExceptFallbackMapping();
-        app.StorageApi.LogUnhandledRequests(app.App.Logger, "StorageApi").ResetAllExceptFallbackMapping();
-
-        GetSyncJobCompleteSignal().Reset();
-        var clearCache = app.App.Services.GetRequiredService<IFusionCache>().ClearAsync().AsTask();
-        var drainMessages = DrainLeftoverMessages();
-        await Task.WhenAll(clearCache, drainMessages);
-
-        GC.SuppressFinalize(this);
+            GetSyncJobCompleteSignal().Reset();
+            await app.App.Services.GetRequiredService<IFusionCache>().ClearAsync().AsTask();
+            await DrainLeftoverMessages();
+        }
+        finally
+        {
+            await AdapterQueueDlqReceiver.DisposeAsync();
+            GC.SuppressFinalize(this);
+        }
     }
 
     protected async Task<EventProcessingResult> SendAndWait<T>(T command, TimeSpan? timeout = null) where T : notnull
@@ -298,7 +300,6 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
 
         var timeoutSeconds = 120;
         var start = DateTimeOffset.UtcNow;
-        await using var dlqReceiver = CreateReceiver();
         while (!_unhandledEvents.IsEmpty)
         {
             var elapsed = DateTimeOffset.UtcNow - start;
@@ -308,14 +309,14 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
                     $"Unable to drain dql: Timeout after {elapsed} seconds. This invalidates the whole test suite. Look for the test that failed to drain! {_unhandledEvents.Count} undrained messages");
             }
 
-            var dlqMessage = await dlqReceiver.ReceiveMessageAsync(
+            var dlqMessage = await AdapterQueueDlqReceiver.ReceiveMessageAsync(
                 TimeSpan.FromSeconds(timeoutSeconds / 3),
                 TestContext.Current.CancellationToken
             );
 
             if (dlqMessage != null)
             {
-                await dlqReceiver.CompleteMessageAsync(dlqMessage);
+                await AdapterQueueDlqReceiver.CompleteMessageAsync(dlqMessage);
                 _unhandledEvents.TryDequeue(out var unhandledEvent);
                 Log($"Warning: Drained event {unhandledEvent}");
             }
