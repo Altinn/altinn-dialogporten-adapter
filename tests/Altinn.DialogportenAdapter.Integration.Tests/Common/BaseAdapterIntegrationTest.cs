@@ -298,7 +298,7 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         if (_unhandledEvents.IsEmpty) return;
         Log("Warning: Found unhandled messages, draining leftover messages");
 
-        var timeoutSeconds = 120;
+        var timeoutSeconds = 65;
         var start = DateTimeOffset.UtcNow;
         while (!_unhandledEvents.IsEmpty)
         {
