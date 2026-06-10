@@ -66,11 +66,13 @@ public class DialogportenAdapterApplication : IAsyncLifetime
                 .UntilMessageIsLogged("SQL Server is now ready for client connections"))
             .Build();
 
+        var projectRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", ".."));
         var asbImage = "mcr.microsoft.com/azure-messaging/servicebus-emulator@" +
                        "sha256:a00c9626c8960f6b9be6178aa91a7ac8f1a102c0d9deda7603a1ba0ac9d9ab51";
         _asbContainer = new ServiceBusBuilder(asbImage)
             .WithAcceptLicenseAgreement(true)
             .WithName(IsDebug ? "dialogporten-adapter-it-asb" : null)
+            .WithConfig(Path.Combine(projectRoot, "Common", "AzureServiceBusEmulator", "Config.json"))
             .WithReuse(IsDebug)
             .WithMsSqlContainer(_network, _mssqlContainer, networkAlias)
             .WithWaitStrategy(Wait.ForUnixContainer().UntilMessageIsLogged("Emulator Service is Successfully Up!"))
@@ -191,6 +193,7 @@ public class DialogportenAdapterApplication : IAsyncLifetime
         builderConfiguration["DialogportenAdapter:Altinn:InternalRegisterEndpoint"] = RegisterApi.Url;
         builderConfiguration["WolverineSettings:ServiceBusConnectionString"] = _asbContainer.GetConnectionString();
         builderConfiguration["WolverineSettings:ManagementConnectionString"] = _asbContainer.GetHttpConnectionString();
+        builderConfiguration["WolverineSettings:ListenerCount"] = "3";
     }
 
     private void SetUpWireMockEndpointsForStartup()

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Net;
 using System.Text.Json;
 using Altinn.DialogportenAdapter.Contracts;
@@ -20,44 +21,42 @@ namespace Altinn.DialogportenAdapter.Integration.Tests.Common;
 
 public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication app) : IAsyncLifetime
 {
+    private const int DefaultWaitSeconds = 20;
     private ServiceBusReceiver AdapterQueueDlqReceiver { get; set; } = null!;
     private readonly ConcurrentQueue<object> _unhandledEvents = new();
 
     public ValueTask InitializeAsync()
     {
-        AdapterQueueDlqReceiver = app.ServiceBusClient.CreateReceiver(
-            Constants.AdapterQueueName,
-            new ServiceBusReceiverOptions
-            {
-                SubQueue = SubQueue.DeadLetter,
-            }
-        );
+        AdapterQueueDlqReceiver = CreateReceiver();
 
         return ValueTask.CompletedTask;
     }
 
     public async ValueTask DisposeAsync()
     {
-        app.DialogportenApi.LogUnhandledRequests(app.App.Logger, "DialogportenApi").ResetAllExceptFallbackMapping();
-        app.RegisterApi.LogUnhandledRequests(app.App.Logger, "RegisterApi").ResetAllExceptFallbackMapping();
-        app.AltinnApi.LogUnhandledRequests(app.App.Logger, "AltinnApi").ResetAllExceptFallbackMapping();
-        app.StorageApi.LogUnhandledRequests(app.App.Logger, "StorageApi").ResetAllExceptFallbackMapping();
+        try
+        {
+            app.DialogportenApi.LogUnhandledRequests(app.App.Logger, "DialogportenApi").ResetAllExceptFallbackMapping();
+            app.RegisterApi.LogUnhandledRequests(app.App.Logger, "RegisterApi").ResetAllExceptFallbackMapping();
+            app.AltinnApi.LogUnhandledRequests(app.App.Logger, "AltinnApi").ResetAllExceptFallbackMapping();
+            app.StorageApi.LogUnhandledRequests(app.App.Logger, "StorageApi").ResetAllExceptFallbackMapping();
 
-        app.AppScope.ServiceProvider.GetRequiredService<SyncCompletionSignal>().Reset();
-        await app.App.Services.GetRequiredService<IFusionCache>().ClearAsync();
-        await DrainLeftoverMessages();
-        await AdapterQueueDlqReceiver.DisposeAsync();
-
-        GetSyncJobCompleteSignal().Reset();
-
-        GC.SuppressFinalize(this);
+            GetSyncJobCompleteSignal().Reset();
+            await app.App.Services.GetRequiredService<IFusionCache>().ClearAsync().AsTask();
+            await DrainLeftoverMessages();
+        }
+        finally
+        {
+            await AdapterQueueDlqReceiver.DisposeAsync();
+            GC.SuppressFinalize(this);
+        }
     }
 
-    protected async Task<EventProcessingResult> SendAndWait<T>(T command) where T : notnull
+    protected async Task<EventProcessingResult> SendAndWait<T>(T command, TimeSpan? timeout = null) where T : notnull
     {
         _unhandledEvents.Enqueue(command);
         var bus = app.StorageScope.ServiceProvider.GetRequiredService<IMessageBus>();
-        var eventProcessingResult = GetEventProcessingResult();
+        var eventProcessingResult = GetEventProcessingResult(timeout);
         await bus.SendAsync(command);
         return await eventProcessingResult;
     }
@@ -67,13 +66,15 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         CancellationToken cancellationToken = default
     )
     {
-        var maxWait = timeout ?? TimeSpan.FromSeconds(10);
+        var maxWait = timeout ?? TimeSpan.FromSeconds(DefaultWaitSeconds);
         var message = await AdapterQueueDlqReceiver.ReceiveMessageAsync(maxWait, cancellationToken);
 
+        cancellationToken.ThrowIfCancellationRequested();
         if (message != null)
         {
-            await AdapterQueueDlqReceiver.CompleteMessageAsync(message, cancellationToken);
-            _unhandledEvents.TryDequeue(out _);
+            await AdapterQueueDlqReceiver.CompleteMessageAsync(message, CancellationToken.None);
+            _unhandledEvents.TryDequeue(out var handledEvent);
+            Log($"Debug: Received event on DLQ {handledEvent}");
         }
 
         return message;
@@ -94,7 +95,7 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
 
     private async Task<EventProcessingResult> GetEventProcessingResult(TimeSpan? timeout = null)
     {
-        var maxWait = timeout ?? TimeSpan.FromSeconds(10);
+        var maxWait = timeout ?? TimeSpan.FromSeconds(DefaultWaitSeconds);
         var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var syncJob = GetSyncJobCompleteSignal().Completed.Task.WaitAsync(maxWait, cts.Token);
         var getDlqMessage = WaitForDlqMessage(maxWait, cts.Token);
@@ -116,12 +117,29 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         if (syncJob.IsCompletedSuccessfully)
         {
             await cts.CancelAsync();
-            _unhandledEvents.TryDequeue(out _);
+            await IgnoreCancellation(getDlqMessage, "Got success event");
+            _unhandledEvents.TryDequeue(out var handledEvent);
+            Log($"Debug: An event was successfully handled {handledEvent}");
+
             return new EventProcessingResult(true, null);
         }
+
         await cts.CancelAsync();
+        await IgnoreCancellation(getDlqMessage, "No success or DLQ event");
 
         return new EventProcessingResult(false, null);
+    }
+
+    private static async Task IgnoreCancellation(Task task,  string cancellationReason)
+    {
+        try
+        {
+            await task;
+        }
+        catch (OperationCanceledException)
+        {
+            Log($"Debug: Ignored a task that was cancelled:  {cancellationReason}");
+        }
     }
 
     private SyncCompletionSignal GetSyncJobCompleteSignal()
@@ -266,36 +284,60 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
 
         return new Arrangement(appId, partyId, instanceCreatedAt, instanceId, dialogId);
     }
-
     /// <summary>
     /// Drains all remaining messages off the dlq.
     ///
     /// This is important for isolating each test, so that messages from the previous test doesn't affect the next.
     /// Draining just the dlq should be sufficient, because we reset the WireMock stubs so all apis return 501.
     /// This should make any lingering messages go to the dlq.
+    /// The default LockDuration in the service bus is 1 minute.
+    /// Thats why this method should have a generous timeout, in case any messages are locked by another receiver.
     /// </summary>
     private async Task DrainLeftoverMessages()
     {
-        var timeoutSeconds = 30;
-        var timeoutAt = DateTimeOffset.UtcNow.AddSeconds(timeoutSeconds);
+        if (_unhandledEvents.IsEmpty) return;
+        Log("Warning: Found unhandled messages, draining leftover messages");
+
+        var timeoutSeconds = 65;
+        var start = DateTimeOffset.UtcNow;
         while (!_unhandledEvents.IsEmpty)
         {
-            if (DateTimeOffset.UtcNow > timeoutAt)
+            var elapsed = DateTimeOffset.UtcNow - start;
+            if (elapsed.Seconds > timeoutSeconds)
             {
                 Assert.Fail(
-                    $"Unable to drain dql: Timeout after {timeoutSeconds} seconds. This invalidates the whole test suite. Look for the test that failed to drain! {_unhandledEvents.Count} undrained messages");
+                    $"Unable to drain dql: Timeout after {elapsed} seconds. This invalidates the whole test suite. Look for the test that failed to drain! {_unhandledEvents.Count} undrained messages");
             }
 
-            var message = await AdapterQueueDlqReceiver.ReceiveMessageAsync(
-                TimeSpan.FromMilliseconds(200),
+            var dlqMessage = await AdapterQueueDlqReceiver.ReceiveMessageAsync(
+                TimeSpan.FromSeconds(timeoutSeconds / 3),
                 TestContext.Current.CancellationToken
             );
 
-            if (message != null)
+            if (dlqMessage != null)
             {
-                await AdapterQueueDlqReceiver.CompleteMessageAsync(message);
-                _unhandledEvents.TryDequeue(out _);
+                await AdapterQueueDlqReceiver.CompleteMessageAsync(dlqMessage);
+                _unhandledEvents.TryDequeue(out var unhandledEvent);
+                Log($"Warning: Drained event {unhandledEvent}");
             }
         }
+    }
+
+    private ServiceBusReceiver CreateReceiver()
+    {
+        return app.ServiceBusClient.CreateReceiver(
+            Constants.AdapterQueueName,
+            new ServiceBusReceiverOptions
+            {
+                SubQueue = SubQueue.DeadLetter,
+                PrefetchCount = 0
+            }
+        );
+    }
+
+    private static void Log(string message)
+    {
+        var time = DateTime.UtcNow.ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture);
+        TestContext.Current.TestOutputHelper!.WriteLine($"{time} ({Environment.CurrentManagedThreadId}): {message}");
     }
 }
