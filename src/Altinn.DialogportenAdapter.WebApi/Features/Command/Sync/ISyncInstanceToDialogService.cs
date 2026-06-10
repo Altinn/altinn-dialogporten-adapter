@@ -81,10 +81,14 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
                 existingDialog = await _dialogportenApi.Get(dialogId, cancellationToken).ContentOrDefault();
 
                 // Check if DialogId is already in use by someone else
-                if (existingDialog?.ServiceOwnerContext != null && existingDialog.ServiceOwnerContext.ServiceOwnerLabels.All(x => x.Value != $"urn:altinn:integration:storage:{instance.Id}"))
+                if (existingDialog?.ServiceOwnerContext != null)
                 {
-                    LogInvalidUserSuppliedDialogIdWarning(dto.InstanceId);
-                    return;
+                    var storageLabels = existingDialog.ServiceOwnerContext.ServiceOwnerLabels.Where(x => x.Value.StartsWith("urn:altinn:integration:storage:", StringComparison.InvariantCulture));
+                    if (storageLabels.Any(x => x.Value != $"urn:altinn:integration:storage:{instance.Id}"))
+                    {
+                        LogInvalidUserSuppliedDialogIdWarning(dto.InstanceId);
+                        return;
+                    }
                 }
             }
             else
