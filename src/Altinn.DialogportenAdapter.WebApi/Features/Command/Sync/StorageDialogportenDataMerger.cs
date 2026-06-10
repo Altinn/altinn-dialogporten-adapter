@@ -685,7 +685,6 @@ internal sealed class StorageDialogportenDataMerger
     {
         return instance.DataValues is not null && instance.DataValues.ContainsKey("A1ArchRef");
     }
-    
 
     /// <summary>
     /// This method attempts to create a summary for the instance. This will employ the following heuristics:
