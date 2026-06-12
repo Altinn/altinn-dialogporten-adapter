@@ -49,22 +49,40 @@ internal sealed class RegisterRepository : IRegisterRepository
         Task.WhenAll(registerUrns
             .Distinct()
             .Select(urn => _cache
-                .GetOrSetAsync(
+                .GetOrSetAsync<(string RegisterUrn, string? ActorUrn)>(
                     key: urn,
-                    factory: ct => FetchUrn(urn, ct),
+                    factory: (ctx, ct) => FetchUrn(urn, ctx, ct),
                     token: cancellationToken)
                 .AsTask()));
 
-    private async Task<(string RegisterUrn, string? ActorUrn)> FetchUrn(string registerUrn,
+    private async Task<(string RegisterUrn, string? ActorUrn)> FetchUrn(
+        string registerUrn,
+        FusionCacheFactoryExecutionContext<(string RegisterUrn, string? ActorUrn)> context,
         CancellationToken cancellationToken)
     {
         var results = await _registerApi.GetPartiesByUrns(new PartyQueryRequest([registerUrn]), cancellationToken);
-        return results.Data.FirstOrDefault() switch
+
+        if (results.Data is null)
         {
-            null => (registerUrn, null),
-            { OrganizationIdentifier: { } organizationId } => (registerUrn, Constants.OrganizationUrnPrefix + organizationId),
-            { PersonIdentifier: { } personId } => (registerUrn, Constants.PersonUrnPrefix + personId),
-            { DisplayName: { } displayName } => (registerUrn, Constants.DisplayNameUrnPrefix + displayName),
+            throw new InvalidOperationException("Data was null in response from register.");
+        }
+
+        if (results.Data.Count == 0)
+        {
+            context.Options.SkipMemoryCacheWrite = true;
+            context.Options.SkipDistributedCacheWrite = true;
+            return (registerUrn, null);
+        }
+
+        return results.Data.First() switch
+        {
+            // Use externalUrn if presented by Register
+            { ExternalUrn: not null and var externalUrn } => (registerUrn, externalUrn),
+            { PersonIdentifier: not null and var personId } => (registerUrn, Constants.PersonUrnPrefix + personId),
+            { OrganizationIdentifier: not null and var organizationId } => (registerUrn, Constants.OrganizationUrnPrefix + organizationId),
+            { DisplayName: not null and var displayName, PartyType: "self-identified-user" } => (registerUrn, Constants.SiUserUrnPrefix + displayName),
+            // The below is to handle legacy enterprise users and system ids
+            { DisplayName: not null and var displayName } => (registerUrn, Constants.DisplayNameUrnPrefix + displayName),
             _ => throw new UnreachableException("Invalid response from register.")
         };
     }

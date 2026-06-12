@@ -1,3 +1,4 @@
+using System.Globalization;
 using Altinn.DialogportenAdapter.Contracts;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
 
@@ -24,6 +25,6 @@ internal static class InstanceDtoExtensions
             throw new InvalidOperationException("Invalid instance id");
         }
 
-        return (party.ToString(), instance);
+        return (party.ToString(CultureInfo.InvariantCulture), instance);
     }
 }

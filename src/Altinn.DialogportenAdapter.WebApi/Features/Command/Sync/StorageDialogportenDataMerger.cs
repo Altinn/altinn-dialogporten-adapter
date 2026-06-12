@@ -1,8 +1,12 @@
 using Altinn.DialogportenAdapter.WebApi.Common;
+using Altinn.DialogportenAdapter.WebApi.Common.Exceptions;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
+using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
+using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
+using JasperFx.Core;
 using Microsoft.Extensions.Options;
 
 namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
@@ -11,12 +15,20 @@ internal sealed record MergeDto(
     Guid DialogId,
     DialogDto? ExistingDialog,
     Application Application,
+    ApplicationTexts ApplicationTexts,
     Instance Instance,
     InstanceEventList Events,
     bool IsMigration);
 
 internal sealed class StorageDialogportenDataMerger
 {
+    private const string PrimaryActionLabel = "primaryactionlabel";
+    private const string DeleteActionLabel = "deleteactionlabel";
+    private const string CopyActionLabel = "copyactionlabel";
+    private const string ReadAction = "read";
+    private const string DeleteAction = "delete";
+    private const string InstantiateAction = "instantiate";
+    private const string PdfType = "ref-data-as-pdf";
     private readonly Settings _settings;
     private readonly ActivityDtoTransformer _activityDtoTransformer;
     private readonly IRegisterRepository _registerRepository;
@@ -31,20 +43,78 @@ internal sealed class StorageDialogportenDataMerger
         _registerRepository = registerRepository ?? throw new ArgumentNullException(nameof(registerRepository));
     }
 
-    public async Task<DialogDto> Merge(MergeDto dto, CancellationToken cancellationToken)
+    public async Task<DialogDto> Merge(MergeDto dto, int currentAttempt, CancellationToken cancellationToken)
     {
         var existing = dto.ExistingDialog.DeepClone();
-        var storageDialog = await ToDialogDto(dto, cancellationToken);
+        var storageDialog = await ToDialogDto(dto, currentAttempt, cancellationToken);
+
+        var syncAdapterSettings = dto.Application.GetSyncAdapterSettings();
+
         if (existing is null)
         {
+            storageDialog.DueAt = syncAdapterSettings.DisableSyncDueAt
+                ? null
+                : storageDialog.DueAt;
+
+            storageDialog.Content.Summary = syncAdapterSettings.DisableSyncContentSummary
+                ? null!
+                : storageDialog.Content.Summary;
+
+            storageDialog.Content.AdditionalInfo = syncAdapterSettings.DisableSyncContentAdditionalInformation
+                ? null!
+                : storageDialog.Content.AdditionalInfo;
+
+            storageDialog.Content.ExtendedStatus = syncAdapterSettings.DisableSyncContentExtendedStatus
+                ? null!
+                : storageDialog.Content.ExtendedStatus;
+
+            storageDialog.Activities = syncAdapterSettings.DisableAddActivities
+                ? []
+                : storageDialog.Activities;
+
+            storageDialog.Attachments = syncAdapterSettings.DisableSyncAttachments
+                ? []
+                : storageDialog.Attachments;
+
+            storageDialog.Transmissions = syncAdapterSettings.DisableAddTransmissions
+                ? []
+                : storageDialog.Transmissions;
+
+            if (syncAdapterSettings.DisableMarkCompletedWhenConfirmed
+             && storageDialog.Status == DialogStatus.Completed
+             && GetStatus(dto.Instance, dto.Events).Item1 == InstanceDerivedStatus.ArchivedConfirmed)
+            {
+                storageDialog.Status = DialogStatus.Awaiting;
+            }
+
+            storageDialog.Status = syncAdapterSettings.DisableSyncStatus
+                ? DialogStatus.NotApplicable
+                : storageDialog.Status;
+
+            storageDialog.GuiActions = syncAdapterSettings.DisableSyncGuiActions
+                ? null!
+                : storageDialog.GuiActions;
+
+            storageDialog.ApiActions = syncAdapterSettings.DisableSyncApiActions
+                ? null!
+                : storageDialog.ApiActions;
+
             return storageDialog;
         }
 
-        var syncAdapterSettings = dto.Application.GetSyncAdapterSettings();
+        existing.IsApiOnly = storageDialog.IsApiOnly;
 
         existing.DueAt = syncAdapterSettings.DisableSyncDueAt
             ? existing.DueAt
             : storageDialog.DueAt;
+
+        if (syncAdapterSettings.DisableMarkCompletedWhenConfirmed
+         && existing.Status != DialogStatus.Completed
+         && storageDialog.Status == DialogStatus.Completed
+         && GetStatus(dto.Instance, dto.Events).Item1 == InstanceDerivedStatus.ArchivedConfirmed)
+        {
+            storageDialog.Status = DialogStatus.Awaiting;
+        }
 
         existing.Status = syncAdapterSettings.DisableSyncStatus
             ? existing.Status
@@ -57,6 +127,14 @@ internal sealed class StorageDialogportenDataMerger
         existing.Content.Summary = syncAdapterSettings.DisableSyncContentSummary
             ? existing.Content.Summary
             : storageDialog.Content.Summary;
+
+        existing.Content.AdditionalInfo = syncAdapterSettings.DisableSyncContentAdditionalInformation
+            ? existing.Content.AdditionalInfo
+            : storageDialog.Content.AdditionalInfo;
+
+        existing.Content.ExtendedStatus = syncAdapterSettings.DisableSyncContentExtendedStatus
+            ? existing.Content.ExtendedStatus
+            : storageDialog.Content.ExtendedStatus;
 
         existing.Attachments = syncAdapterSettings.DisableSyncAttachments
             ? existing.Attachments
@@ -87,20 +165,21 @@ internal sealed class StorageDialogportenDataMerger
         return existing;
     }
 
-    private async Task<DialogDto> ToDialogDto(MergeDto dto, CancellationToken cancellationToken)
+    private async Task<DialogDto> ToDialogDto(MergeDto dto, int currentAttempt, CancellationToken cancellationToken)
     {
         var (instanceDerivedStatus, dialogStatus) = GetStatus(dto.Instance, dto.Events);
         var systemLabel = dto.Instance.Status.IsArchived && dto.IsMigration
             ? SystemLabel.Archive
             : SystemLabel.Default;
+
         var (party, activities) = await (
-                GetPartyUrn(dto.Instance.InstanceOwner.PartyId, cancellationToken),
-                _activityDtoTransformer.GetActivities(dto.Events, dto.Instance.InstanceOwner, cancellationToken)
-            );
+            GetPartyUrnOrThrow(dto.Instance.InstanceOwner.PartyId, cancellationToken),
+            _activityDtoTransformer.GetActivities(dto.Events, dto.Instance.InstanceOwner, cancellationToken)
+        );
 
-        var (attachments, transmissions) = GetAttachmentAndTransmissions(dto, activities);
+        var (attachments, transmissions) = GetAttachmentAndTransmissions(dto, activities, currentAttempt);
 
-        return new DialogDto
+        var dialog = new DialogDto
         {
             Id = dto.DialogId,
             IsApiOnly = dto.Application.ShouldBeHidden(dto.Instance),
@@ -111,8 +190,8 @@ internal sealed class StorageDialogportenDataMerger
             UpdatedAt = dto.Instance.LastChanged > dto.Instance.Created
                 ? dto.Instance.LastChanged
                 : dto.Instance.Created,
-            VisibleFrom = dto.Instance.VisibleAfter > DateTimeOffset.UtcNow ? dto.Instance.VisibleAfter : null,
-            DueAt = dto.Instance.DueBefore > DateTimeOffset.UtcNow ? dto.Instance.DueBefore : null,
+            VisibleFrom = dto.Instance.VisibleAfter > DateTimeOffset.UtcNow || dto.IsMigration ? dto.Instance.VisibleAfter : null,
+            DueAt = dto.Instance.DueBefore > DateTimeOffset.UtcNow || dto.IsMigration ? dto.Instance.DueBefore : null,
             ServiceOwnerContext = new ServiceOwnerContext
             {
                 ServiceOwnerLabels =
@@ -129,155 +208,308 @@ internal sealed class StorageDialogportenDataMerger
                 Title = new ContentValueDto
                 {
                     MediaType = MediaTypes.PlainText,
-                    Value = dto.Application.Title
-                        .Where(x => !string.IsNullOrWhiteSpace(x.Value))
-
-                        // Skip language codes that Dialogporten won't accept (ie non-ISO 639-codes),
-                        // crossing our fingers for it remains any valid ones
-                        .Where(x => LanguageCodes.IsValidTwoLetterLanguageCode(x.Key))
-                        .Select(x => new LocalizationDto
-                        {
-                            LanguageCode = x.Key,
-                            Value = ToTitle(x.Value, dto.Instance.PresentationTexts?.Values)
-                        })
-                        .ToList()
+                    Value = GetTitle(dto.Instance, dto.Application, dto.ApplicationTexts, instanceDerivedStatus)
                 },
                 Summary = new ContentValueDto
                 {
                     MediaType = MediaTypes.PlainText,
-                    Value = await GetSummary(dto.Instance, dto.Application, instanceDerivedStatus)
-                }
+                    Value = GetSummary(dto.Instance, dto.ApplicationTexts, instanceDerivedStatus)
+                },
+                ExtendedStatus = GetExtendedStatus(dto)
             },
             GuiActions =
             [
-                CreateGoToAction(dto.DialogId, dto.Instance),
-                CreateDeleteAction(dto.DialogId, dto.Instance),
-                ..CreateCopyAction(dto.DialogId, dto.Instance, dto.Application)
+                CreateGoToAction(dto.DialogId, dto.Instance, dto.ApplicationTexts, instanceDerivedStatus),
+                CreateDeleteAction(dto.DialogId, dto.Instance, dto.ApplicationTexts, instanceDerivedStatus),
+                ..CreateCopyAction(dto.DialogId, dto.Instance, dto.Application, dto.ApplicationTexts, instanceDerivedStatus)
+            ],
+            ApiActions =
+            [
+                CreateGetSourceApiActionDto(dto.DialogId, dto.Instance)
             ],
             Transmissions = transmissions,
             Attachments = attachments,
             Activities = activities
         };
 
+        var additionalInfo = GetAdditionalInfo(dto.Instance, dto.ApplicationTexts, instanceDerivedStatus);
+        if (additionalInfo.Count > 0)
+        {
+            dialog.Content.AdditionalInfo = new ContentValueDto
+            {
+                MediaType = MediaTypes.PlainText,
+                Value = additionalInfo
+            };
+        }
+
+        return dialog;
+    }
+
+    private static ContentValueDto? GetExtendedStatus(MergeDto dto)
+    {
+        var label = dto.Instance.Status.Substatus?.Label;
+
+        if (string.IsNullOrWhiteSpace(label)) return null;
+
+        return new ContentValueDto
+        {
+            Value = ApplicationTextParser.GetLocalizationsFromString(
+                label,
+                dto.ApplicationTexts,
+                Constants.ExtendedStatusMaxStringLength
+            ),
+            MediaType = MediaTypes.PlainText
+        };
     }
 
     private (List<AttachmentDto> attachments, List<TransmissionDto> transmissions) GetAttachmentAndTransmissions(
         MergeDto dto,
-        List<ActivityDto> activities)
+        List<ActivityDto> activities, int currentAttempt = 1)
     {
-        var appSettings = dto.Application.GetSyncAdapterSettings();
-        var data = dto.Instance.Data;
-        if (appSettings.DisableAddTransmissions || 
-            !_settings.DialogportenAdapter.Adapter.FeatureFlag.EnableSubmissionTransmissions)
-        {
-            return (data.Select(CreateAttachmentDto).ToList(), []);
-        }
-        
-        var dataElementQueue = new Queue<DataElement>(data
-            .Where(x => !IsPerformedBySo(x))
-            .OrderBy(x => x.Created.Value));
+        var realCreatedData = RealCreate(dto).ToList();
+        var attachmentVisibility = ReceiptAttachmentVisibilityDecider.Create(dto.Application);
 
-        var transmissions = activities
-            .Where(x => x.Type is DialogActivityType.FormSubmitted)
-            .OrderBy(x => x.CreatedAt)
-            .Select((a, i) => new TransmissionDto
+        if (TransmissionsDisabled())
+        {
+            return (realCreatedData.Where(x => IsNotPdfReceipt(x.dataElement)).Select(x => CreateAttachmentDto(x.dataElement)).ToList(), []);
+        }
+        var soDataElements = realCreatedData
+            .Where(x => IsPerformedBySo(x.dataElement))
+            .ToList();
+
+        // Only user data elements should be included as attachments to transmissions,
+        // SO data elements are included as attachments to the dialog itself
+        var userDataElements = new Queue<(DataElement dataElement, DateTime? created)>(realCreatedData
+            .Except(soDataElements)
+            .OrderBy(x => x.created));
+
+        // Skip creating transmissions while waiting for PDF generation
+        List<TransmissionDto> transmissions = [];
+        if (currentAttempt > 3 || AllPdfsGenerated(dto))
+        {
+            transmissions = activities
+                .Where(x => x.Type is DialogActivityType.FormSubmitted)
+                .OrderBy(x => x.CreatedAt)
+                .Select(ToTransmissionDto)
+                .ToList();
+        }
+
+        var attachments = soDataElements
+            // any remaining attachments not already included in transmissions
+            .Concat(userDataElements)
+            // PDF receipts does not belong to the dialog itself, and should
+            // only be included as attachments to transmissions.
+            .Where(x => IsNotPdfReceipt(x.dataElement))
+            .Select(x => CreateAttachmentDto(x.dataElement))
+            .ToList();
+
+        return (attachments, transmissions);
+
+        bool IsPerformedBySo(DataElement element) => element.LastChangedBy.Length == 9;
+        bool IsNotPdfReceipt(DataElement element) => element.DataType != PdfType;
+
+        bool TransmissionsDisabled() => dto.Application.GetSyncAdapterSettings().DisableAddTransmissions ||
+            !_settings.DialogportenAdapter.Adapter.FeatureFlag
+                .EnableSubmissionTransmissions;
+
+        AttachmentDto CreateAttachmentDto(DataElement element)
+        {
+            var consumerType = attachmentVisibility.GetConsumerType(element);
+            var platformUrl = element.SelfLinks.Platform;
+
+            var url = consumerType is AttachmentUrlConsumerType.Gui && !string.IsNullOrEmpty(platformUrl)
+                ? ToPortalUri(platformUrl)
+                : platformUrl;
+
+            return new()
             {
-                Id = a.Id!.Value.ToVersion7(a.CreatedAt!.Value),
+                Id = Guid.Parse(element.Id).ToVersion7(element.Created!.Value),
+                DisplayName = [new() { LanguageCode = "nb", Value = element.Filename ?? element.DataType }],
+                Name = element.DataType,
+                Urls =
+                [
+                    new()
+                    {
+                        Id = Guid.Parse(element.Id).ToVersion7(element.Created.Value),
+                        ConsumerType = consumerType,
+                        MediaType = element.ContentType,
+                        Url = url
+                    }
+                ]
+            };
+        }
+
+        TransmissionAttachmentDto CreateTransmissionAttachmentDto(DataElement element, Guid transmissionId)
+        {
+            var consumerType = attachmentVisibility.GetConsumerType(element);
+            var platformUrl = element.SelfLinks.Platform;
+
+            var url = consumerType is AttachmentUrlConsumerType.Gui && !string.IsNullOrEmpty(platformUrl)
+                ? ToPortalUri(platformUrl)
+                : platformUrl;
+
+            return new()
+            {
+                // Ensure unique IDs when the same DataElement appears as both TransmissionAttachment and Attachment
+                // This prevents ID collisions that would cause conflicts in Dialogporten
+                Id = transmissionId.CreateDeterministicSubUuidV7(element.Id),
+                DisplayName = [new() { LanguageCode = "nb", Value = element.Filename ?? element.DataType }],
+                Name = element.DataType,
+                Urls =
+                [
+                    new()
+                    {
+                        ConsumerType = consumerType,
+                        MediaType = element.ContentType,
+                        Url = url
+                    }
+                ]
+            };
+        }
+
+        TransmissionDto ToTransmissionDto(ActivityDto activityDto, int index)
+        {
+            // A2 Instances cant have more than 1 submission
+            // so we take all attachments into a single transmission.
+            var isA2 = IsA2Instance(dto.Instance);
+            var transmissionId = activityDto.Id!.Value.ToVersion7(activityDto.CreatedAt!.Value);
+            var adapterBaseUri = _settings.DialogportenAdapter.Adapter.BaseUri
+                .ToString()
+                .TrimEnd('/');
+            var baseUrl = $"{adapterBaseUri}/api/v1/receipt/{dto.DialogId}/{transmissionId}";
+            return new TransmissionDto
+            {
+                Id = transmissionId,
+                CreatedAt = activityDto.CreatedAt.Value,
                 Type = DialogTransmissionType.Submission,
-                Sender = a.PerformedBy,
+                Sender = activityDto.PerformedBy,
                 Content = new TransmissionContentDto
                 {
                     Title = new ContentValueDto
                     {
-                        Value = [
-                            new() { LanguageCode = "nb", Value = $"Innsending #{i + 1}" },
-                            new() { LanguageCode = "nn", Value = $"Innsending #{i + 1}" },
-                            new() { LanguageCode = "en", Value = $"Submission #{i + 1}" }
+                        Value =
+                        [
+                            new() { LanguageCode = "nb", Value = $"Innsending #{index + 1}" },
+                            new() { LanguageCode = "nn", Value = $"Innsending #{index + 1}" },
+                            new() { LanguageCode = "en", Value = $"Submission #{index + 1}" }
                         ],
-                        MediaType = "text/plain"
+                        MediaType = MediaTypes.PlainText
+                    },
+                    ContentReference = new ContentValueDto
+                    {
+                        Value =
+                        [
+                            new() { LanguageCode = "nb", Value = $"{baseUrl}?lang=nb" },
+                            new() { LanguageCode = "nn", Value = $"{baseUrl}?lang=nn" },
+                            new() { LanguageCode = "en", Value = $"{baseUrl}?lang=en" }
+                        ],
+                        MediaType = MediaTypes.EmbeddableMarkdown
                     }
                 },
-                Attachments = dataElementQueue
-                    .DequeueWhile(e => e.LastChanged <= a.CreatedAt)
-                    .Select(CreateTransmissionAttachmentDto)
+                Attachments = userDataElements
+                    .DequeueWhile(e => e.created <= activityDto.CreatedAt || isA2)
+                    .Select(x => CreateTransmissionAttachmentDto(x.dataElement, transmissionId))
                     .ToList()
-            })
-            .ToList();
-        
-        var attachments = data
-            .Where(IsPerformedBySo)
-            .Concat(dataElementQueue) // any remaining attachments not already included in transmissions
-            .Select(CreateAttachmentDto)
-            .ToList();
-        
-        return (attachments, transmissions);
+            };
+        }
     }
 
-    private AttachmentDto CreateAttachmentDto(DataElement data) =>
-        new()
-        {
-            Id = Guid.Parse(data.Id).ToVersion7(data.Created.Value),
-            DisplayName = [new() { LanguageCode = "nb", Value = data.Filename ?? data.DataType }],
-            Urls =
-            [
-                new()
-                {
-                    Id = Guid.Parse(data.Id).ToVersion7(data.Created.Value),
-                    ConsumerType = data.Filename is not null
-                        ? AttachmentUrlConsumerType.Gui
-                        : AttachmentUrlConsumerType.Api,
-                    MediaType = data.ContentType,
-                    Url = data.Filename is not null
-                        ? ToPortalUri(data.SelfLinks.Platform)
-                        : data.SelfLinks.Platform
-                }
-            ]
-        };
-
-    private TransmissionAttachmentDto CreateTransmissionAttachmentDto(DataElement data) =>
-        new()
-        {
-            Id = Guid.Parse(data.Id).ToVersion7(data.Created.Value),
-            DisplayName = [new() { LanguageCode = "nb", Value = data.Filename ?? data.DataType }],
-            Urls =
-            [
-                new()
-                {
-                    ConsumerType = data.Filename is not null
-                        ? AttachmentUrlConsumerType.Gui
-                        : AttachmentUrlConsumerType.Api,
-                    MediaType = data.ContentType,
-                    Url = data.Filename is not null
-                        ? ToPortalUri(data.SelfLinks.Platform)
-                        : data.SelfLinks.Platform
-                }
-            ]
-        };
-
-    private static bool IsPerformedBySo(DataElement data)
+    /// <summary>
+    /// Determines whether all expected PDFs have been generated for the given instance and its data elements.
+    /// This method checks if the data elements configured to allow PDF creation have corresponding PDFs
+    /// already generated and associated appropriately.
+    /// </summary>
+    /// <remarks>
+    /// PDF generation depends on application configuration and runtime state,
+    /// so the expected count may not match the actual number of generated PDFs.
+    /// </remarks>
+    /// <param name="dto"></param>
+    /// <returns>True if all eligible PDFs have been generated, otherwise false.</returns>
+    public static bool AllPdfsGenerated(MergeDto dto)
     {
-        return data.LastChangedBy.Length == 9;
+        var dataTypes = dto.Application.DataTypes ?? [];
+        var pdfCreatingTasks = dataTypes
+            .Where(x => x.AppLogic is not null && x.EnablePdfCreation)
+            .Select(x => new { x.Id, x.TaskId })
+            .ToList();
+
+        if (pdfCreatingTasks.Count == 0)
+        {
+            return true;
+        }
+
+        var dataElements = dto.Instance.Data ?? [];
+        var dataElementTypes = dataElements
+            .Select(dataElement => dataElement.DataType)
+            .ToHashSet();
+
+        // The expected number of PDFs is one per PDF generating task that has source data.
+        var pdfSourceCount = pdfCreatingTasks
+            .Where(task => dataElementTypes.Contains(task.Id))
+            .Select(task => task.TaskId)
+            .Distinct()
+            .Count();
+
+        // Count of data elements of ref-data-as-pdf that are generated from a PDF generating task
+        var generatedPdfsCount = dataElements 
+            .Count(dataElement =>
+                dataElement.DataType == PdfType &&
+                dataElement.References
+                    .Any(reference => reference.Relation == RelationType.GeneratedFrom &&
+                        pdfCreatingTasks.Any(tasks => tasks.TaskId == reference.Value)
+                    )
+            );
+
+        return  pdfSourceCount <= generatedPdfsCount;
     }
 
-    private async Task<string> GetPartyUrn(string partyId, CancellationToken cancellationToken)
+    private static IEnumerable<(DataElement dataElement, DateTime? created)> RealCreate(MergeDto dto)
+    {
+        
+        var dataElements = dto.Instance.Data.Where(x => !ShouldSkipDataElement(x)).ToList();
+        var dataTypes = dto.Application.DataTypes ?? [];
+
+        var dataTypesWithTaskId = dataTypes.Where(x => !string.IsNullOrEmpty(x.TaskId)).ToList();
+        foreach (var dataElement in dataElements)
+        {
+            var created = dataElement.Created;
+            if (dataElement.References is not null && dataElement.References.Any(x => x.Relation == RelationType.GeneratedFrom))
+            {
+                var idFromTask = GetIdFromTask(dataTypesWithTaskId, dataElement);
+                if (idFromTask is not null)
+                {
+                    created = dataElements.Where(x => x.DataType == idFromTask).Select(x => x.Created).FirstOrDefault();
+                }
+            }
+            yield return (dataElement, created);
+        }
+        yield break;
+
+        // We hide the A1 "Signatures.html" from DP/AF
+        bool ShouldSkipDataElement(DataElement element) => IsA1Instance(dto.Instance) && element.DataType == "signature-presentation";
+    }
+
+    private static string? GetIdFromTask(IEnumerable<DataType> dataTypes, DataElement dataElement) =>
+        dataTypes
+            .Where(x => x.TaskId == dataElement.References
+                .Where(x => x.Relation == RelationType.GeneratedFrom).First().Value)
+            .Select(x => x.Id)
+            .FirstOrDefault();
+
+    private async Task<string> GetPartyUrnOrThrow(string partyId, CancellationToken cancellationToken)
     {
         var response = await _registerRepository.GetActorUrnByPartyId([partyId], cancellationToken);
 
-        if (!response.TryGetValue(partyId, out var actorUrn))
-        {
-            throw new InvalidOperationException($"Party with id {partyId} not found.");
-        }
-
-        return actorUrn.StartsWith(Constants.DisplayNameUrnPrefix)
-            ? actorUrn[Constants.DisplayNameUrnPrefix.Length..]
-            : actorUrn;
+        return response.TryGetValue(partyId, out var actorUrn)
+            ? actorUrn
+            : throw new PartyNotFoundException(partyId);
     }
 
     private static (InstanceDerivedStatus, DialogStatus) GetStatus(Instance instance, InstanceEventList events)
     {
-        var instanceDerivedStatus = instance.Process?.CurrentTask?.AltinnTaskType?.ToLower() switch
+        var instanceDerivedStatus = instance.Process?.CurrentTask?.AltinnTaskType?.ToLowerInvariant() switch
         {
-            _ when instance.Status.IsArchived => (instance.CompleteConfirmations?.Count ?? 0) != 0
+            _ when instance.Status.IsArchived => IsConsideredConfirmed(instance)
                 ? InstanceDerivedStatus.ArchivedConfirmed
                 : InstanceDerivedStatus.ArchivedUnconfirmed,
             "reject" => InstanceDerivedStatus.Rejected,
@@ -311,6 +543,145 @@ internal sealed class StorageDialogportenDataMerger
 
         return (instanceDerivedStatus, dialogStatus);
     }
+    private static List<LocalizationDto> GetSummary(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
+    {
+        var substatusDescription = instance.Status.Substatus?.Description;
+
+        if (!string.IsNullOrWhiteSpace(substatusDescription))
+        {
+            return ApplicationTextParser.GetLocalizationsFromString(substatusDescription, applicationTexts);
+        }
+
+        var summary = ApplicationTextParser.GetLocalizationsFromApplicationTexts(nameof(DialogDto.Content.Summary), instance, applicationTexts, instanceDerivedStatus);
+        return summary.Count > 0
+            ? summary
+            : GetSummaryFallback(instanceDerivedStatus);
+    }
+
+    private static List<LocalizationDto> GetAdditionalInfo(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
+    {
+        var additionalInfo = ApplicationTextParser.GetLocalizationsFromApplicationTexts(nameof(DialogDto.Content.AdditionalInfo), instance, applicationTexts, instanceDerivedStatus, 1023);
+        return additionalInfo.Count > 0
+            ? additionalInfo
+            : []; // No default fallback for additional info
+    }
+
+    private static List<LocalizationDto> GetPrimaryActionLabel(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
+    {
+        var primaryAction = ApplicationTextParser.GetLocalizationsFromApplicationTexts(PrimaryActionLabel, instance, applicationTexts, instanceDerivedStatus);
+        return primaryAction.Count > 0
+            ? primaryAction
+            : GetPrimaryFallback(instanceDerivedStatus);
+    }
+
+    private static List<LocalizationDto> GetDeleteActionLabel(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
+    {
+        var secondaryAction = ApplicationTextParser.GetLocalizationsFromApplicationTexts(DeleteActionLabel, instance,
+            applicationTexts, instanceDerivedStatus);
+        return secondaryAction.Count > 0
+            ? secondaryAction
+            : GetDeleteActionFallback();
+    }
+
+    private static List<LocalizationDto> GetCopyActionLabel(Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
+    {
+        var ternaryAction = ApplicationTextParser.GetLocalizationsFromApplicationTexts(CopyActionLabel, instance, applicationTexts, instanceDerivedStatus);
+        return ternaryAction.Count > 0
+            ? ternaryAction
+            : GetCopyActionFallback();
+    }
+
+    private static List<LocalizationDto> GetCopyActionFallback()
+    {
+        return
+        [
+            new() { LanguageCode = "nb", Value = "Lag ny kopi" },
+            new() { LanguageCode = "nn", Value = "Lag ny kopi" },
+            new() { LanguageCode = "en", Value = "Create new copy" }
+        ];
+    }
+
+    private static List<LocalizationDto> GetPrimaryFallback(InstanceDerivedStatus instanceDerivedStatus)
+    {
+        return instanceDerivedStatus switch
+        {
+            InstanceDerivedStatus.ArchivedConfirmed or InstanceDerivedStatus.ArchivedUnconfirmed =>
+            [
+                new() { LanguageCode = "nb", Value = "Se innsendt skjema" },
+                new() { LanguageCode = "nn", Value = "Sjå innsendt skjema" },
+                new() { LanguageCode = "en", Value = "See submitted form" }
+            ],
+            InstanceDerivedStatus.AwaitingSignature =>
+            [
+                new() { LanguageCode = "nb", Value = "Gå til signering" },
+                new() { LanguageCode = "nn", Value = "Gå til signering" },
+                new() { LanguageCode = "en", Value = "Go to signing" }
+            ],
+            _ =>
+            [
+                new() { LanguageCode = "nb", Value = "Gå til skjemautfylling" },
+                new() { LanguageCode = "nn", Value = "Gå til skjemautfylling" },
+                new() { LanguageCode = "en", Value = "Go to form completion" }
+            ]
+        };
+    }
+
+    private static List<LocalizationDto> GetDeleteActionFallback()
+    {
+        return
+        [
+            new() { LanguageCode = "nb", Value = "Slett" },
+            new() { LanguageCode = "nn", Value = "Slett" },
+            new() { LanguageCode = "en", Value = "Delete" }
+        ];
+    }
+
+    private static List<LocalizationDto> GetTitle(Instance instance, Application app, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
+    {
+        var title = ApplicationTextParser.GetLocalizationsFromApplicationTexts(nameof(DialogDto.Content.Title), instance, applicationTexts, instanceDerivedStatus);
+
+        if (title.Count == 0) return GetTitleFallback(instance, app);
+
+        foreach (var localizationDto in title)
+        {
+            localizationDto.Value = ToTitle(localizationDto.Value, instance.PresentationTexts?.Values);
+        }
+
+        return title;
+    }
+
+    private static List<LocalizationDto> GetTitleFallback(Instance instance, Application application)
+    {
+        return application.Title
+            .Where(x => !string.IsNullOrWhiteSpace(x.Value))
+            .Where(x => LanguageCodes.IsValidTwoLetterLanguageCode(x.Key))
+            .Select(x => new LocalizationDto
+            {
+                LanguageCode = x.Key,
+                Value = ToTitle(x.Value, instance.PresentationTexts?.Values)
+            })
+            .ToList();
+    }
+
+    private static bool IsConsideredConfirmed(Instance instance)
+    {
+        if (IsA2Instance(instance) || IsA1Instance(instance)) // Archived in Altinn 1/2, always considered confirmed
+        {
+            return true;
+        }
+
+        return (instance.CompleteConfirmations?.Count ?? 0) != 0;
+    }
+
+    private static bool IsA2Instance(Instance instance)
+    {
+        return instance.DataValues is not null && instance.DataValues.ContainsKey("A2ArchRef");
+    }
+
+    private static bool IsA1Instance(Instance instance)
+    {
+        return instance.DataValues is not null && instance.DataValues.ContainsKey("A1ArchRef");
+    }
 
     /// <summary>
     /// This method attempts to create a summary for the instance. This will employ the following heuristics:
@@ -324,133 +695,136 @@ internal sealed class StorageDialogportenDataMerger
     /// <param name="instanceDerivedStatus"></param>
     /// <returns></returns>
     /// <exception cref="NotImplementedException"></exception>
-    private async Task<List<LocalizationDto>> GetSummary(Instance instance, Application application, InstanceDerivedStatus instanceDerivedStatus)
+    private static List<LocalizationDto> GetSummaryFallback(InstanceDerivedStatus instanceDerivedStatus)
     {
-        // TODO! Check application texts! See https://github.com/Altinn/dialogporten/issues/2081
-
         // Step 4: derive a summary from the derived instance status alone
-        List<LocalizationDto> summary = instanceDerivedStatus switch
+        return instanceDerivedStatus switch
         {
-            InstanceDerivedStatus.ArchivedUnconfirmed => [
-                new() { LanguageCode = "nb", Value = "Innsendingen er maskinelt kontrollert og formidlet, venter på endelig bekreftelse. Du kan åpne dialogen for å se en foreløpig kvittering." },
-                new() { LanguageCode = "nn", Value = "Innsendinga er maskinelt kontrollert og formidla, ventar på endeleg stadfesting. Du kan opne dialogen for å sjå ei førebels kvittering." },
-                new() { LanguageCode = "en", Value = "The submission has been automatically checked and forwarded, awaiting final confirmation. You can open the dialog to see a preliminary receipt." }
+            InstanceDerivedStatus.ArchivedUnconfirmed =>
+            [
+                new() { LanguageCode = "nb", Value = "Innsendingen er maskinelt kontrollert og formidlet, venter på endelig bekreftelse." },
+                new() { LanguageCode = "nn", Value = "Innsendinga er maskinelt kontrollert og formidla, ventar på endeleg stadfesting." },
+                new() { LanguageCode = "en", Value = "The submission has been automatically checked and forwarded, awaiting final confirmation." }
             ],
-            InstanceDerivedStatus.ArchivedConfirmed => [
-                new() { LanguageCode = "nb", Value = "Innsendingen er bekreftet mottatt. Du kan åpne dialogen for å se din kvittering." },
-                new() { LanguageCode = "nn", Value = "Innsendinga er stadfesta motteken. Du kan opne dialogen for å sjå di kvittering." },
-                new() { LanguageCode = "en", Value = "The submission has been confirmed as received. You can open the dialog to see your receipt." }
+            InstanceDerivedStatus.ArchivedConfirmed =>
+            [
+                new() { LanguageCode = "nb", Value = "Innsendingen er bekreftet mottatt." },
+                new() { LanguageCode = "nn", Value = "Innsendinga er stadfesta motteken." },
+                new() { LanguageCode = "en", Value = "The submission has been confirmed as received." }
             ],
-            InstanceDerivedStatus.Rejected => [
+            InstanceDerivedStatus.Rejected =>
+            [
                 new() { LanguageCode = "nb", Value = "Innsendingen ble avvist. Åpne dialogen for mer informasjon." },
                 new() { LanguageCode = "nn", Value = "Innsendinga vart avvist. Opne dialogen for meir informasjon." },
                 new() { LanguageCode = "en", Value = "The submission was rejected. Open the dialog for more information." }
             ],
-            InstanceDerivedStatus.AwaitingServiceOwnerFeedback => [
+            InstanceDerivedStatus.AwaitingServiceOwnerFeedback =>
+            [
                 new() { LanguageCode = "nb", Value = "Innsendingen er maskinelt kontrollert og formidlet, venter på tilbakemelding." },
                 new() { LanguageCode = "nn", Value = "Innsendinga er maskinelt kontrollert og formidla, ventar på tilbakemelding." },
                 new() { LanguageCode = "en", Value = "The submission has been automatically checked and forwarded, awaiting feedback." }
             ],
-            InstanceDerivedStatus.AwaitingConfirmation => [
+            InstanceDerivedStatus.AwaitingConfirmation =>
+            [
                 new() { LanguageCode = "nb", Value = "Innsendingen må bekreftes for å gå til neste steg." },
                 new() { LanguageCode = "nn", Value = "Innsendinga må stadfestast for å gå til neste steg." },
                 new() { LanguageCode = "en", Value = "The submission must be confirmed to proceed to the next step." }
             ],
-            InstanceDerivedStatus.AwaitingSignature => [
+            InstanceDerivedStatus.AwaitingSignature =>
+            [
                 new() { LanguageCode = "nb", Value = "Innsendingen må signeres for å gå til neste steg." },
                 new() { LanguageCode = "nn", Value = "Innsendinga må signerast for å gå til neste steg." },
                 new() { LanguageCode = "en", Value = "The submission must be signed to proceed to the next step." }
             ],
-            InstanceDerivedStatus.AwaitingAdditionalUserInput => [
+            InstanceDerivedStatus.AwaitingAdditionalUserInput =>
+            [
                 new() { LanguageCode = "nb", Value = "Innsendingen er under arbeid og trenger flere opplysninger for å gå til neste steg." },
                 new() { LanguageCode = "nn", Value = "Innsendinga er under arbeid og treng fleire opplysningar for å gå til neste steg." },
                 new() { LanguageCode = "en", Value = "The submission is in progress and requires more information to proceed to the next step." }
             ],
-            InstanceDerivedStatus.AwaitingInitialUserInput => [
+            InstanceDerivedStatus.AwaitingInitialUserInput =>
+            [
                 new() { LanguageCode = "nb", Value = "Innsendingen er klar for å fylles ut." },
                 new() { LanguageCode = "nn", Value = "Innsendinga er klar til å fyllast ut." },
                 new() { LanguageCode = "en", Value = "The submission is ready to be filled out." }
             ],
-            _ => [ // Default case
+            _ =>
+            [ // Default case
                 new() { LanguageCode = "nb", Value = "Innsendingen er klar for å fylles ut." },
                 new() { LanguageCode = "nn", Value = "Innsendinga er klar til å fyllast ut." },
                 new() { LanguageCode = "en", Value = "The submission is ready to be filled out." }
             ]
         };
-
-        return await Task.FromResult(summary);
     }
 
-    private GuiActionDto CreateGoToAction(Guid dialogId, Instance instance)
+    private GuiActionDto CreateGoToAction(Guid dialogId, Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
     {
         var goToActionId = dialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.GoTo);
-        if (instance.Status.IsArchived)
-        {
-            var platformBaseUri = _settings.DialogportenAdapter.Altinn
-                .GetPlatformUri()
-                .ToString()
-                .TrimEnd('/');
-            return new GuiActionDto
-            {
-                Id = goToActionId,
-                Action = "read",
-                Priority = DialogGuiActionPriority.Primary,
-                Title = [
-                    new() { LanguageCode = "nb", Value = "Se innsendt skjema" },
-                    new() { LanguageCode = "nn", Value = "Sjå innsendt skjema" },
-                    new() { LanguageCode = "en", Value = "See submitted form" }
-                ],
-                Url = ToPortalUri($"{platformBaseUri}/receipt/{instance.Id}")
-            };
-        }
-
-        var appBaseUri = _settings.DialogportenAdapter.Altinn
-            .GetAppUriForOrg(instance.Org, instance.AppId)
-            .ToString()
-            .TrimEnd('/');
-
-        // TODO: CurrentTask may be null. What should we do then? (eks instance id 51499006/907c12e2-041a-4275-9d33-67620cdf15b6 tt02)
-        var authorizationAttribute = instance.Process?.CurrentTask?.ElementId is not null
-            ? "urn:altinn:task:" + instance.Process.CurrentTask.ElementId
-            : null;
+        // We offload the handling of missing write/sign permissions to the app
+        var xacmlAction = ReadAction;
 
         return new GuiActionDto
         {
             Id = goToActionId,
-            Action = "write",
-            AuthorizationAttribute = authorizationAttribute,
+            Action = xacmlAction,
+            AuthorizationAttribute = GetAuthorizationAttributeForGuiAction(instance),
             Priority = DialogGuiActionPriority.Primary,
-            Title = [
-                new() { LanguageCode = "nb", Value = "Gå til skjemautfylling" },
-                new() { LanguageCode = "nn", Value = "Gå til skjemautfylling" },
-                new() { LanguageCode = "en", Value = "Go to form completion" }
-            ],
-            Url = ToPortalUri($"{appBaseUri}/#/instance/{instance.Id}")
+            Title = GetPrimaryActionLabel(instance, applicationTexts, instanceDerivedStatus),
+            Url = CreateGoToUrl()
         };
+
+        string CreateGoToUrl()
+        {
+            var url = instanceDerivedStatus is InstanceDerivedStatus.ArchivedConfirmed or InstanceDerivedStatus.ArchivedUnconfirmed
+                ? _settings.DialogportenAdapter.Altinn
+                    .GetPlatformUri()
+                    .ToString()
+                    .TrimEnd('/')
+              + $"/receipt/{instance.Id}"
+                : _settings.DialogportenAdapter.Altinn
+                    .GetAppUriForOrg(instance.Org, instance.AppId)
+                    .ToString()
+                    .TrimEnd('/')
+              + $"/#/instance/{instance.Id}";
+            return ToPortalUri(url);
+        }
     }
 
-    private GuiActionDto CreateDeleteAction(Guid dialogId, Instance instance)
+    private GuiActionDto CreateDeleteAction(Guid dialogId, Instance instance, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
     {
         var adapterBaseUri = _settings.DialogportenAdapter.Adapter.BaseUri
             .ToString()
             .TrimEnd('/');
+
         return new GuiActionDto
         {
             Id = dialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.Delete),
-            Action = "delete",
+            Action = DeleteAction,
+            AuthorizationAttribute = GetAuthorizationAttributeForGuiAction(instance),
             Priority = DialogGuiActionPriority.Secondary,
             IsDeleteDialogAction = true,
-            Title = [
-                new() { LanguageCode = "nb", Value = "Slett" },
-                new() { LanguageCode = "nn", Value = "Slett" },
-                new() { LanguageCode = "en", Value = "Delete" }
-            ],
+            Title = GetDeleteActionLabel(instance, applicationTexts, instanceDerivedStatus),
             Url = $"{adapterBaseUri}/api/v1/instance/{instance.Id}",
-            HttpMethod = HttpVerb.DELETE
+            HttpMethod = HttpVerb.DELETE,
         };
     }
 
-    private IEnumerable<GuiActionDto> CreateCopyAction(Guid dialogId, Instance instance, Application application)
+    /// <summary>
+    /// Builds and returns an authorization attribute
+    /// Returns null of the instance has no process or current task
+    ///
+    /// Example where CurrentTask is null: instance id 51499006/907c12e2-041a-4275-9d33-67620cdf15b6 tt02
+    /// </summary>
+    /// <param name="instance">The instance</param>
+    /// <returns>The authorization attribute</returns>
+    private static string? GetAuthorizationAttributeForGuiAction(Instance instance)
+    {
+        return !string.IsNullOrWhiteSpace(instance.Process?.CurrentTask?.ElementId)
+            ? "urn:altinn:task:" + instance.Process.CurrentTask.ElementId
+            : null;
+    }
+
+    private IEnumerable<GuiActionDto> CreateCopyAction(Guid dialogId, Instance instance, Application application, ApplicationTexts applicationTexts, InstanceDerivedStatus instanceDerivedStatus)
     {
         var copyEnabled = application.CopyInstanceSettings?.Enabled ?? false;
         if (!instance.Status.IsArchived || !copyEnabled)
@@ -465,16 +839,46 @@ internal sealed class StorageDialogportenDataMerger
         yield return new GuiActionDto
         {
             Id = dialogId.CreateDeterministicSubUuidV7(Constants.GuiAction.Copy),
-            Action = "instantiate",
+            Action = InstantiateAction,
             Priority = DialogGuiActionPriority.Tertiary,
-            Title = [
-                new() { LanguageCode = "nb", Value = "Lag ny kopi" },
-                new() { LanguageCode = "nn", Value = "Lag ny kopi" },
-                new() { LanguageCode = "en", Value = "Create new copy" }
-            ],
+            Title =
+                GetCopyActionLabel(instance, applicationTexts, instanceDerivedStatus),
             Url = ToPortalUri($"{appBaseUri}/legacy/instances/{instance.Id}/copy"),
             HttpMethod = HttpVerb.GET
         };
+    }
+
+    private ApiActionDto CreateGetSourceApiActionDto(Guid dialogId, Instance instance)
+    {
+        var baseUri = instance.Status.IsArchived
+            ? _settings.DialogportenAdapter.Altinn
+                .GetPlatformUri()
+                .ToString()
+                .AppendUrl("/storage/api/v1")
+            : _settings.DialogportenAdapter.Altinn
+                .GetAppUriForOrg(instance.Org, instance.AppId)
+                .ToString()
+                .TrimEnd('/');
+
+        var path = $"{baseUri}/instances/{instance.Id}";
+        var apiActionId = dialogId.CreateDeterministicSubUuidV7(Constants.ApiAction.Read);
+
+        var endpointDto = new ApiActionEndpointDto
+        {
+            Id = apiActionId.CreateDeterministicSubUuidV7("0"),
+            Version = "1.0",
+            Url = path,
+            HttpMethod = HttpVerb.GET,
+            Deprecated = false
+        };
+
+        var apiActionDto = new ApiActionDto
+        {
+            Id = apiActionId,
+            Action = ReadAction,
+            Endpoints = [endpointDto]
+        };
+        return apiActionDto;
     }
 
     private static string ToServiceResource(ReadOnlySpan<char> appId)
@@ -515,7 +919,7 @@ internal sealed class StorageDialogportenDataMerger
         while (enumerator.MoveNext())
         {
             if (!separator.AsSpan().TryCopyTo(titleSpan, ref offset)
-                || !enumerator.Current.AsSpan().TryCopyTo(titleSpan, ref offset))
+             || !enumerator.Current.AsSpan().TryCopyTo(titleSpan, ref offset))
             {
                 break;
             }
@@ -551,10 +955,10 @@ internal sealed class StorageDialogportenDataMerger
         var priorityCapacity = Constants.PriorityLimits
             .GroupJoin(result, x => x.Priority, x => x.Priority,
                 (priorityLimit, existingActions) =>
-                (
-                    Priority: priorityLimit.Priority,
-                    Capacity: priorityLimit.Limit - existingActions.Count()
-                ))
+                    (
+                        Priority: priorityLimit.Priority,
+                        Capacity: priorityLimit.Limit - existingActions.Count()
+                    ))
             .Where(x => x.Capacity > 0)
             .OrderBy(x => x.Priority);
 

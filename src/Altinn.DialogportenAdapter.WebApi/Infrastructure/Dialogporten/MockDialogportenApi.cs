@@ -25,11 +25,17 @@ internal sealed partial class MockDialogportenApi : IDialogportenApi
         return Task.FromResult<IApiResponse<DialogDto>>(apiResponse);
     }
 
-    public Task<Guid> Create(DialogDto dto, bool isSilentUpdate = false,
+    public Task<IApiResponse> Create(DialogDto dto, bool isSilentUpdate = false,
         CancellationToken cancellationToken = default)
     {
         Log.LogCreateCalled(_logger, dto);
-        return Task.FromResult(Guid.Empty);
+        var apiResponse = new ApiResponse<object>(
+            settings: _refitSettings,
+            response: new HttpResponseMessage(HttpStatusCode.Created),
+            content: Guid.NewGuid(),
+            error: null);
+        apiResponse.Headers.TryAddWithoutValidation(IDialogportenApi.ETagHeader, Guid.NewGuid().ToString());
+        return Task.FromResult<IApiResponse>(apiResponse);
     }
 
     public Task<IApiResponse> Update(DialogDto dto, Guid revision, bool isSilentUpdate = false,
@@ -38,27 +44,35 @@ internal sealed partial class MockDialogportenApi : IDialogportenApi
         Log.LogUpdateCalled(_logger, dto, revision);
         var apiResponse = new ApiResponse<object>(
             settings: _refitSettings,
-            response: new HttpResponseMessage(HttpStatusCode.NoContent)
-            {
-                Headers = { ETag = new System.Net.Http.Headers.EntityTagHeaderValue($"\"{Guid.NewGuid()}\"") }
-            },
+            response: new HttpResponseMessage(HttpStatusCode.NoContent),
+            content: null,
+            error: null);
+        apiResponse.Headers.TryAddWithoutValidation(IDialogportenApi.ETagHeader, Guid.NewGuid().ToString());
+        return Task.FromResult<IApiResponse>(apiResponse);
+    }
+
+    public Task<IApiResponse> Delete(Guid dialogId, Guid revision, bool isSilentUpdate = false,
+        CancellationToken cancellationToken = default)
+    {
+        Log.LogDeleteCalled(_logger, dialogId, revision);
+        var apiResponse = new ApiResponse<object>(
+            settings: _refitSettings,
+            response: new HttpResponseMessage(HttpStatusCode.OK),
             content: null,
             error: null);
         return Task.FromResult<IApiResponse>(apiResponse);
     }
 
-    public Task Delete(Guid dialogId, Guid revision, bool isSilentUpdate = false,
-        CancellationToken cancellationToken = default)
-    {
-        Log.LogDeleteCalled(_logger, dialogId, revision);
-        return Task.CompletedTask;
-    }
-
-    public Task Purge(Guid dialogId, Guid revision, bool isSilentUpdate = false,
+    public Task<IApiResponse> Purge(Guid dialogId, Guid revision, bool isSilentUpdate = false,
         CancellationToken cancellationToken = default)
     {
         Log.LogPurgeCalled(_logger, dialogId, revision);
-        return Task.CompletedTask;
+        var apiResponse = new ApiResponse<object>(
+            settings: _refitSettings,
+            response: new HttpResponseMessage(HttpStatusCode.OK),
+            content: null,
+            error: null);
+        return Task.FromResult<IApiResponse>(apiResponse);
     }
 
     public Task<IApiResponse> Restore(Guid dialogId, Guid revision, bool isSilentUpdate = false,
@@ -71,6 +85,16 @@ internal sealed partial class MockDialogportenApi : IDialogportenApi
             settings: _refitSettings,
             error: null);
         return Task.FromResult<IApiResponse>(apiResponse);
+    }
+    public Task<IApiResponse<PaginatedListOfDialogs>> SearchByServiceOwnerLabels(IEnumerable<string> serviceOwnerLabels, CancellationToken cancellationToken = default)
+    {
+        Log.LogSearchByServiceOwnerLabelsCalled(_logger, serviceOwnerLabels);
+        var apiResponse = new ApiResponse<PaginatedListOfDialogs>(
+            response: new HttpResponseMessage(HttpStatusCode.NotFound),
+            content: null,
+            settings: _refitSettings,
+            error: null);
+        return Task.FromResult<IApiResponse<PaginatedListOfDialogs>>(apiResponse);
     }
 
     public Task<IApiResponse> UpdateFormSavedActivityTime(Guid dialogId, Guid activityId, Guid revision, DateTimeOffset newCreatedAt,
@@ -107,6 +131,9 @@ internal sealed partial class MockDialogportenApi : IDialogportenApi
 
         [LoggerMessage(EventId = 7, Level = LogLevel.Debug, Message = "MockDialogportenApi.UpdateFormSavedActivityTime called with dialogId: {DialogId}, activityId: {ActivityId}, revision: {Revision}, newCreatedAt: {NewCreatedAt}")]
         public static partial void LogUpdateFormSavedActivityTimeCalled(ILogger logger, Guid dialogId, Guid activityId, Guid revision, DateTimeOffset newCreatedAt);
+        
+        [LoggerMessage(EventId = 8, Level = LogLevel.Debug, Message = "MockDialogportenApi.SearchByServiceOwnerLabels called with serviceOwnerLabels: {ServiceOwnerLabels}")]
+        public static partial void LogSearchByServiceOwnerLabelsCalled(ILogger logger, IEnumerable<string> serviceOwnerLabels);
     }
 }
 

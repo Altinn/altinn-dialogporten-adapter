@@ -1,0 +1,43 @@
+{
+  "UserConfig": {
+    "Namespaces": [
+      {
+        "Name": "sbemulatorns",
+        "Queues": [
+          {
+            "Name": "altinn.dialogportenadapter.webapi",
+            "Properties": {
+              "DeadLetteringOnMessageExpiration": false,
+              "DefaultMessageTimeToLive": "PT1H",
+              "DuplicateDetectionHistoryTimeWindow": "PT20S",
+              //"ForwardDeadLetteredMessagesTo": "",
+              //"ForwardTo": "",
+              "LockDuration": "PT15S", // We reduce the lock duration to speed up tests
+              "MaxDeliveryCount": 10,
+              "RequiresDuplicateDetection": true,
+              "RequiresSession": false
+            }
+          },
+          {
+            "Name": "altinn.dialogportenadapter-history.webapi",
+            "Properties": {
+              "DeadLetteringOnMessageExpiration": false,
+              "DefaultMessageTimeToLive": "PT1H",
+              "DuplicateDetectionHistoryTimeWindow": "PT20S",
+              //"ForwardDeadLetteredMessagesTo": "",
+              //"ForwardTo": "",
+              "LockDuration": "PT15S", // We reduce the lock duration to speed up tests
+              "MaxDeliveryCount": 10,
+              "RequiresDuplicateDetection": true,
+              "RequiresSession": false
+            }
+          }
+        ],
+        "Topics": []
+      }
+    ],
+    "Logging": {
+      "Type": "File"
+    }
+  }
+}

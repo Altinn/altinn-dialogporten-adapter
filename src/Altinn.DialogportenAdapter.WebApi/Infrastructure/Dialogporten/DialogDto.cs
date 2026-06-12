@@ -17,6 +17,12 @@ public class DialogDto
     public Guid? Revision { get; set; }
 
     /// <summary>
+    /// The service owner code representing the organization (service owner) related to this dialog.
+    /// </summary>
+    /// <example>ske</example>
+    public string Org { get; set; } = null!;
+
+    /// <summary>
     /// The service identifier for the service that the dialog is related to in URN-format.
     /// This corresponds to a resource in the Altinn Resource Registry, which the authenticated organization
     /// must own, i.e., be listed as the "competent authority" in the Resource Registry entry.
@@ -493,6 +499,16 @@ public enum DialogActivityType
     /// Indicates that a form associated with the dialog has been saved.
     /// </summary>
     FormSaved = 15,
+
+    /// <summary>
+    /// Indicates that a correspondence has been opened.
+    /// </summary>
+    CorrespondenceOpened = 16,
+
+    /// <summary>
+    /// Indicates that a correspondence has been confirmed.
+    /// </summary>
+    CorrespondenceConfirmed = 17
 }
 
 public sealed class ApiActionDto
@@ -534,6 +550,12 @@ public sealed class ApiActionDto
 
 public sealed class ApiActionEndpointDto
 {
+    /// <summary>
+    /// A self-defined UUIDv7 may be provided to support idempotent additions of Api Actions. If not provided, a new UUIDv7 will be generated.
+    /// </summary>
+    /// <example>01913cd5-784f-7d3b-abef-4c77b1f0972d</example>
+    public Guid? Id { get; set; }
+
     /// <summary>
     /// Arbitrary string indicating the version of the endpoint.
     /// </summary>
@@ -673,6 +695,12 @@ public sealed class AttachmentDto
     public List<LocalizationDto> DisplayName { get; set; } = [];
 
     /// <summary>
+    /// The logical name of the attachment.
+    /// </summary>
+    /// <example>receipt</example>
+    public string? Name { get; set; }
+
+    /// <summary>
     /// The URLs associated with the attachment, each referring to a different representation of the attachment.
     /// </summary>
     public List<AttachmentUrlDto> Urls { get; set; } = [];
@@ -726,6 +754,12 @@ public sealed class TransmissionAttachmentDto
     public List<LocalizationDto> DisplayName { get; set; } = [];
 
     /// <summary>
+    /// The logical name of the attachment.
+    /// </summary>
+    /// <example>receipt</example>
+    public string? Name { get; set; }
+
+    /// <summary>
     /// The URLs associated with the attachment, each referring to a different representation of the attachment.
     /// </summary>
     public List<TransmissionAttachmentUrlDto> Urls { get; set; } = [];
@@ -755,12 +789,10 @@ public sealed class TransmissionAttachmentUrlDto
 
 public sealed class LocalizationDto
 {
-    private readonly string _languageCode = null!;
-
     /// <summary>
     /// The localized text or URI reference.
     /// </summary>
-    public required string Value { get; init; }
+    public required string Value { get; set; }
 
     /// <summary>
     /// The language code of the localization in ISO 639-1 format.

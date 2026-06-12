@@ -1,8 +1,13 @@
-FROM mcr.microsoft.com/dotnet/sdk:9.0.102-alpine3.20 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0.203@sha256:8a90a473da5205a16979de99d2fc20975e922c68304f5c79d564e666dc3982fc AS build
 WORKDIR /app
 
-# Copy csproj and restore as distinct layers
+COPY ["Directory.Build.props", "."]
+
+# Main project
 COPY src/Altinn.DialogportenAdapter.WebApi/*.csproj ./src/Altinn.DialogportenAdapter.WebApi/
+# Dependencies
+COPY src/Altinn.DialogportenAdapter.Contracts/*.csproj ./src/Altinn.DialogportenAdapter.Contracts/
+# Restore project
 RUN dotnet restore ./src/Altinn.DialogportenAdapter.WebApi/Altinn.DialogportenAdapter.WebApi.csproj
 
 # Copy everything else and build
@@ -10,13 +15,13 @@ COPY src ./src
 RUN dotnet build -c Release -o out ./src/Altinn.DialogportenAdapter.WebApi/Altinn.DialogportenAdapter.WebApi.csproj
 
 # Build runtime image
-FROM mcr.microsoft.com/dotnet/aspnet:9.0.1-alpine3.20 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.9@sha256:ddcf70ad1ab963a4fcd41fbd722a6b660e404e87567cfbd46fd2809c21b02088 AS final
 WORKDIR /app
 EXPOSE 5011
 
 COPY --from=build /app/out .
 
-RUN addgroup -g 3000 dotnet && adduser -u 1000 -G dotnet -D -s /bin/false dotnet
+RUN groupadd --gid 3000 dotnet && useradd --uid 3000 --gid dotnet --no-create-home --shell /bin/false dotnet
 USER dotnet
 RUN mkdir /tmp/logtelemetry
 

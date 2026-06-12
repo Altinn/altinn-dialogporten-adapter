@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using Altinn.DialogportenAdapter.WebApi.Common;
 using System.Text.Json;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
@@ -24,6 +25,7 @@ internal sealed class ActivityDtoTransformer
         var createdFound = false;
         var actorUrnByUserId = await LookupUsers(events.InstanceEvents, cancellationToken);
 
+        ActivityDto? previousActivity = null;
         foreach (var @event in events.InstanceEvents.OrderBy(x => x.Created))
         {
             if (!Enum.TryParse<InstanceEventType>(@event.EventType, ignoreCase: true, out var eventType))
@@ -45,80 +47,87 @@ internal sealed class ActivityDtoTransformer
                 InstanceEventType.SentToPayment => DialogActivityType.SentToPayment,
                 InstanceEventType.SentToSendIn => DialogActivityType.SentToSendIn,
                 InstanceEventType.SentToFormFill => DialogActivityType.SentToFormFill,
+                InstanceEventType.Saved => DialogActivityType.FormSaved,
                 _ => (DialogActivityType?)null
             };
 
-            if (!activityType.HasValue)
+            if (activityType is null)
             {
                 continue;
             }
 
-            createdFound = createdFound || activityType == DialogActivityType.DialogCreated;
-
-            activities.Add(new ActivityDto
+            // We ignore "Saved" events from the service owner, as they are typically related to transformations performed by the app
+            // as a consequence of the instance being saved by the end user, and do not represent an explicit action performed by the service owner.
+            // These events are usually interleaved, breaking the collapsing of "Saved" events performed by the end user.
+            if (activityType == DialogActivityType.FormSaved && !string.IsNullOrWhiteSpace(@event.User.OrgId))
             {
-                Id = @event.Id.Value.ToVersion7(@event.Created.Value),
+                continue;
+            }
+            
+            createdFound = createdFound || activityType == DialogActivityType.DialogCreated;
+            var performedBy = GetPerformedBy(@event.User, actorUrnByUserId);
+            // Only bump timestamp of Formsaved if the last activity is a FormSaved and the current event is also a FormSaved
+            if (previousActivity?.Type == DialogActivityType.FormSaved 
+                && activityType == DialogActivityType.FormSaved 
+                && IsPerformedBy(previousActivity, performedBy))
+            {
+                previousActivity.CreatedAt = @event.Created;
+                continue;
+            }
+            
+            var activity = new ActivityDto
+            {
+                Id = @event.Id!.Value.ToVersion7(@event.Created!.Value),
                 Type = activityType.Value,
                 CreatedAt = @event.Created,
-                PerformedBy = GetPerformedBy(@event.User, instanceOwner, actorUrnByUserId),
-                Description = activityType == DialogActivityType.Information
-                    ? [ new LocalizationDto { LanguageCode = "nb", Value = eventType.ToString() } ]
-                    : [ ]
-            });
+                PerformedBy = performedBy,
+                Description = []
+            };
+            previousActivity = activity;
+            activities.Add(activity);
         }
-
-        var savedEvents = events.InstanceEvents
-            .OrderBy(x => x.Created)
-            .Where(x => StringComparer.OrdinalIgnoreCase.Equals(x.EventType, "Saved"))
-            .Aggregate((SavedActivities: new List<ActivityDto>(), PreviousActivity: (ActivityDto?)null), (state, @event) =>
-            {
-                var currentActor = GetPerformedBy(@event.User, instanceOwner, actorUrnByUserId);
-                if (IsPerformedBy(state.PreviousActivity, currentActor))
-                {
-                    state.PreviousActivity.CreatedAt = @event.Created;
-                    return state;
-                }
-
-                state.SavedActivities.Add(state.PreviousActivity = new ActivityDto
-                {
-                    Id = @event.Id.Value.ToVersion7(@event.Created.Value),
-                    Type = DialogActivityType.FormSaved,
-                    CreatedAt = @event.Created,
-                    PerformedBy = currentActor
-                });
-                return state;
-            }, state => state.SavedActivities);
-
-        activities.AddRange(savedEvents);
         return activities;
     }
 
     private static bool IsPerformedBy(
         [NotNullWhen(true)] ActivityDto? activity,
         [NotNullWhen(true)] ActorDto? actor) =>
-        activity?.PerformedBy.ActorId is not null
+        activity?.PerformedBy is not null
         && actor is not null
-        && activity.PerformedBy.ActorId == actor.ActorId;
+        && (
+            // Fall back to comparing on actorName in case actorId is null (legacy users)
+            activity.PerformedBy.ActorId is not null || actor.ActorId is not null
+                ? activity.PerformedBy.ActorId == actor.ActorId
+                : !string.IsNullOrWhiteSpace(activity.PerformedBy.ActorName)
+                      && activity.PerformedBy.ActorName == actor.ActorName
+        );
 
     private async Task<Dictionary<int, string>> LookupUsers(List<InstanceEvent> events, CancellationToken cancellationToken)
     {
         var actorUrnByUserUrn = await _registerRepository.GetActorUrnByUserId(
-            events.Where(x => x.User.UserId.HasValue)
-                .Select(x => x.User.UserId!.Value.ToString())
+            events.Where(x => x.User?.UserId != null)
+                .Select(x => x.User.UserId!.Value.ToString(CultureInfo.InvariantCulture))
                 .Distinct(),
             cancellationToken
         );
 
-        return actorUrnByUserUrn.ToDictionary(x => int.Parse(x.Key), x => x.Value);
+        return actorUrnByUserUrn.ToDictionary(x => int.Parse(x.Key, CultureInfo.InvariantCulture), x => x.Value);
     }
 
-    private static ActorDto GetPerformedBy(PlatformUser user, InstanceOwner instanceOwner, Dictionary<int, string> actorUrnByUserId)
+    private static ActorDto GetPerformedBy(PlatformUser user, Dictionary<int, string> actorUrnByUserId)
     {
         if (user.UserId.HasValue && actorUrnByUserId.TryGetValue(user.UserId.Value, out var actorUrn))
         {
-            return actorUrn.StartsWith(Constants.DisplayNameUrnPrefix)
+            // Legacy system ids and enterprise users does not have a standard urn format in register, so just return the name
+            return actorUrn.StartsWith(Constants.DisplayNameUrnPrefix, StringComparison.InvariantCulture)
                 ? new ActorDto { ActorType = ActorType.PartyRepresentative, ActorName = actorUrn[Constants.DisplayNameUrnPrefix.Length..] }
                 : new ActorDto { ActorType = ActorType.PartyRepresentative, ActorId = actorUrn };
+        }
+
+        // Altinn 2 end user system id
+        if (user.EndUserSystemId.HasValue)
+        {
+            return new ActorDto { ActorType = ActorType.PartyRepresentative, ActorName = $"EUS #{user.EndUserSystemId.Value}" };
         }
 
         if (!string.IsNullOrWhiteSpace(user.SystemUserOwnerOrgNo))
@@ -129,17 +138,6 @@ internal sealed class ActivityDtoTransformer
         if (!string.IsNullOrWhiteSpace(user.OrgId))
         {
             return new ActorDto { ActorType = ActorType.ServiceOwner };
-        }
-
-        // The register party query API doesn't currently support Altinn 2 enterprise users, so if we at this point are left with
-        // an unresolved user-id and the authentication level is exactly 3, it is extremely likely that this is an Altinn 2 enterprise user.
-
-        // As a workaround until the register API starts supporting these users, we will therefore assume that this is an Altinn 2 enterprise user
-        // and just return the instance owner as the actor (which should be set with an organization number, as Altinn 2 enterprise users can only access
-        // instances owned by organizations)
-        if (user is { AuthenticationLevel: 3, UserId: not null } && !string.IsNullOrWhiteSpace(instanceOwner.OrganisationNumber))
-        {
-            return new ActorDto { ActorType = ActorType.PartyRepresentative, ActorId = $"{Constants.OrganizationUrnPrefix}{instanceOwner.OrganisationNumber}" };
         }
 
         throw new InvalidOperationException($"{nameof(PlatformUser)} could not be converted to {nameof(ActorDto)}: {JsonSerializer.Serialize(user)}.");

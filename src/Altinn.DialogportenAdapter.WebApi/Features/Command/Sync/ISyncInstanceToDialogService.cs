@@ -1,65 +1,112 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Net;
 using Altinn.DialogportenAdapter.Contracts;
+using Altinn.DialogportenAdapter.WebApi.Common;
+using Altinn.DialogportenAdapter.WebApi.Common.Exceptions;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Altinn.Platform.Storage.Interface.Models;
-using Refit;
 using Constants = Altinn.DialogportenAdapter.WebApi.Common.Constants;
 
 namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 
 public interface ISyncInstanceToDialogService
 {
-    Task Sync(SyncInstanceCommand dto, CancellationToken cancellationToken = default);
+    Task Sync(SyncInstanceCommand dto, int currentAttempt = 1, CancellationToken cancellationToken = default);
 }
 
-internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
+internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialogService
 {
     private readonly IStorageApi _storageApi;
     private readonly IDialogportenApi _dialogportenApi;
     private readonly StorageDialogportenDataMerger _dataMerger;
+    private readonly IApplicationRepository _applicationRepository;
     private readonly ILogger<SyncInstanceToDialogService> _logger;
 
     public SyncInstanceToDialogService(
         IStorageApi storageApi,
         IDialogportenApi dialogportenApi,
         StorageDialogportenDataMerger dataMerger,
+        IApplicationRepository applicationRepository,
         ILogger<SyncInstanceToDialogService> logger)
     {
         _storageApi = storageApi ?? throw new ArgumentNullException(nameof(storageApi));
         _dialogportenApi = dialogportenApi ?? throw new ArgumentNullException(nameof(dialogportenApi));
         _dataMerger = dataMerger ?? throw new ArgumentNullException(nameof(dataMerger));
+        _applicationRepository = applicationRepository ?? throw new ArgumentNullException(nameof(applicationRepository));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public async Task Sync(SyncInstanceCommand dto, CancellationToken cancellationToken = default)
+    public async Task Sync(SyncInstanceCommand dto, int currentAttempt = 1, CancellationToken cancellationToken = default)
     {
+        // To avoid performing requests needlessly, we attempt to load the app from cache first to see if
+        // sync is disabled in which case we can skip the rest of the processing.
+        var (isCached, cachedApp) =
+            await _applicationRepository.TryGetApplicationIfCached(dto.AppId, cancellationToken);
+        if (isCached && cachedApp is not null && cachedApp.GetSyncAdapterSettings().DisableSync)
+        {
+            return;
+        }
+
         // Create a uuid7 from the instance id and created timestamp to use as dialog id
         var dialogId = dto.InstanceId.ToVersion7(dto.InstanceCreatedAt);
 
         // Fetch events, application, instance and existing dialog in parallel
         var (existingDialog, application, instance, events) = await (
             _dialogportenApi.Get(dialogId, cancellationToken).ContentOrDefault(),
-            _storageApi.GetApplication(dto.AppId, cancellationToken).ContentOrDefault(),
+            _applicationRepository.GetApplication(dto.AppId, cancellationToken),
             _storageApi.GetInstance(dto.PartyId, dto.InstanceId, cancellationToken).ContentOrDefault(),
             _storageApi.GetInstanceEvents(dto.PartyId, dto.InstanceId, Constants.SupportedEventTypes, cancellationToken).ContentOrDefault()
         );
 
-        if (instance is null && existingDialog is null)
+        if (application.GetSyncAdapterSettings().EnableUserSuppliedDialogId)
         {
-            _logger.LogWarning("No dialog or instance found for request. {PartyId},{InstanceId},{InstanceCreatedAt},{IsMigration}.",
-                dto.PartyId,
-                dto.InstanceId,
-                dto.InstanceCreatedAt,
-                dto.IsMigration);
-            return;
+            if (instance is not null)
+            {
+                if (instance.DataValues is null
+                 || !instance.DataValues.TryGetValue(Constants.InstanceDataValueDialogIdKey, out var userSuppliedDialogId))
+                {
+                    throw new UserSuppliedDialogIdNotFoundException(instance.Id);
+                }
+
+                if (!Guid.TryParse(userSuppliedDialogId, out dialogId)
+                 || !dialogId.IsUuidV7WithTimestampInPast())
+                {
+                    LogInvalidUserSuppliedDialogIdWarning(dto.InstanceId);
+                    return;
+                }
+
+                existingDialog = await _dialogportenApi.Get(dialogId, cancellationToken).ContentOrDefault();
+
+                // Check if DialogId is already in use by someone else
+                if (existingDialog?.ServiceOwnerContext != null)
+                {
+                    var storageLabels = existingDialog.ServiceOwnerContext.ServiceOwnerLabels.Where(x => x.Value.StartsWith("urn:altinn:integration:storage:", StringComparison.InvariantCulture));
+                    if (storageLabels.Any(x => x.Value != $"urn:altinn:integration:storage:{instance.Id}"))
+                    {
+                        LogInvalidUserSuppliedDialogIdWarning(dto.InstanceId);
+                        return;
+                    }
+                }
+            }
+            else
+            {
+                var dialogSearch = await _dialogportenApi.SearchByServiceOwnerLabels([$"urn:altinn:integration:storage:{dto.PartyId}/{dto.InstanceId}"], cancellationToken).ContentOrDefault();
+                if (dialogSearch == null || dialogSearch.Items.Count != 1)
+                {
+                    LogNoOpWarning(dto.PartyId, dto.InstanceId, dto.InstanceCreatedAt, dto.IsMigration);
+                    return;
+                }
+                existingDialog = dialogSearch.Items.First();
+            }
         }
 
-        if (InstanceOwnerIsSelfIdentified(instance))
+
+        if (instance is null && existingDialog is null)
         {
-            // We skip these for now as we do not have a good way to identify the user in dialogporten
+            LogNoOpWarning(dto.PartyId, dto.InstanceId, dto.InstanceCreatedAt, dto.IsMigration);
             return;
         }
 
@@ -77,29 +124,51 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
             return;
         }
 
+        var forceSilentUpsert = false;
+        var shouldDeleteAfterCreate = false;
+        if (InstanceSoftDeletedAndDialogNotExisting(instance, existingDialog))
+        {
+            LogCreateDialogInSoftDeleteState(instance!.Id);
+            forceSilentUpsert = true;
+            shouldDeleteAfterCreate = true;
+        }
+
         var syncAdapterSettings = application.GetSyncAdapterSettings();
         if (syncAdapterSettings.DisableSync || IsDialogSyncDisabled(instance))
         {
             return;
         }
 
-        if (!syncAdapterSettings.DisableDelete && ShouldPurgeDialog(instance, existingDialog))
+        if (ShouldPurgeDialog(instance, existingDialog))
         {
-            await _dialogportenApi.Purge(
+            if (syncAdapterSettings.DisableDelete) return;
+            var response = await _dialogportenApi.Purge(
                 dialogId,
                 existingDialog.Revision!.Value,
                 isSilentUpdate: dto.IsMigration,
-                cancellationToken: cancellationToken);
-            return;
+                cancellationToken: cancellationToken
+            );
+
+            var problem = DpSimpleProblemDetails.FromFailedApiResponseIf(
+                response,
+                x => x.StatusCode == HttpStatusCode.NotFound
+            );
+            if (problem == null) return;
+
+            throw new DialogNotFoundForPurgeException(dialogId, existingDialog.Revision.Value, problem.TraceId);
         }
 
-        if (!syncAdapterSettings.DisableDelete && ShouldSoftDeleteDialog(instance, existingDialog))
+        if (ShouldSoftDeleteDialog(instance, existingDialog))
         {
-            await _dialogportenApi.Delete(
+            if (syncAdapterSettings.DisableDelete) return;
+            var response = await _dialogportenApi.Delete(
                 dialogId,
                 existingDialog.Revision!.Value,
                 isSilentUpdate: dto.IsMigration,
                 cancellationToken: cancellationToken);
+
+            if (response.IsSuccessful) return;
+            throw response.Error;
         }
 
         if (ShouldRestoreDialog(instance, existingDialog))
@@ -113,19 +182,32 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
 
         EnsureNotNull(application, instance, events);
 
-        // Create or update the dialog with the fetched data
-        var mergeDto = new MergeDto(dialogId, existingDialog, application, instance, events, dto.IsMigration);
-        var updatedDialog = await _dataMerger.Merge(mergeDto, cancellationToken);
-        await UpsertDialog(updatedDialog, existingDialog, syncAdapterSettings, dto.IsMigration, cancellationToken);
-    }
+        var applicationTexts = await _applicationRepository.GetApplicationTexts(dto.AppId, application.VersionId, cancellationToken);
 
-    private static bool InstanceOwnerIsSelfIdentified(Instance? instance)
-    {
-        return instance is not null
-               && instance.InstanceOwner.OrganisationNumber is null
-               && instance.InstanceOwner.PersonNumber is null
-               && instance.InstanceOwner.PartyId is not null
-               && instance.InstanceOwner.Username is not null;
+        // Create or update the dialog with the fetched data
+        var mergeDto = new MergeDto(dialogId, existingDialog, application, applicationTexts, instance, events, dto.IsMigration || forceSilentUpsert);
+        var updatedDialog = await _dataMerger.Merge(mergeDto, currentAttempt, cancellationToken);
+        var revision = await UpsertDialog(updatedDialog, existingDialog, syncAdapterSettings, dto.IsMigration || forceSilentUpsert, cancellationToken);
+        
+        // We throw an exception if PDFs are not generated and a form submission activity is present.
+        // Regardless of the current attempt so it will end up in DLQ
+        if (!StorageDialogportenDataMerger.AllPdfsGenerated(mergeDto) &&
+            updatedDialog.Activities.Any(activity => activity.Type is DialogActivityType.FormSubmitted))
+        {
+            throw new WaitForPdfException();
+        }
+        
+        if (!syncAdapterSettings.DisableDelete && shouldDeleteAfterCreate && revision.HasValue)
+        {
+            var response = await _dialogportenApi.Delete(
+                dialogId,
+                revision.Value,
+                isSilentUpdate: true,
+                cancellationToken: cancellationToken);
+
+            if (response.IsSuccessful) return;
+            throw response.Error;
+        }
     }
 
     private static void EnsureNotNull(
@@ -151,9 +233,9 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
     private static bool IsDialogSyncDisabled(Instance? instance)
     {
         return instance?.DataValues is not null
-               && instance.DataValues.TryGetValue(Constants.InstanceDataValueDisableSyncKey, out var disableSyncString)
-               && bool.TryParse(disableSyncString, out var disableSync)
-               && disableSync;
+         && instance.DataValues.TryGetValue(Constants.InstanceDataValueDisableSyncKey, out var disableSyncString)
+         && bool.TryParse(disableSyncString, out var disableSync)
+         && disableSync;
     }
 
     private static bool BothIsDeleted(Instance? instance, DialogDto? existingDialog)
@@ -181,6 +263,11 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         return instance is null or { Status.IsHardDeleted: true } && existingDialog is not null;
     }
 
+    private static bool InstanceSoftDeletedAndDialogNotExisting(Instance? instance, DialogDto? existingDialog)
+    {
+        return instance is { Status.IsSoftDeleted: true } && existingDialog is null;
+    }
+
     private static bool ShouldUpdateInstanceWithDialogId([NotNullWhen(true)] Instance? instance, Guid dialogId)
     {
         if (instance is null)
@@ -189,35 +276,46 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
         }
 
         return instance.DataValues is null
-           || !instance.DataValues.TryGetValue(Constants.InstanceDataValueDialogIdKey, out var dialogIdString)
-           || !Guid.TryParse(dialogIdString, out var instanceDialogId)
-           || instanceDialogId != dialogId;
+         || !instance.DataValues.TryGetValue(Constants.InstanceDataValueDialogIdKey, out var dialogIdString)
+         || !Guid.TryParse(dialogIdString, out var instanceDialogId)
+         || instanceDialogId != dialogId;
     }
 
-    private Task UpsertDialog(DialogDto updated,
+    private async Task<Guid?> UpsertDialog(
+        DialogDto updated,
         DialogDto? existing,
         SyncAdapterSettings settings,
         bool isMigration,
         CancellationToken cancellationToken) =>
         existing is null
-            ? CreateDialog(updated, settings, isMigration, cancellationToken)
-            : UpdateDialog(updated, existing, isMigration, cancellationToken);
+            ? await CreateDialog(updated, settings, isMigration, cancellationToken)
+            : await UpdateDialog(updated, existing, isMigration, cancellationToken);
 
-    private Task CreateDialog(
-        DialogDto updated,
+    private async Task<Guid?> CreateDialog(
+        DialogDto dto,
         SyncAdapterSettings settings,
         bool isMigration,
-        CancellationToken cancellationToken) =>
-        settings.DisableCreate
-            ? Task.CompletedTask
-            : _dialogportenApi.Create(updated, isSilentUpdate: isMigration, cancellationToken: cancellationToken);
+        CancellationToken cancellationToken)
+    {
+        if (settings.DisableCreate) return null;
 
-    private async Task UpdateDialog(DialogDto updated, DialogDto? existing, bool isMigration,
+        var createResult = await _dialogportenApi
+            .Create(dto, isSilentUpdate: isMigration, cancellationToken: cancellationToken)
+            .EnsureSuccess();
+
+        return createResult.GetEtagHeader();
+    }
+
+    // PostgreSQL has a minimum time precision of 1 microsecond. To avoid issues with updates where the CreatedAt time is changed by less than this precision,
+    // we define an epsilon value of 1 microsecond to use when comparing timestamps.
+    private static readonly TimeSpan Epsilon = TimeSpan.FromMicroseconds(1);
+    private async Task<Guid> UpdateDialog(
+        DialogDto updated, DialogDto? existing, bool isMigration,
         CancellationToken cancellationToken)
     {
         var activityUpdateRequests = existing?.Activities
             .Join(updated.Activities, x => x.Id, x => x.Id, (prev, next) => (prev, next))
-            .Where(x => x.prev.Type == DialogActivityType.FormSaved &&  x.prev.CreatedAt < x.next.CreatedAt)
+            .Where(x => x.prev.Type == DialogActivityType.FormSaved && (x.next.CreatedAt!.Value - x.prev.CreatedAt!.Value) > Epsilon)
             .Select(x => new { ActivityId = x.next.Id!.Value, NewCreatedAt = x.next.CreatedAt!.Value })
             .ToArray() ?? [];
 
@@ -239,9 +337,12 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
                 cancellationToken: cancellationToken).EnsureSuccess();
             updated.Revision = result.GetEtagHeader();
         }
+
+        return updated.Revision.Value;
     }
 
-    private async Task<Guid> RestoreDialog(Guid dialogId,
+    private async Task<Guid> RestoreDialog(
+        Guid dialogId,
         Guid revision,
         bool disableAltinnEvents,
         CancellationToken cancellationToken)
@@ -266,7 +367,8 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
             .ToList();
     }
 
-    private Task UpdateInstanceWithDialogId(SyncInstanceCommand dto, Guid dialogId,
+    private Task UpdateInstanceWithDialogId(
+        SyncInstanceCommand dto, Guid dialogId,
         CancellationToken cancellationToken)
     {
         return _storageApi.UpdateDataValues(dto.PartyId, dto.InstanceId, new()
@@ -277,4 +379,13 @@ internal sealed class SyncInstanceToDialogService : ISyncInstanceToDialogService
             }
         }, cancellationToken);
     }
+
+    [LoggerMessage(LogLevel.Warning, "No dialog or instance found for request. {PartyId},{InstanceId},{InstanceCreatedAt},{IsMigration}.")]
+    partial void LogNoOpWarning(string partyId, Guid instanceId, DateTimeOffset instanceCreatedAt, bool isMigration);
+
+    [LoggerMessage(LogLevel.Information, "Instance id={Id} is soft-deleted in storage and does not exist in Dialogporten. Creating and deleting immediately afterwards.")]
+    partial void LogCreateDialogInSoftDeleteState(string id);
+
+    [LoggerMessage(LogLevel.Warning, "Instance id={Id} has invalid user supplied dialog id. NoOp.")]
+    partial void LogInvalidUserSuppliedDialogIdWarning(Guid id);
 }

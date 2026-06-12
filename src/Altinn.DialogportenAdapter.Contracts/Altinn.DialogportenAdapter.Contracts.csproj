@@ -1,13 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-        <TargetFramework>net9.0</TargetFramework>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <Nullable>enable</Nullable>
-    </PropertyGroup>
-
     <ItemGroup>
-        <PackageReference Include="WolverineFx.AzureServiceBus" Version="4.5.0" />
+        <PackageReference Include="AsyncKeyedLock" Version="8.0.2" />
+        <PackageReference Include="WolverineFx.AzureServiceBus" Version="5.39.3" />
     </ItemGroup>
 
 </Project>

@@ -7,6 +7,7 @@ namespace Altinn.DialogportenAdapter.WebApi.Common;
 internal static class Constants
 {
     public const int DefaultMaxStringLength = 255;
+    public const int ExtendedStatusMaxStringLength = 25;
 
     public const string InstanceDataValueDialogIdKey = "dialog.id";
     public const string InstanceDataValueDisableSyncKey = "dialog.disableAutomaticSync";
@@ -16,8 +17,11 @@ internal static class Constants
     public const string PersonUrnPrefix = "urn:altinn:person:identifier-no:";
     public const string OrganizationUrnPrefix = "urn:altinn:organization:identifier-no:";
     public const string DisplayNameUrnPrefix = "urn:altinn:displayName:";
+    public const string SiUserUrnPrefix = "urn:altinn:person:legacy-selfidentified:";
 
     public const string DefaultMaskinportenClientDefinitionKey = "DefaultMaskinportenClientDefinitionKey";
+
+    public const string AltinnOrgsClient = "AltinnOrgsClient";
 
     public static readonly ImmutableArray<string> SupportedEventTypes =
     [
@@ -52,5 +56,10 @@ internal static class Constants
         public const string Copy = "DialogGuiActionCopy";
 
         public static readonly List<string> Keys = [ GoTo, Delete, Copy ];
+    }
+
+    internal static class ApiAction
+    {
+        public const string Read = "DialogApiActionRead";
     }
 }

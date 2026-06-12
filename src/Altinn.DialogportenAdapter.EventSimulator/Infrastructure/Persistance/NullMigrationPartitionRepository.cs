@@ -9,7 +9,7 @@ internal sealed class NullMigrationPartitionRepository : IMigrationPartitionRepo
         return Task.FromResult(Array.Empty<MigrationPartitionEntity>().AsReadOnly());
     }
 
-    public Task<MigrationPartitionEntity?> Get(DateOnly partition, string organization, CancellationToken cancellationToken)
+    public Task<MigrationPartitionEntity?> GetMigrationPartition(DateOnly partition, string organization, CancellationToken cancellationToken)
     {
         return Task.FromResult<MigrationPartitionEntity?>(null);
     }
