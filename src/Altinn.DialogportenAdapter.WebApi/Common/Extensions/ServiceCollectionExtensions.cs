@@ -139,6 +139,15 @@ internal static class ServiceCollectionExtensions
                     .ScheduleRetry(clock.Minutes(1), clock.Minutes(10), clock.Minutes(30))
                     .Then.MoveToErrorQueue();
 
+                // Wait for all PDFs to generate before creating Transmissions.
+                // Only thrown when FormSubmitted Activity is present
+                // WaitForPdfException won't block the dialog from being created/updated only prevent Transmission creation
+                opts.Policies
+                    .OnException<WaitForPdfException>()
+                    .OrAnyInner<WaitForPdfException>()
+                    .RetryWithJitteredCooldown(clock.Seconds(1), clock.Seconds(5), clock.Seconds(20))
+                    .Then.MoveToErrorQueue();
+
                 // UserSuppliedDialogIdNotFound may happen if the sync happens before the instance have been given an ID
                 opts.Policies
                     .OnException<UserSuppliedDialogIdNotFoundException>()

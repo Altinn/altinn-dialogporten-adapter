@@ -72,7 +72,7 @@ static void BuildAndRun(string[] args)
         [FromServices] ISyncInstanceToDialogService syncService,
         CancellationToken cancellationToken) =>
     {
-        await syncService.Sync(request, cancellationToken);
+        await syncService.Sync(request, cancellationToken: cancellationToken);
         return Results.NoContent();
     })
     .RequireAuthorization();
@@ -94,7 +94,7 @@ static void BuildAndRun(string[] args)
             }
 
             var request = new SyncInstanceCommand(instance.AppId, partyId, instanceGuid, instance.Created!.Value, isMigration ?? false);
-            await syncService.Sync(request, cancellationToken);
+            await syncService.Sync(request, cancellationToken: cancellationToken);
             return Results.NoContent();
         })
         .RequireAuthorization()
