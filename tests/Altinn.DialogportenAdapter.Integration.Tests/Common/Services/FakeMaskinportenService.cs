@@ -72,6 +72,12 @@ public class FakeMaskinportenService : IMaskinportenService
         });
     }
 
+    public Task<TokenResponse> GetToken(IClientDefinition clientDefinition, MaskinportenTokenRequestContext requestContext,
+        bool disableCaching = false)
+    {
+        throw new NotImplementedException();
+    }
+
     public Task<TokenResponse> ExchangeToAltinnToken(
         TokenResponse tokenResponse,
         string environment,
