@@ -2485,4 +2485,63 @@ public class StorageDialogportenDataMergerTest
             Deleted = false
         });
     }
+
+    [Fact(DisplayName =
+        "Given DataElements with missing or too long filenames, attachment display names fall back to data type or placeholder and are capped at 255 characters")]
+    public async Task Merge_DataElementsWithMissingOrTooLongFilenames_MapsToAttachmentDisplayNamesWithMaxLength()
+    {
+        var mergeDto = new MergeDto(
+            Application: AltinnApplicationBuilder
+                .NewDefaultAltinnApplication()
+                .WithDataTypes(AltinnDataTypeBuilder.NewDefaultDataType().WithId("png-1").Build())
+                .Build(),
+            ApplicationTexts: new ApplicationTexts { Translations = [] },
+            DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
+            Events: new InstanceEventList
+            {
+                InstanceEvents = [AltinnInstanceEventBuilder.NewCreatedByPlatformUserInstanceEvent(UserId1).Build()]
+            },
+            Instance: AltinnInstanceBuilder
+                .NewInProgressInstance()
+                .WithData([
+                    AltinnDataElementBuilder
+                        .NewDefaultDataElementBuilder()
+                        .WithId("019bd57e-ce5e-74ed-8130-3a1ac8af3d91")
+                        .WithFilename(new string('a', 300) + ".pdf")
+                        .Build(),
+                    AltinnDataElementBuilder
+                        .NewDefaultDataElementBuilder()
+                        .WithId("019bd5eb-4239-7a40-a823-7735059ef136")
+                        .WithFilename(new string('b', 255))
+                        .Build(),
+                    AltinnDataElementBuilder
+                        .NewDefaultDataElementBuilder()
+                        .WithId("019bd5eb-62e2-711d-b79f-835d26cd1a58")
+                        .WithFilename(null!)
+                        .WithDataType("png-1")
+                        .Build(),
+                    AltinnDataElementBuilder
+                        .NewDefaultDataElementBuilder()
+                        .WithId("019bd5eb-97ba-79a8-9f37-3ef8f82b2d0b")
+                        .WithFilename(null!)
+                        .Build(),
+                ])
+                .Build(),
+            ExistingDialog: null,
+            IsMigration: false);
+
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
+
+        var displayNames = actualDialogDto.Attachments
+            .Select(x => x.DisplayName.Single().Value)
+            .ToList();
+
+        displayNames.Should().BeEquivalentTo([
+            new string('a', 251) + ".pdf",
+            new string('b', 255),
+            "png-1",
+            "Navn på vedlegg mangler"
+        ]);
+        displayNames.Should().AllSatisfy(x => x.Length.Should().BeLessThanOrEqualTo(255));
+    }
 }
