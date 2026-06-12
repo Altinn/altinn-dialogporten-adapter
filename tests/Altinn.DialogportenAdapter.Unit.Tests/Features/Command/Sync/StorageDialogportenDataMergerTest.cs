@@ -2525,6 +2525,11 @@ public class StorageDialogportenDataMergerTest
                         .WithId("019bd5eb-97ba-79a8-9f37-3ef8f82b2d0b")
                         .WithFilename(null!)
                         .Build(),
+                    AltinnDataElementBuilder
+                        .NewDefaultDataElementBuilder()
+                        .WithId("019bd5eb-bd4f-7176-948e-79921affe066")
+                        .WithFilename("c." + new string('d', 300))
+                        .Build(),
                 ])
                 .Build(),
             ExistingDialog: null,
@@ -2540,7 +2545,8 @@ public class StorageDialogportenDataMergerTest
             new string('a', 251) + ".pdf",
             new string('b', 255),
             "png-1",
-            "Navn på vedlegg mangler"
+            "Navn på vedlegg mangler",
+            "c." + new string('d', 253)
         ]);
         displayNames.Should().AllSatisfy(x => x.Length.Should().BeLessThanOrEqualTo(255));
     }

@@ -327,7 +327,9 @@ internal sealed class StorageDialogportenDataMerger
             }
 
             var extension = Path.GetExtension(dataElement.Filename);
-            return string.Concat(dataElement.Filename.AsSpan(0, 255 - extension.Length), extension);
+            return extension.Length >= 255
+                ? dataElement.Filename[..255]
+                : string.Concat(dataElement.Filename.AsSpan(0, 255 - extension.Length), extension);
         }
 
         AttachmentDto CreateAttachmentDto(DataElement element)
