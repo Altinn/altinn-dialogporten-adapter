@@ -321,15 +321,15 @@ internal sealed class StorageDialogportenDataMerger
                     : "Navn på vedlegg mangler";
             }
 
-            if (dataElement.Filename.Length <= 255)
+            if (dataElement.Filename.Length <= Constants.DefaultMaxStringLength)
             {
                 return dataElement.Filename;
             }
 
             var extension = Path.GetExtension(dataElement.Filename);
-            return extension.Length >= 255
-                ? dataElement.Filename[..255]
-                : string.Concat(dataElement.Filename.AsSpan(0, 255 - extension.Length), extension);
+            return extension.Length >= Constants.DefaultMaxStringLength
+                ? dataElement.Filename[..Constants.DefaultMaxStringLength]
+                : string.Concat(dataElement.Filename.AsSpan(0, Constants.DefaultMaxStringLength - extension.Length), extension);
         }
 
         AttachmentDto CreateAttachmentDto(DataElement element)
