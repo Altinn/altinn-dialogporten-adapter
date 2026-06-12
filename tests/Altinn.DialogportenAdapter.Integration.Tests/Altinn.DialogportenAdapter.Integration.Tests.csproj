@@ -7,15 +7,15 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Altinn.ApiClients.Dialogporten" Version="1.116.0" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
+    <PackageReference Include="Altinn.ApiClients.Dialogporten" Version="1.117.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.6.0" />
     <PackageReference Include="AwesomeAssertions" Version="9.4.0" />
     <PackageReference Include="NSubstitute" Version="5.3.0" />
     <PackageReference Include="Scrutor" Version="7.0.0" />
-    <PackageReference Include="Testcontainers.ServiceBus" Version="4.11.0" />
-    <PackageReference Include="WireMock.Net" Version="2.6.0" />
+    <PackageReference Include="Testcontainers.ServiceBus" Version="4.12.0" />
+    <PackageReference Include="WireMock.Net" Version="2.10.0" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
-    <PackageReference Include="coverlet.collector" Version="10.0.0" />
+    <PackageReference Include="coverlet.collector" Version="10.0.1" />
     <PackageReference Include="xunit.v3" Version="3.2.2" />
     <PackageReference Include="Azure.Messaging.ServiceBus" Version="7.20.1" />
   </ItemGroup>

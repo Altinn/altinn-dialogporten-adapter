@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using Altinn.ApiClients.Maskinporten.Interfaces;
 using Altinn.DialogportenAdapter.Contracts;
@@ -42,7 +43,7 @@ public class DialogportenAdapterApplication : IAsyncLifetime
     public WireMockServer RegisterApi { get; private set; } = null!;
     public ServiceBusClient ServiceBusClient { get; private set; } = null!;
     private ServiceBusAdministrationClient ServiceBusAdminClient { get; set; } = null!;
-    private static bool IsDebug => 
+    private static bool IsDebug =>
 #if DEBUG
         true;
 #else
@@ -51,6 +52,14 @@ public class DialogportenAdapterApplication : IAsyncLifetime
 
     public async ValueTask InitializeAsync()
     {
+        // Workaround issue in Wolverine on nb_NB causing intermittent 400 Bad Request errors due to
+        // attempts to auto-provision queues with a unicode negative sign
+        var safeCulture = (CultureInfo)CultureInfo.CurrentCulture.Clone();
+        safeCulture.NumberFormat.NegativeSign = "-";
+        CultureInfo.DefaultThreadCurrentCulture = safeCulture;
+        CultureInfo.CurrentCulture = safeCulture;
+
+
         var networkAlias = "database-network";
         _network = new NetworkBuilder()
             .WithName(IsDebug ? "dialogporten-adapter-it-network" : null)

@@ -72,6 +72,18 @@ public class FakeMaskinportenService : IMaskinportenService
         });
     }
 
+    public Task<TokenResponse> GetToken(IClientDefinition clientDefinition, MaskinportenTokenRequestContext requestContext,
+        bool disableCaching = false)
+    {
+        return Task.FromResult(new TokenResponse
+        {
+            AccessToken = "fake.token",
+            ExpiresIn = 3600,
+            Scope = "",
+            TokenType = "bearer"
+        });
+    }
+
     public Task<TokenResponse> ExchangeToAltinnToken(
         TokenResponse tokenResponse,
         string environment,
