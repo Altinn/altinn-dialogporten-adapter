@@ -7,11 +7,11 @@
       <PackageReference Include="Polly.Contrib.WaitAndRetry" Version="1.1.1" />
       <PackageReference Include="Refit.HttpClientFactory" Version="10.2.0" />
       <PackageReference Include="Altinn.ApiClients.Maskinporten" Version="10.0.1" />
-      <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.7" />
+      <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.8" />
       <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.5.1" />
       <PackageReference Include="Azure.Identity" Version="1.21.0" />
       <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.5.0" />
-      <PackageReference Include="WolverineFx.AzureServiceBus" Version="5.39.0" />
+      <PackageReference Include="WolverineFx.AzureServiceBus" Version="5.39.3" />
     </ItemGroup>
 
     <ItemGroup>
