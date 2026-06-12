@@ -312,6 +312,26 @@ internal sealed class StorageDialogportenDataMerger
             !_settings.DialogportenAdapter.Adapter.FeatureFlag
                 .EnableSubmissionTransmissions;
 
+        string GetFileName(DataElement dataElement)
+        {
+            if (string.IsNullOrEmpty(dataElement.Filename))
+            {
+                return !string.IsNullOrEmpty(dataElement.DataType)
+                    ? dataElement.DataType
+                    : "Navn på vedlegg mangler";
+            }
+
+            if (dataElement.Filename.Length <= Constants.DefaultMaxStringLength)
+            {
+                return dataElement.Filename;
+            }
+
+            var extension = Path.GetExtension(dataElement.Filename);
+            return extension.Length >= Constants.DefaultMaxStringLength
+                ? dataElement.Filename[..Constants.DefaultMaxStringLength]
+                : string.Concat(dataElement.Filename.AsSpan(0, Constants.DefaultMaxStringLength - extension.Length), extension);
+        }
+
         AttachmentDto CreateAttachmentDto(DataElement element)
         {
             var consumerType = attachmentVisibility.GetConsumerType(element);
@@ -324,7 +344,7 @@ internal sealed class StorageDialogportenDataMerger
             return new()
             {
                 Id = Guid.Parse(element.Id).ToVersion7(element.Created!.Value),
-                DisplayName = [new() { LanguageCode = "nb", Value = element.Filename ?? element.DataType }],
+                DisplayName = [new() { LanguageCode = "nb", Value = GetFileName(element) }],
                 Name = element.DataType,
                 Urls =
                 [
@@ -353,7 +373,7 @@ internal sealed class StorageDialogportenDataMerger
                 // Ensure unique IDs when the same DataElement appears as both TransmissionAttachment and Attachment
                 // This prevents ID collisions that would cause conflicts in Dialogporten
                 Id = transmissionId.CreateDeterministicSubUuidV7(element.Id),
-                DisplayName = [new() { LanguageCode = "nb", Value = element.Filename ?? element.DataType }],
+                DisplayName = [new() { LanguageCode = "nb", Value = GetFileName(element) }],
                 Name = element.DataType,
                 Urls =
                 [
@@ -451,7 +471,7 @@ internal sealed class StorageDialogportenDataMerger
             .Count();
 
         // Count of data elements of ref-data-as-pdf that are generated from a PDF generating task
-        var generatedPdfsCount = dataElements 
+        var generatedPdfsCount = dataElements
             .Count(dataElement =>
                 dataElement.DataType == PdfType &&
                 dataElement.References
@@ -465,7 +485,6 @@ internal sealed class StorageDialogportenDataMerger
 
     private static IEnumerable<(DataElement dataElement, DateTime? created)> RealCreate(MergeDto dto)
     {
-        
         var dataElements = dto.Instance.Data.Where(x => !ShouldSkipDataElement(x)).ToList();
         var dataTypes = dto.Application.DataTypes ?? [];
 
