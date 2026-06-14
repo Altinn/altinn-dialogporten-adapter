@@ -35,7 +35,7 @@ internal sealed class FourHundredLoggingDelegatingHandler : DelegatingHandler
         {
             if (ShouldLog(e.StatusCode))
             {
-                _logger.LogRequestError(e, request.Method, request.RequestUri, await requestContent.Value, e.StatusCode, e.Content);
+                _logger.LogRequestError(e, request.Method, request.RequestUri, LogRedactor.Redact(await requestContent.Value), e.StatusCode, LogRedactor.Redact(e.Content));
             }
             throw;
         }
@@ -47,7 +47,7 @@ internal sealed class FourHundredLoggingDelegatingHandler : DelegatingHandler
 
         await response.Content.LoadIntoBufferAsync(cancellationToken);
         var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
-        _logger.Log400Response(request.Method, request.RequestUri, await requestContent.Value, response.StatusCode, responseContent);
+        _logger.Log400Response(request.Method, request.RequestUri, LogRedactor.Redact(await requestContent.Value), response.StatusCode, LogRedactor.Redact(responseContent));
         return response;
     }
 
