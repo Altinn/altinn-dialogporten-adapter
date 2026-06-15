@@ -474,6 +474,7 @@ internal sealed class StorageDialogportenDataMerger
         var generatedPdfsCount = dataElements
             .Count(dataElement =>
                 dataElement.DataType == PdfType &&
+                dataElement.References is not null &&
                 dataElement.References
                     .Any(reference => reference.Relation == RelationType.GeneratedFrom &&
                         pdfCreatingTasks.Any(tasks => tasks.TaskId == reference.Value)
