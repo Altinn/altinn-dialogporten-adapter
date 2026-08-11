@@ -15,7 +15,7 @@ COPY src ./src
 RUN dotnet build -c Release -o out ./src/Altinn.DialogportenAdapter.WebApi/Altinn.DialogportenAdapter.WebApi.csproj
 
 # Build runtime image
-FROM mcr.microsoft.com/dotnet/aspnet:10.0.9@sha256:ddcf70ad1ab963a4fcd41fbd722a6b660e404e87567cfbd46fd2809c21b02088 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.10@sha256:bab27d29d13f9e903442c5fe83d7e162013747c6a101850f21049d17248afb85 AS final
 WORKDIR /app
 EXPOSE 5011
 
