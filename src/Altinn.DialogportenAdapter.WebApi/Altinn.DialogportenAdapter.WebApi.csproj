@@ -7,9 +7,8 @@
         <PackageReference Include="Altinn.Platform.Storage.Interface" Version="4.7.1" />
         <PackageReference Include="Azure.Identity" Version="1.21.0" />
         <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.6.0" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
-        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
-        <PackageReference Include="Microsoft.OpenApi" Version="2.11.0"/> <!-- Forced upgrade to patch https://github.com/advisories/GHSA-v5pm-xwqc-g5wc. Remove this when Microsoft.AspNetCore.OpenApi is patched. -->
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.11" />
+        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
         <PackageReference Include="Refit.HttpClientFactory" Version="10.2.0" />
         <PackageReference Include="DeterministicGuids" Version="1.0.11" />
         <PackageReference Include="WolverineFx.AzureServiceBus" Version="5.40.1" />
