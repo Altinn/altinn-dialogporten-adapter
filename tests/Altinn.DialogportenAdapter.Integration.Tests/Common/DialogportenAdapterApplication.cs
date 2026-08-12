@@ -1,9 +1,11 @@
 using System.Globalization;
 using System.Net;
+using Altinn.ApiClients.Dialogporten;
 using Altinn.ApiClients.Maskinporten.Interfaces;
 using Altinn.DialogportenAdapter.Contracts;
 using Altinn.DialogportenAdapter.Integration.Tests.Common.Extensions;
 using Altinn.DialogportenAdapter.Integration.Tests.Common.Services;
+using Altinn.DialogportenAdapter.Integration.Tests.Common.Token;
 using Altinn.DialogportenAdapter.WebApi;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
@@ -43,6 +45,7 @@ public class DialogportenAdapterApplication : IAsyncLifetime
     public WireMockServer RegisterApi { get; private set; } = null!;
     public ServiceBusClient ServiceBusClient { get; private set; } = null!;
     private ServiceBusAdministrationClient ServiceBusAdminClient { get; set; } = null!;
+
     private static bool IsDebug =>
 #if DEBUG
         true;
@@ -172,9 +175,13 @@ public class DialogportenAdapterApplication : IAsyncLifetime
             .AddSingleton<SyncCompletionSignal>()
             .ConfigureDialogportenAdapterServices(builder.Configuration, builder.Environment, new QuickClock())
             .RemoveAll<IMaskinportenService>().AddTransient<IMaskinportenService, FakeMaskinportenService>()
+            .RemoveAll<IDialogTokenValidator>().AddTransient<IDialogTokenValidator, FakeDialogTokenValidator>()
             .Decorate<ISyncInstanceToDialogService, SyncInstanceToDialogServiceDecorator>();
 
-        return builder.Build();
+        var app = builder
+            .Build()
+            .RegisterRoutes();
+        return app;
     }
 
     private IHost BuildStorageApplication()

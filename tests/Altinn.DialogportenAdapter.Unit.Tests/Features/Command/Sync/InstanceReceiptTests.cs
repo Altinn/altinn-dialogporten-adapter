@@ -25,7 +25,7 @@ public class InstanceReceiptTests
         var (sut, _, _, _, _, _) = CreateSut();
 
         var result = await sut.GetReceipt(
-            new GetReceiptDto(Guid.NewGuid(), Guid.NewGuid(), "de"),
+            new GetReceiptDto(Guid.NewGuid(), Guid.NewGuid(), "de", null),
             CancellationToken.None);
 
         Assert.IsType<GetReceiptResponse.InvalidLanguageCode>(result);
@@ -41,7 +41,7 @@ public class InstanceReceiptTests
         var (sut, _, _, _, _, _) = CreateSut(dialogApi: dialogApi);
 
         var result = await sut.GetReceipt(
-            new GetReceiptDto(Guid.NewGuid(), Guid.NewGuid(), "nb"),
+            new GetReceiptDto(Guid.NewGuid(), Guid.NewGuid(), "nb", null),
             CancellationToken.None);
 
         Assert.IsType<GetReceiptResponse.NotFound>(result);
@@ -59,7 +59,7 @@ public class InstanceReceiptTests
         var (sut, _, _, _, _, _) = CreateSutFromData(data);
 
         var result = await sut.GetReceipt(
-            new GetReceiptDto(data.DialogId, data.TransmissionId, "nb"),
+            new GetReceiptDto(data.DialogId, data.TransmissionId, "nb", null),
             CancellationToken.None);
 
         Assert.IsType<GetReceiptResponse.NotFound>(result);
@@ -75,7 +75,7 @@ public class InstanceReceiptTests
                 ApiNotFound<Instance>()));
 
         var result = await sut.GetReceipt(
-            new GetReceiptDto(data.DialogId, data.TransmissionId, "nb"),
+            new GetReceiptDto(data.DialogId, data.TransmissionId, "nb", null),
             CancellationToken.None);
 
         Assert.IsType<GetReceiptResponse.NotFound>(result);
@@ -90,7 +90,7 @@ public class InstanceReceiptTests
             .Returns((Application?)null);
 
         var result = await sut.GetReceipt(
-            new GetReceiptDto(data.DialogId, data.TransmissionId, "nb"),
+            new GetReceiptDto(data.DialogId, data.TransmissionId, "nb", null),
             CancellationToken.None);
 
         Assert.IsType<GetReceiptResponse.NotFound>(result);
@@ -104,7 +104,7 @@ public class InstanceReceiptTests
         var (sut, _, _, _, _, _) = CreateSutFromData(data);
 
         var result = await sut.GetReceipt(
-            new GetReceiptDto(data.DialogId, missingTransmissionId, "nb"),
+            new GetReceiptDto(data.DialogId, missingTransmissionId, "nb", null),
             CancellationToken.None);
 
         Assert.IsType<GetReceiptResponse.NotFound>(result);
@@ -119,7 +119,7 @@ public class InstanceReceiptTests
             .Returns((AltinnOrgData?)null);
 
         var result = await sut.GetReceipt(
-            new GetReceiptDto(data.DialogId, data.TransmissionId, "nb"),
+            new GetReceiptDto(data.DialogId, data.TransmissionId, "nb", null),
             CancellationToken.None);
 
         var success = Assert.IsType<GetReceiptResponse.Success>(result);
@@ -131,13 +131,35 @@ public class InstanceReceiptTests
     }
 
     [Fact]
+    public async Task GetReceipt_HappyPathWithTimezone_ReturnsMarkdown()
+    {
+        var data = CreateHappyPathData();
+        var (sut, _, _, _, _, _) = CreateSutFromData(data);
+
+        var result = await sut.GetReceipt(
+            new GetReceiptDto(data.DialogId, data.TransmissionId, "nb", "Prefer: timezone=UTC"),
+            CancellationToken.None
+        );
+
+        var success = Assert.IsType<GetReceiptResponse.Success>(result);
+        Assert.Contains("**Dato sendt:** | **20.03.2026 / 10:00**", success.Markdown);
+        Assert.Contains("Avsender:", success.Markdown);
+        Assert.Contains("123456*****-Ola Nordmann", success.Markdown);
+        Assert.Contains("Mottaker", success.Markdown);
+        Assert.Contains("Digitaliseringsdirektoratet", success.Markdown);
+        Assert.Contains("Referansenummer", success.Markdown);
+        Assert.Contains("123456789abc", success.Markdown);
+        Assert.Contains("Det er gjennomført en maskinell kontroll under utfylling", success.Markdown);
+    }
+
+    [Fact]
     public async Task GetReceipt_HappyPath_ReturnsMarkdownNb()
     {
         var data = CreateHappyPathData();
         var (sut, _, _, _, _, _) = CreateSutFromData(data);
 
         var result = await sut.GetReceipt(
-            new GetReceiptDto(data.DialogId, data.TransmissionId, "nb"),
+            new GetReceiptDto(data.DialogId, data.TransmissionId, "nb", null),
             CancellationToken.None);
 
         var success = Assert.IsType<GetReceiptResponse.Success>(result);
@@ -158,7 +180,7 @@ public class InstanceReceiptTests
         var (sut, _, _, _, _, _) = CreateSutFromData(data);
 
         var result = await sut.GetReceipt(
-            new GetReceiptDto(data.DialogId, data.TransmissionId, "nn"),
+            new GetReceiptDto(data.DialogId, data.TransmissionId, "nn", null),
             CancellationToken.None);
 
         var success = Assert.IsType<GetReceiptResponse.Success>(result);
@@ -179,7 +201,7 @@ public class InstanceReceiptTests
         var (sut, _, _, _, _, _) = CreateSutFromData(data);
 
         var result = await sut.GetReceipt(
-            new GetReceiptDto(data.DialogId, data.TransmissionId, "en"),
+            new GetReceiptDto(data.DialogId, data.TransmissionId, "en", null),
             CancellationToken.None);
 
         var success = Assert.IsType<GetReceiptResponse.Success>(result);
