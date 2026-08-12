@@ -104,6 +104,36 @@ public class GetReceiptTest(DialogportenAdapterApplication app) : BaseAdapterInt
                           """);
     }
 
+    [Fact]
+    public async Task GivenBadTimezoneInPreferHeaderReturnsReceiptInUtc()
+    {
+        // Arrange
+        var clientFactory = _app.App.Services.GetRequiredService<IHttpClientFactory>();
+        using var client = clientFactory.CreateClient();
+        ArrangeDefaultsForReceipt(out var dialogId, out var transmissionId);
+
+        // Act
+        var url = $"{GetHostUri()}/storage/dialogporten/api/v1/receipt/{dialogId}/{transmissionId}?lang=en";
+        var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Add("Authorization", "Bearer ignored");
+        request.Headers.Add("Prefer", "timezone=Europee/Oslo");
+        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        // Assert
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        body.Should().Be("""
+                         | **Date sent:** | **01.01.2020 / 12:30** |
+                         |:-|:-|
+                         | **Sender:** | 029147*****-testName |
+                         | **Receiver:** | 991825827 |
+                         | **Reference number:** | 87e518ebf653 |
+
+                         A mechanical check has been completed while filling in, but we reserve the right to detect errors during the processing of the case and that other documentation may be necessary. Please provide the reference number in case of any inquiries to the agency.
+                         """);
+    }
+
     private void ArrangeDefaultsForReceipt(out Guid dialogId, out Guid transmissionId)
     {
         dialogId = Guid.Parse("6a6a0c9e-9072-45bd-9b9b-13119dc0356e");

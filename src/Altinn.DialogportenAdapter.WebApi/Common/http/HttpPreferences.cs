@@ -12,9 +12,9 @@ public sealed class HttpPreferences() : Dictionary<string, string>(StringCompare
 
         foreach (var item in preferences)
         {
-            var parts = item.Split("=");
-            var key = parts.ElementAtOrDefault(0)?.Trim();
-            var value = parts.ElementAtOrDefault(1)?.Trim();
+            var parts = item.Split("=").Select(x => x.Trim()).ToArray();
+            var key = parts.ElementAtOrDefault(0);
+            var value = parts.ElementAtOrDefault(1);
 
             if (string.IsNullOrEmpty(key)) continue;
             if (string.IsNullOrEmpty(value)) continue;

@@ -51,6 +51,9 @@ internal sealed partial class InstanceReceipt(
     [LoggerMessage(LogLevel.Error, "Unhandled error occured: {Message}")]
     private partial void LogReceiptError(string message);
 
+    [LoggerMessage(LogLevel.Warning, "Error when parsing timezone: {Message}. Prefer header was: {PreferHeader}")]
+    private partial void LogTimeZoneWarning(string message, string? preferHeader);
+
     public static string GetSupportedLanguageCodes() => string.Join(", ", LanguageCodes);
 
     public async Task<GetReceiptResponse> GetReceipt(GetReceiptDto request, CancellationToken cancellationToken)
@@ -64,9 +67,10 @@ internal sealed partial class InstanceReceipt(
         {
             timeZone = preferences.GetTimeZoneOrDefault();
         }
-        catch
+        catch (Exception e)
         {
-            return new GetReceiptResponse.InvalidTimeZone();
+            LogTimeZoneWarning(e.Message, request.Prefer);
+            timeZone = null;
         }
 
 
