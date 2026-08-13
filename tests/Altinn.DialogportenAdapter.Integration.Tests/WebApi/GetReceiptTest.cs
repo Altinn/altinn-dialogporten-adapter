@@ -3,6 +3,7 @@ using System.Text.Json;
 using Altinn.DialogportenAdapter.Integration.Tests.Common;
 using Altinn.DialogportenAdapter.Integration.Tests.Common.Extensions;
 using Altinn.DialogportenAdapter.Test.Common.Builder;
+using Altinn.DialogportenAdapter.Test.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
@@ -35,7 +36,7 @@ public class GetReceiptTest(DialogportenAdapterApplication app) : BaseAdapterInt
         var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
 
         // Assert
-        response.EnsureSuccessStatusCode();
+        response.ShouldBeSuccess();
         response.Headers.GetValues("Access-Control-Allow-Origin").Single().Should().Be("*");
         response.Headers.GetValues("Access-Control-Allow-Methods").Single().Should().Be("GET");
         response.Headers.GetValues("Access-Control-Allow-Headers").Should().BeEquivalentTo("Authorization,Prefer");
@@ -58,7 +59,7 @@ public class GetReceiptTest(DialogportenAdapterApplication app) : BaseAdapterInt
         var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
 
         // Assert
-        response.EnsureSuccessStatusCode();
+        response.ShouldBeSuccess();
         var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
 
         body.Should().Be("""
@@ -90,7 +91,7 @@ public class GetReceiptTest(DialogportenAdapterApplication app) : BaseAdapterInt
         var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
 
         // Assert
-        response.EnsureSuccessStatusCode();
+        response.ShouldBeSuccess();
         var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
 
         body.Should().Be("""
@@ -122,7 +123,7 @@ public class GetReceiptTest(DialogportenAdapterApplication app) : BaseAdapterInt
         var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
 
         // Assert
-        response.EnsureSuccessStatusCode();
+        response.ShouldBeSuccess();
         var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
 
         body.Should().Be("""
@@ -154,7 +155,7 @@ public class GetReceiptTest(DialogportenAdapterApplication app) : BaseAdapterInt
         var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
 
         // Assert
-        response.EnsureSuccessStatusCode();
+        response.ShouldBeSuccess();
         var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
 
         body.Should().Be("""

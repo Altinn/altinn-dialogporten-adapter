@@ -19,6 +19,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Testcontainers.MsSql;
 using Testcontainers.ServiceBus;
 using WireMock.ResponseBuilders;
@@ -165,6 +166,8 @@ public class DialogportenAdapterApplication : IAsyncLifetime
     {
         var builder = WebApplication.CreateBuilder();
 
+        builder.Logging.AddConsole();
+
         builder
             .Configuration
             .AddLocalDevelopmentSettings(builder.Environment);
@@ -207,6 +210,7 @@ public class DialogportenAdapterApplication : IAsyncLifetime
         builderConfiguration["DialogportenAdapter:Altinn:BaseUri"] = AltinnApi.Url;
         builderConfiguration["DialogportenAdapter:Altinn:InternalStorageEndpoint"] = StorageApi.Url;
         builderConfiguration["DialogportenAdapter:Altinn:InternalRegisterEndpoint"] = RegisterApi.Url;
+        builderConfiguration["DialogportenAdapter:Authentication:JwtBearerWellKnown"] = "https://platform.tt02.altinn.no/authentication/api/v1/openid/.well-known/openid-configuration";
         builderConfiguration["WolverineSettings:ServiceBusConnectionString"] = _asbContainer.GetConnectionString();
         builderConfiguration["WolverineSettings:ManagementConnectionString"] = _asbContainer.GetHttpConnectionString();
         builderConfiguration["WolverineSettings:ListenerCount"] = "3";
