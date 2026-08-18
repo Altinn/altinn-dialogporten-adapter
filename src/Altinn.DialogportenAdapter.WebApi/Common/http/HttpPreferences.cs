@@ -25,10 +25,21 @@ public sealed class HttpPreferences() : Dictionary<string, string>(StringCompare
         return map;
     }
 
+    /// <summary>
+    /// Gets the timezone preference. Returns null if the timezone preference is not parseable.
+    /// </summary>
+    /// <returns></returns>
     public TimeZoneInfo? GetTimeZoneOrDefault()
     {
-        return TryGetValue("timezone", out var timezone)
-            ? TimeZoneInfo.FindSystemTimeZoneById(timezone)
-            : null;
+        if (!TryGetValue("timezone", out var timezone)) return null;
+
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById(timezone);
+        }
+        catch
+        {
+            return null;
+        }
     }
 }

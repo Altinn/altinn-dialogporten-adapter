@@ -24,7 +24,6 @@ public abstract record GetReceiptResponse
     public sealed record NotFound : GetReceiptResponse;
 
     public sealed record InvalidLanguageCode : GetReceiptResponse;
-    public sealed record InvalidTimeZone : GetReceiptResponse;
 }
 
 internal sealed partial class InstanceReceipt(
@@ -51,9 +50,6 @@ internal sealed partial class InstanceReceipt(
     [LoggerMessage(LogLevel.Error, "Unhandled error occured: {Message}")]
     private partial void LogReceiptError(string message);
 
-    [LoggerMessage(LogLevel.Warning, "Error when parsing timezone: {Message}. Prefer header was: {PreferHeader}")]
-    private partial void LogTimeZoneWarning(string message, string? preferHeader);
-
     public static string GetSupportedLanguageCodes() => string.Join(", ", LanguageCodes);
 
     public async Task<GetReceiptResponse> GetReceipt(GetReceiptDto request, CancellationToken cancellationToken)
@@ -62,17 +58,7 @@ internal sealed partial class InstanceReceipt(
             return new GetReceiptResponse.InvalidLanguageCode();
 
         var preferences = HttpPreferences.FromHeader(request.Prefer);
-        TimeZoneInfo? timeZone;
-        try
-        {
-            timeZone = preferences.GetTimeZoneOrDefault();
-        }
-        catch (Exception e)
-        {
-            LogTimeZoneWarning(e.Message, request.Prefer);
-            timeZone = null;
-        }
-
+        var timeZone  = preferences.GetTimeZoneOrDefault();
 
         var dialog = await _dialogportenApi.Get(request.DialogId, cancellationToken).ContentOrDefault();
         if (dialog is null)

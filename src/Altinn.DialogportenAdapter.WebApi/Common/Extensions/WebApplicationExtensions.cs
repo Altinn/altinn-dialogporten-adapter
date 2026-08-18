@@ -122,14 +122,6 @@ public static class WebApplicationExtensions
                                     $"Expected one of these language codes: {InstanceReceipt.GetSupportedLanguageCodes()}"
                                 ]
                             }),
-                        GetReceiptResponse.InvalidTimeZone => Results.ValidationProblem(
-                            new Dictionary<string, string[]>
-                            {
-                                ["timezone"] =
-                                [
-                                    "Timezone must be in the INTL format. E.g Europe/Oslo"
-                                ]
-                            }),
                         _ => Results.InternalServerError()
                     };
                 })
