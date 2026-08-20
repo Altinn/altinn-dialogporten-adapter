@@ -206,6 +206,7 @@ public class DialogportenAdapterApplication : IAsyncLifetime
 
     private void OverrideConfiguration(ConfigurationManager builderConfiguration)
     {
+        builderConfiguration["ApplicationInsights:Enabled"] = "false";
         builderConfiguration["DialogportenAdapter:Dialogporten:BaseUri"] = DialogportenApi.Url;
         builderConfiguration["DialogportenAdapter:Altinn:BaseUri"] = AltinnApi.Url;
         builderConfiguration["DialogportenAdapter:Altinn:InternalStorageEndpoint"] = StorageApi.Url;

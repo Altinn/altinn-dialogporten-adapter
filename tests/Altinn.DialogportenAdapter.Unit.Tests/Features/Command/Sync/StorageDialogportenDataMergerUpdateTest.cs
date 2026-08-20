@@ -49,7 +49,8 @@ public class StorageDialogportenDataMergerUpdateTest
                 ),
                 Authentication: new AuthenticationSettings(JwtBearerWellKnown: "http://well.known.localhost")
             ),
-            WolverineSettings = new WolverineSettings("http://service.bus.localhost", null, 0)
+            WolverineSettings = new WolverineSettings("http://service.bus.localhost", null, 0),
+            ApplicationInsights = new ApplicationInsights(false)
         });
 
         _registerRepositoryMock.GetActorUrnByPartyId(Arg.Any<IEnumerable<string>>(), Arg.Any<CancellationToken>())

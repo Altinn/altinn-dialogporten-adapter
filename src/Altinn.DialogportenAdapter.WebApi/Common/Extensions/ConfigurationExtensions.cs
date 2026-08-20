@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using Azure.Extensions.AspNetCore.Configuration.Secrets;
 using Azure.Identity;
 using Microsoft.Extensions.FileProviders;
@@ -42,15 +41,5 @@ internal static class ConfigurationExtensions
             new AzureKeyVaultConfigurationOptions{ ReloadInterval = TimeSpan.FromMinutes(5) });
         
         return config;
-    }
-
-    public static bool TryGetApplicationInsightsConnectionString(this IConfiguration config, [NotNullWhen(true)] out string? applicationInsightsConnectionString)
-    {
-        const string vaultApplicationInsightsKey = "ApplicationInsights:InstrumentationKey";
-        var foo = config[vaultApplicationInsightsKey];
-        applicationInsightsConnectionString = foo is not null 
-            ? $"InstrumentationKey={foo}"
-            : null;
-        return applicationInsightsConnectionString is not null;
     }
 }

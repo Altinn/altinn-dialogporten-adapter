@@ -11,11 +11,9 @@ using Altinn.DialogportenAdapter.EventSimulator.Features.UpdateStream;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Adapter;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Persistance;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Storage;
-using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Azure.Data.Tables;
 using JasperFx;
 using Microsoft.AspNetCore.Mvc;
-using OpenTelemetry.Resources;
 using Refit;
 using Wolverine;
 using Wolverine.AzureServiceBus;
@@ -60,20 +58,9 @@ static Task BuildAndRun(string[] args)
 
     var settings = builder.Configuration.Get<Settings>()!;
 
-    if (builder.Configuration.TryGetApplicationInsightsConnectionString(out var appInsightsConnectionString))
+    if (settings.ApplicationInsights.Enabled)
     {
-        builder.Services
-            .AddOpenTelemetry()
-            .ConfigureResource(x => x.AddAttributes([
-                new("service.name", "platform-dialogporten-eventsimulator")
-            ]))
-            .UseAzureMonitor(x =>
-            {
-                x.ConnectionString = appInsightsConnectionString;
-                x.SamplingRatio = 0.05F;
-                x.EnableLiveMetrics = false;
-                x.StorageDirectory = "/tmp/logtelemetry";
-            });
+        builder.Services.ConfigureTelemetry(settings);
     }
 
     builder.Services.AddWolverine(opts =>
