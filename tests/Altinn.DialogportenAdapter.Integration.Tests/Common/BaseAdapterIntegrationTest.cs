@@ -80,6 +80,11 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         return message;
     }
 
+    protected string GetHostUri()
+    {
+        return app.App.Urls.First();
+    }
+
     protected record EventProcessingResult(bool IsSuccess, ServiceBusReceivedMessage? DlqMessage)
     {
         public void ShouldBeSuccessful()
