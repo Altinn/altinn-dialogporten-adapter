@@ -212,7 +212,7 @@ internal static class ServiceCollectionExtensions
 
         private void ConfigureTelemetry(Settings settings)
         {
-            if (settings.ApplicationInsights.ConnectionString is null)
+            if (string.IsNullOrEmpty(settings.ApplicationInsights.ConnectionString))
             {
                 throw new ArgumentException("ApplicationInsights connection string is null");
             }
