@@ -3,9 +3,9 @@ using System.Net.Http.Json;
 using System.Text;
 using Altinn.ApiClients.Maskinporten.Config;
 using Altinn.DialogportenAdapter.WebApi;
-using AwesomeAssertions;
 using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
+using AwesomeAssertions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
@@ -43,7 +43,8 @@ public class AltinnOrgsTests
                 ),
                 Authentication: new AuthenticationSettings(JwtBearerWellKnown: "http://well.known.localhost")
             ),
-            WolverineSettings = new WolverineSettings("http://service.bus.localhost", null)
+            WolverineSettings = new WolverineSettings("http://service.bus.localhost", null),
+            ApplicationInsights = new ApplicationInsights(false)
         });
     }
 

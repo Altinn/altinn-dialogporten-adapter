@@ -7,12 +7,18 @@ public sealed class Settings
 {
     public required DialogportenAdapterSettings DialogportenAdapter { get; init; }
     public required WolverineSettings WolverineSettings { get; init; }
+    public required ApplicationInsights ApplicationInsights { get; init; }
 }
 
 public sealed record WolverineSettings(
     string ServiceBusConnectionString,
     string? ManagementConnectionString = null,
     int ListenerCount = 50);
+
+public sealed record ApplicationInsights(
+    bool Enabled,
+    string? ConnectionString = null
+);
 
 public sealed record DialogportenAdapterSettings(
     MaskinportenSettings Maskinporten,

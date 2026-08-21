@@ -52,23 +52,9 @@ internal static class ServiceCollectionExtensions
             IClock clock)
         {
             var settings = configuration.Get<Settings>()!;
-            if (configuration.TryGetApplicationInsightsConnectionString(out var appInsightsConnectionString))
+            if (settings.ApplicationInsights.Enabled)
             {
-                services
-                    .AddTransient<HealthCheckFilterProcessor>()
-                    .ConfigureOpenTelemetryTracerProvider((sp, builder) =>
-                        builder.AddProcessor(sp.GetRequiredService<HealthCheckFilterProcessor>()))
-                    .AddOpenTelemetry()
-                    .ConfigureResource(x => x.AddAttributes([
-                        new("service.name", "platform-dialogporten-adapter")
-                    ]))
-                    .UseAzureMonitor(x =>
-                    {
-                        x.ConnectionString = appInsightsConnectionString;
-                        x.SamplingRatio = 0.05F;
-                        x.EnableLiveMetrics = false;
-                        x.StorageDirectory = "/tmp/logtelemetry";
-                    });
+                services.ConfigureTelemetry(settings);
             }
 
             services.AddWolverine(opts =>
@@ -222,6 +208,30 @@ internal static class ServiceCollectionExtensions
                 .AddCheck<HealthCheck>("dialogporte_adapter_health_check");
 
             return services;
+        }
+
+        private void ConfigureTelemetry(Settings settings)
+        {
+            if (string.IsNullOrEmpty(settings.ApplicationInsights.ConnectionString))
+            {
+                throw new ArgumentException("ApplicationInsights connection string is null or empty");
+            }
+
+            services
+                .AddTransient<HealthCheckFilterProcessor>()
+                .ConfigureOpenTelemetryTracerProvider((sp, builder) =>
+                    builder.AddProcessor(sp.GetRequiredService<HealthCheckFilterProcessor>()))
+                .AddOpenTelemetry()
+                .ConfigureResource(x => x.AddAttributes([
+                    new("service.name", "platform-dialogporten-adapter")
+                ]))
+                .UseAzureMonitor(x =>
+                {
+                    x.ConnectionString = settings.ApplicationInsights.ConnectionString;
+                    x.SamplingRatio = 0.05F;
+                    x.EnableLiveMetrics = false;
+                    x.StorageDirectory = "/tmp/logtelemetry";
+                });
         }
 
         private IServiceCollection AddHttpClients(IConfiguration configuration)

@@ -1,5 +1,7 @@
 ﻿using Altinn.DialogportenAdapter.EventSimulator.Common.StartupLoaders;
 using Altinn.DialogportenAdapter.EventSimulator.Infrastructure.Persistance;
+using Azure.Monitor.OpenTelemetry.AspNetCore;
+using OpenTelemetry.Resources;
 
 namespace Altinn.DialogportenAdapter.EventSimulator.Common.Extensions;
 
@@ -54,5 +56,27 @@ internal static class ServiceCollectionExtensions
         }
 
         return collection;
+    }
+
+    public static IServiceCollection ConfigureTelemetry(this IServiceCollection services, Settings settings)
+    {
+        if (string.IsNullOrEmpty(settings.ApplicationInsights.ConnectionString))
+        {
+            throw new ArgumentException("ApplicationInsights connection string is null or empty");
+        }
+        services
+            .AddOpenTelemetry()
+            .ConfigureResource(x => x.AddAttributes([
+                new("service.name", "platform-dialogporten-eventsimulator")
+            ]))
+            .UseAzureMonitor(x =>
+            {
+                x.ConnectionString = settings.ApplicationInsights.ConnectionString;
+                x.SamplingRatio = 0.05F;
+                x.EnableLiveMetrics = false;
+                x.StorageDirectory = "/tmp/logtelemetry";
+            });
+
+        return services;
     }
 }
