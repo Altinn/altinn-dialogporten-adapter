@@ -214,7 +214,7 @@ internal static class ServiceCollectionExtensions
         {
             if (string.IsNullOrEmpty(settings.ApplicationInsights.ConnectionString))
             {
-                throw new ArgumentException("ApplicationInsights connection string is null");
+                throw new ArgumentException("ApplicationInsights connection string is null or empty");
             }
 
             services
