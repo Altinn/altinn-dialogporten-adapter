@@ -137,12 +137,34 @@ public class InstanceReceiptTests
         var (sut, _, _, _, _, _) = CreateSutFromData(data);
 
         var result = await sut.GetReceipt(
-            new GetReceiptDto(data.DialogId, data.TransmissionId, "nb", "Prefer: timezone=UTC"),
+            new GetReceiptDto(data.DialogId, data.TransmissionId, "nb", "timezone=\"Europe/Oslo\""),
             CancellationToken.None
         );
 
         var success = Assert.IsType<GetReceiptResponse.Success>(result);
-        Assert.Contains("**Dato sendt:** | **20.03.2026 / 10:00**", success.Markdown);
+        Assert.Contains("**Dato sendt:** | **20.03.2026 / 11:00**", success.Markdown);
+        Assert.Contains("Avsender:", success.Markdown);
+        Assert.Contains("123456*****-Ola Nordmann", success.Markdown);
+        Assert.Contains("Mottaker", success.Markdown);
+        Assert.Contains("Digitaliseringsdirektoratet", success.Markdown);
+        Assert.Contains("Referansenummer", success.Markdown);
+        Assert.Contains("123456789abc", success.Markdown);
+        Assert.Contains("Det er gjennomført en maskinell kontroll under utfylling", success.Markdown);
+    }
+
+    [Fact]
+    public async Task GetReceipt_HappyPathWithTimezoneNoQuotes_ReturnsMarkdown()
+    {
+        var data = CreateHappyPathData();
+        var (sut, _, _, _, _, _) = CreateSutFromData(data);
+
+        var result = await sut.GetReceipt(
+            new GetReceiptDto(data.DialogId, data.TransmissionId, "nb", "timezone=Europe/Oslo"),
+            CancellationToken.None
+        );
+
+        var success = Assert.IsType<GetReceiptResponse.Success>(result);
+        Assert.Contains("**Dato sendt:** | **20.03.2026 / 11:00**", success.Markdown);
         Assert.Contains("Avsender:", success.Markdown);
         Assert.Contains("123456*****-Ola Nordmann", success.Markdown);
         Assert.Contains("Mottaker", success.Markdown);
