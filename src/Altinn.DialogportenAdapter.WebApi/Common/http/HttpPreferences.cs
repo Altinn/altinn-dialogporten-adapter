@@ -35,7 +35,7 @@ public sealed class HttpPreferences() : Dictionary<string, string>(StringCompare
 
         try
         {
-            return TimeZoneInfo.FindSystemTimeZoneById(timezone);
+            return TimeZoneInfo.FindSystemTimeZoneById(timezone.Trim('"'));
         }
         catch
         {
