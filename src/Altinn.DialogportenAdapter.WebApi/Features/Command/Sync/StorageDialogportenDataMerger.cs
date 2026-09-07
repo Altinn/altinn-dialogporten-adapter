@@ -492,29 +492,40 @@ internal sealed class StorageDialogportenDataMerger
         var dataTypesWithTaskId = dataTypes.Where(x => !string.IsNullOrEmpty(x.TaskId)).ToList();
         foreach (var dataElement in dataElements)
         {
-            var created = dataElement.Created;
-            if (dataElement.References is not null && dataElement.References.Any(x => x.Relation == RelationType.GeneratedFrom))
-            {
-                var idFromTask = GetIdFromTask(dataTypesWithTaskId, dataElement);
-                if (idFromTask is not null)
-                {
-                    created = dataElements.Where(x => x.DataType == idFromTask).Select(x => x.Created).FirstOrDefault();
-                }
-            }
+            // Generated data elements (PDF receipts) follow the source data of the task they were generated from
+            var created = GetSourceDataCreated(dataElement) ?? dataElement.Created;
             yield return (dataElement, created);
         }
         yield break;
 
+        DateTime? GetSourceDataCreated(DataElement dataElement)
+        {
+            var taskId = dataElement.References?
+                .FirstOrDefault(x => x.Relation == RelationType.GeneratedFrom)
+                ?.Value;
+
+            if (string.IsNullOrEmpty(taskId))
+            {
+                return null;
+            }
+
+            var sourceDataTypes = dataTypesWithTaskId
+                .Where(x => x.TaskId == taskId)
+                .ToList();
+
+            // Prefer form data (data types with app logic) over uploaded attachments
+            return dataElements
+                .Join(sourceDataTypes, x => x.DataType, x => x.Id, (element, dataType) => (element, dataType))
+                .Where(x => x.element.Created is not null)
+                .OrderByDescending(x => x.dataType.AppLogic is not null)
+                .ThenBy(x => x.element.Created)
+                .Select(x => x.element.Created)
+                .FirstOrDefault();
+        }
+
         // We hide the A1 "Signatures.html" from DP/AF
         bool ShouldSkipDataElement(DataElement element) => IsA1Instance(dto.Instance) && element.DataType == "signature-presentation";
     }
-
-    private static string? GetIdFromTask(IEnumerable<DataType> dataTypes, DataElement dataElement) =>
-        dataTypes
-            .Where(x => x.TaskId == dataElement.References
-                .Where(x => x.Relation == RelationType.GeneratedFrom).First().Value)
-            .Select(x => x.Id)
-            .FirstOrDefault();
 
     private async Task<string> GetPartyUrnOrThrow(string partyId, CancellationToken cancellationToken)
     {
