@@ -32,15 +32,18 @@ internal sealed class StorageDialogportenDataMerger
     private readonly Settings _settings;
     private readonly ActivityDtoTransformer _activityDtoTransformer;
     private readonly IRegisterRepository _registerRepository;
+    private readonly IAltinnOrgs _altinnOrgs;
 
     public StorageDialogportenDataMerger(
         IOptionsSnapshot<Settings> settings,
         ActivityDtoTransformer activityDtoTransformer,
-        IRegisterRepository registerRepository)
+        IRegisterRepository registerRepository,
+        IAltinnOrgs altinnOrgs)
     {
         _settings = settings.Value ?? throw new ArgumentNullException(nameof(settings));
         _activityDtoTransformer = activityDtoTransformer ?? throw new ArgumentNullException(nameof(activityDtoTransformer));
         _registerRepository = registerRepository ?? throw new ArgumentNullException(nameof(registerRepository));
+        _altinnOrgs = altinnOrgs ?? throw new ArgumentNullException(nameof(altinnOrgs));
     }
 
     public async Task<DialogDto> Merge(MergeDto dto, int currentAttempt, CancellationToken cancellationToken)
@@ -172,12 +175,13 @@ internal sealed class StorageDialogportenDataMerger
             ? SystemLabel.Archive
             : SystemLabel.Default;
 
-        var (party, activities) = await (
+        var (party, activities, serviceOwnerOrgNumber) = await (
             GetPartyUrnOrThrow(dto.Instance.InstanceOwner.PartyId, cancellationToken),
-            _activityDtoTransformer.GetActivities(dto.Events, dto.Instance.InstanceOwner, cancellationToken)
+            _activityDtoTransformer.GetActivities(dto.Events, dto.Instance.InstanceOwner, cancellationToken),
+            GetServiceOwnerOrgNumber(dto, cancellationToken)
         );
 
-        var (attachments, transmissions) = GetAttachmentAndTransmissions(dto, activities, currentAttempt);
+        var (attachments, transmissions) = GetAttachmentAndTransmissions(dto, activities, serviceOwnerOrgNumber, currentAttempt);
 
         var dialog = new DialogDto
         {
@@ -262,9 +266,34 @@ internal sealed class StorageDialogportenDataMerger
         };
     }
 
+    /// <summary>
+    /// Resolves the organization number of the service owner owning the application.
+    /// Returns null when it cannot be resolved, in which case all data elements are treated as user data.
+    /// </summary>
+    private async Task<string?> GetServiceOwnerOrgNumber(MergeDto dto, CancellationToken cancellationToken)
+    {
+        var orgCode = !string.IsNullOrWhiteSpace(dto.Application.Org)
+            ? dto.Application.Org
+            : dto.Instance.Org;
+
+        if (string.IsNullOrWhiteSpace(orgCode))
+        {
+            return null;
+        }
+
+        var orgs = await _altinnOrgs.GetAltinnOrgs(cancellationToken);
+        return orgs?.Orgs is { } orgsByCode
+            && orgsByCode.TryGetValue(orgCode, out var org)
+            && !string.IsNullOrWhiteSpace(org.OrgNr)
+                ? org.OrgNr
+                : null;
+    }
+
     private (List<AttachmentDto> attachments, List<TransmissionDto> transmissions) GetAttachmentAndTransmissions(
         MergeDto dto,
-        List<ActivityDto> activities, int currentAttempt = 1)
+        List<ActivityDto> activities,
+        string? serviceOwnerOrgNumber,
+        int currentAttempt = 1)
     {
         var realCreatedData = RealCreate(dto).ToList();
         var attachmentVisibility = ReceiptAttachmentVisibilityDecider.Create(dto.Application);
@@ -305,7 +334,8 @@ internal sealed class StorageDialogportenDataMerger
 
         return (attachments, transmissions);
 
-        bool IsPerformedBySo(DataElement element) => element.LastChangedBy.Length == 9;
+        bool IsPerformedBySo(DataElement element) =>
+            serviceOwnerOrgNumber is not null && element.LastChangedBy == serviceOwnerOrgNumber;
         bool IsNotPdfReceipt(DataElement element) => element.DataType != PdfType;
 
         bool TransmissionsDisabled() => dto.Application.GetSyncAdapterSettings().DisableAddTransmissions ||

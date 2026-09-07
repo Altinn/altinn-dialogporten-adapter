@@ -18,12 +18,17 @@ namespace Altinn.DialogportenAdapter.Unit.Tests.Features.Command.Sync;
 public class StorageDialogportenDataMergerTest
 {
     private readonly IRegisterRepository _registerRepositoryMock = Substitute.For<IRegisterRepository>();
+    private readonly IAltinnOrgs _altinnOrgsMock = Substitute.For<IAltinnOrgs>();
     private readonly StorageDialogportenDataMerger _storageDialogportenDataMerger;
     private const string PartyId1 = "party-1";
     private const string PartyId2 = "party-2";
     private const int UserId1 = 1;
     private const int UserId2 = 2;
     private const int UserUnknown = 999;
+
+    // The default Org of AltinnApplicationBuilder resolves to the default LastChangedBy of AltinnDataElementBuilder
+    private const string ServiceOwnerOrgCode = "ttd";
+    private const string ServiceOwnerOrgNumber = "123456789";
     private AdapterFeatureFlagSettings _featureFlags = new() { EnableSubmissionTransmissions = true };
 
     public StorageDialogportenDataMergerTest()
@@ -68,11 +73,23 @@ public class StorageDialogportenDataMergerTest
                 { $"{UserId2}", "urn:altinn:person:legacy-selfidentified:Per" },
             });
 
+        _altinnOrgsMock.GetAltinnOrgs(Arg.Any<CancellationToken>())
+            .Returns(new AltinnOrgData(new Dictionary<string, Org>
+            {
+                [ServiceOwnerOrgCode] = new Org(
+                    Name: new Dictionary<string, string> { ["nb"] = "Testdepartementet" },
+                    OrgNr: ServiceOwnerOrgNumber,
+                    Environments: ["tt02", "production"],
+                    Logo: null,
+                    Emblem: null,
+                    HomePage: null)
+            }));
 
         _storageDialogportenDataMerger = new StorageDialogportenDataMerger(
             options,
             new ActivityDtoTransformer(_registerRepositoryMock),
-            _registerRepositoryMock
+            _registerRepositoryMock,
+            _altinnOrgsMock
         );
     }
 
@@ -2551,4 +2568,179 @@ public class StorageDialogportenDataMergerTest
         ]);
         displayNames.Should().AllSatisfy(x => x.Length.Should().BeLessThanOrEqualTo(255));
     }
+
+    [Fact(DisplayName = "Given data elements last changed by an organization that is not the service owner, all data elements including the PDF receipt are mapped to the submission transmission")]
+    public async Task Merge_DataElementsChangedByEndUserOrganization_MapsDataElementsAndPdfReceiptToTransmission()
+    {
+        // Nine digits like the service owner's organization number, but not the service owner
+        const string endUserOrgNumber = "987654321";
+        var submittedAt = new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc);
+
+        var mergeDto = new MergeDto(
+            DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
+            ExistingDialog: null,
+            Application: AltinnApplicationBuilder
+                .NewDefaultAltinnApplication()
+                .WithDataTypes(
+                    AltinnDataTypeBuilder.NewDefaultDataType().WithId("Vedlegg").WithTaskId("Task_1").Build(),
+                    AltinnDataTypeBuilder.NewDefaultDataType().WithId("ref-data-as-pdf").Build(),
+                    AltinnDataTypeBuilder.NewDefaultDataType().WithId("Hovedskjema").WithTaskId("Task_1")
+                        .WithAppLogic(new ApplicationLogic()).WithEnablePdfCreation(true).Build())
+                .Build(),
+            ApplicationTexts: new ApplicationTexts { Translations = [] },
+            Instance: AltinnInstanceBuilder
+                .NewInProgressInstance()
+                .WithData([
+                    AltinnDataElementBuilder.NewDefaultDataElementBuilder()
+                        .WithId("019bd57e-ce5e-74ed-8130-3a1ac8af3d91")
+                        .WithDataType("Hovedskjema")
+                        .WithCreated(new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc))
+                        .WithLastChangedBy(endUserOrgNumber)
+                        .WithReferences([])
+                        .Build(),
+                    AltinnDataElementBuilder.NewDefaultDataElementBuilder()
+                        .WithId("019bd5eb-4239-7a40-a823-7735059ef136")
+                        .WithDataType("Vedlegg")
+                        .WithCreated(new DateTime(2000, 6, 1, 1, 1, 1, DateTimeKind.Utc))
+                        .WithLastChangedBy(endUserOrgNumber)
+                        .WithReferences([])
+                        .Build(),
+                    AltinnDataElementBuilder.NewDefaultDataElementBuilder()
+                        .WithId("019bd5eb-62e2-711d-b79f-835d26cd1a58")
+                        .WithDataType("ref-data-as-pdf")
+                        .WithCreated(submittedAt.AddMinutes(1))
+                        .WithLastChangedBy(endUserOrgNumber)
+                        .WithReferences([GeneratedFrom("Task_1")])
+                        .Build()
+                ])
+                .Build(),
+            Events: new InstanceEventList
+            {
+                InstanceEvents =
+                [
+                    AltinnInstanceEventBuilder.NewCreatedByPlatformUserInstanceEvent(UserId1).Build(),
+                    AltinnInstanceEventBuilder.NewSubmittedByPlatformUserInstanceEvent(UserId1)
+                        .WithCreated(submittedAt)
+                        .WithUser(new PlatformUser { SystemUserOwnerOrgNo = endUserOrgNumber })
+                        .Build()
+                ]
+            },
+            IsMigration: false);
+
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
+
+        actualDialogDto.Attachments.Should().BeEmpty();
+        var transmission = actualDialogDto.Transmissions.Should().ContainSingle().Subject;
+        transmission.Sender.Should().BeEquivalentTo(new ActorDto
+        {
+            ActorType = ActorType.PartyRepresentative,
+            ActorId = $"{Constants.OrganizationUrnPrefix}{endUserOrgNumber}"
+        });
+        transmission.Attachments.Select(x => x.Name).Should().BeEquivalentTo(["Hovedskjema", "Vedlegg", "ref-data-as-pdf"]);
+    }
+
+    [Fact(DisplayName = "Given a PDF receipt last changed by the service owner, the PDF receipt is left out of the dialog attachments")]
+    public async Task Merge_PdfReceiptChangedByServiceOwner_ExcludesPdfReceiptFromDialogAttachments()
+    {
+        const string userId = "1337";
+        var submittedAt = new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc);
+
+        var mergeDto = new MergeDto(
+            DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
+            ExistingDialog: null,
+            Application: AltinnApplicationBuilder
+                .NewDefaultAltinnApplication()
+                .WithDataTypes(
+                    AltinnDataTypeBuilder.NewDefaultDataType().WithId("Hovedskjema").WithTaskId("Task_1")
+                        .WithAppLogic(new ApplicationLogic()).WithEnablePdfCreation(true).Build(),
+                    AltinnDataTypeBuilder.NewDefaultDataType().WithId("ref-data-as-pdf").Build())
+                .Build(),
+            ApplicationTexts: new ApplicationTexts { Translations = [] },
+            Instance: AltinnInstanceBuilder
+                .NewInProgressInstance()
+                .WithData([
+                    AltinnDataElementBuilder.NewDefaultDataElementBuilder()
+                        .WithId("019bd57e-ce5e-74ed-8130-3a1ac8af3d91")
+                        .WithDataType("Hovedskjema")
+                        .WithCreated(new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc))
+                        .WithLastChangedBy(userId)
+                        .WithReferences([])
+                        .Build(),
+                    AltinnDataElementBuilder.NewDefaultDataElementBuilder()
+                        .WithId("019bd5eb-62e2-711d-b79f-835d26cd1a58")
+                        .WithDataType("ref-data-as-pdf")
+                        .WithCreated(submittedAt.AddMinutes(1))
+                        .WithLastChangedBy(ServiceOwnerOrgNumber)
+                        .WithReferences([GeneratedFrom("Task_1")])
+                        .Build()
+                ])
+                .Build(),
+            Events: new InstanceEventList
+            {
+                InstanceEvents =
+                [
+                    AltinnInstanceEventBuilder.NewCreatedByPlatformUserInstanceEvent(UserId1).Build(),
+                    AltinnInstanceEventBuilder.NewSubmittedByPlatformUserInstanceEvent(UserId1).WithCreated(submittedAt).Build()
+                ]
+            },
+            IsMigration: false);
+
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
+
+        var transmission = actualDialogDto.Transmissions.Should().ContainSingle().Subject;
+        transmission.Attachments.Select(x => x.Name).Should().BeEquivalentTo(["Hovedskjema"]);
+        actualDialogDto.Attachments.Should().BeEmpty();
+    }
+
+    [Fact(DisplayName = "Given the service owner organization number cannot be resolved, data elements are treated as user data and mapped to the submission transmission")]
+    public async Task Merge_ServiceOwnerOrgNumberCannotBeResolved_TreatsDataElementsAsUserData()
+    {
+        _altinnOrgsMock.GetAltinnOrgs(Arg.Any<CancellationToken>()).Returns((AltinnOrgData?)null);
+        var submittedAt = new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc);
+
+        var mergeDto = new MergeDto(
+            DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
+            ExistingDialog: null,
+            Application: AltinnApplicationBuilder
+                .NewDefaultAltinnApplication()
+                .WithDataTypes(
+                    AltinnDataTypeBuilder.NewDefaultDataType().WithId("Hovedskjema").WithTaskId("Task_1")
+                        .WithAppLogic(new ApplicationLogic()).Build())
+                .Build(),
+            ApplicationTexts: new ApplicationTexts { Translations = [] },
+            Instance: AltinnInstanceBuilder
+                .NewInProgressInstance()
+                .WithData([
+                    // Default LastChangedBy is the service owner organization number
+                    AltinnDataElementBuilder.NewDefaultDataElementBuilder()
+                        .WithId("019bd57e-ce5e-74ed-8130-3a1ac8af3d91")
+                        .WithDataType("Hovedskjema")
+                        .WithCreated(new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc))
+                        .WithReferences([])
+                        .Build()
+                ])
+                .Build(),
+            Events: new InstanceEventList
+            {
+                InstanceEvents =
+                [
+                    AltinnInstanceEventBuilder.NewCreatedByPlatformUserInstanceEvent(UserId1).Build(),
+                    AltinnInstanceEventBuilder.NewSubmittedByPlatformUserInstanceEvent(UserId1).WithCreated(submittedAt).Build()
+                ]
+            },
+            IsMigration: false);
+
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
+
+        actualDialogDto.Attachments.Should().BeEmpty();
+        var transmission = actualDialogDto.Transmissions.Should().ContainSingle().Subject;
+        transmission.Attachments.Select(x => x.Name).Should().BeEquivalentTo(["Hovedskjema"]);
+    }
+
+    private static Reference GeneratedFrom(string taskId) => new()
+    {
+        Value = taskId,
+        Relation = RelationType.GeneratedFrom,
+        ValueType = ReferenceType.Task
+    };
 }
