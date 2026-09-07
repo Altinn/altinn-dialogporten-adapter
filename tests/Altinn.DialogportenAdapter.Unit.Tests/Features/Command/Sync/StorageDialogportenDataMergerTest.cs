@@ -1,8 +1,10 @@
+using System.Text.Json;
 using Altinn.ApiClients.Maskinporten.Config;
 using Altinn.DialogportenAdapter.Test.Common.Builder;
 using Altinn.DialogportenAdapter.Unit.Tests.Common.AssertHelpers;
 using Altinn.DialogportenAdapter.WebApi;
 using Altinn.DialogportenAdapter.WebApi.Common;
+using Altinn.DialogportenAdapter.WebApi.Common.Exceptions;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
@@ -160,6 +162,7 @@ public class StorageDialogportenDataMergerTest
         var mergeDto = new MergeDto(
             Application: new Application
             {
+                Org = ServiceOwnerOrgCode,
                 Title = new Dictionary<string, string>
                 {
                     ["nb"] = "Test applikasjon",
@@ -226,6 +229,7 @@ public class StorageDialogportenDataMergerTest
         var mergeDto = new MergeDto(
             Application: new Application
             {
+                Org = ServiceOwnerOrgCode,
                 Title = new Dictionary<string, string>
                 {
                     ["nb"] = "Test applikasjon",
@@ -2692,13 +2696,80 @@ public class StorageDialogportenDataMergerTest
         actualDialogDto.Attachments.Should().BeEmpty();
     }
 
-    [Fact(DisplayName = "Given the service owner organization number cannot be resolved, data elements are treated as user data and mapped to the submission transmission")]
-    public async Task Merge_ServiceOwnerOrgNumberCannotBeResolved_TreatsDataElementsAsUserData()
+    [Fact(DisplayName = "Given AltinnOrgs cannot be fetched, the sync fails so that it is retried instead of changing attachment ownership")]
+    public async Task Merge_AltinnOrgsUnavailable_Throws()
     {
         _altinnOrgsMock.GetAltinnOrgs(Arg.Any<CancellationToken>()).Returns((AltinnOrgData?)null);
+
+        var merge = () => _storageDialogportenDataMerger.Merge(SubmittedInstanceMergeDto(), currentAttempt: 1, CancellationToken.None);
+
+        await merge.Should().ThrowAsync<AltinnOrgsUnavailableException>();
+    }
+
+    [Theory(DisplayName = "Given an AltinnOrgs response without an orgs collection, the sync fails as if AltinnOrgs was unavailable")]
+    [InlineData("{}")]
+    [InlineData("{\"orgs\":null}")]
+    public async Task Merge_AltinnOrgsResponseWithoutOrgs_ThrowsUnavailable(string json)
+    {
+        _altinnOrgsMock.GetAltinnOrgs(Arg.Any<CancellationToken>()).Returns(JsonSerializer.Deserialize<AltinnOrgData>(json));
+
+        var merge = () => _storageDialogportenDataMerger.Merge(SubmittedInstanceMergeDto(), currentAttempt: 1, CancellationToken.None);
+
+        await merge.Should().ThrowAsync<AltinnOrgsUnavailableException>();
+    }
+
+    [Theory(DisplayName = "Given the service owner is not listed or has no usable entry in AltinnOrgs, the sync fails so that it is retried instead of changing attachment ownership")]
+    [InlineData("{\"orgs\":{}}")]
+    [InlineData("{\"orgs\":{\"brg\":null}}")]
+    [InlineData("{\"orgs\":{\"ttd\":null}}")]
+    [InlineData("{\"orgs\":{\"ttd\":{\"name\":{\"nb\":\"Testdepartementet\"}}}}")]
+    public async Task Merge_ServiceOwnerNotListedInAltinnOrgs_ThrowsNotFound(string json)
+    {
+        _altinnOrgsMock.GetAltinnOrgs(Arg.Any<CancellationToken>()).Returns(JsonSerializer.Deserialize<AltinnOrgData>(json));
+
+        var merge = () => _storageDialogportenDataMerger.Merge(SubmittedInstanceMergeDto(), currentAttempt: 1, CancellationToken.None);
+
+        await merge.Should().ThrowAsync<ServiceOwnerOrgNumberNotFoundException>();
+    }
+
+    [Fact(DisplayName = "Given transmissions are disabled, AltinnOrgs is not consulted")]
+    public async Task Merge_TransmissionsDisabled_DoesNotConsultAltinnOrgs()
+    {
+        _altinnOrgsMock.GetAltinnOrgs(Arg.Any<CancellationToken>()).Returns((AltinnOrgData?)null);
+
+        await _storageDialogportenDataMerger.Merge(SubmittedInstanceMergeDto(transmissionsDisabled: true), currentAttempt: 1, CancellationToken.None);
+
+        await _altinnOrgsMock.DidNotReceive().GetAltinnOrgs(Arg.Any<CancellationToken>());
+    }
+
+    [Fact(DisplayName = "Given no submission, AltinnOrgs is not consulted")]
+    public async Task Merge_NoSubmission_DoesNotConsultAltinnOrgs()
+    {
+        _altinnOrgsMock.GetAltinnOrgs(Arg.Any<CancellationToken>()).Returns((AltinnOrgData?)null);
+
+        await _storageDialogportenDataMerger.Merge(SubmittedInstanceMergeDto(submitted: false), currentAttempt: 1, CancellationToken.None);
+
+        await _altinnOrgsMock.DidNotReceive().GetAltinnOrgs(Arg.Any<CancellationToken>());
+    }
+
+    [Fact(DisplayName = "Given no data element last changed by something that could be an organization, AltinnOrgs is not consulted")]
+    public async Task Merge_NoDataElementChangedByPossibleOrganization_DoesNotConsultAltinnOrgs()
+    {
+        _altinnOrgsMock.GetAltinnOrgs(Arg.Any<CancellationToken>()).Returns((AltinnOrgData?)null);
+
+        await _storageDialogportenDataMerger.Merge(SubmittedInstanceMergeDto(lastChangedBy: "1337"), currentAttempt: 1, CancellationToken.None);
+
+        await _altinnOrgsMock.DidNotReceive().GetAltinnOrgs(Arg.Any<CancellationToken>());
+    }
+
+    private static MergeDto SubmittedInstanceMergeDto(
+        string lastChangedBy = ServiceOwnerOrgNumber,
+        bool submitted = true,
+        bool transmissionsDisabled = false)
+    {
         var submittedAt = new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc);
 
-        var mergeDto = new MergeDto(
+        return new MergeDto(
             DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
             ExistingDialog: null,
             Application: AltinnApplicationBuilder
@@ -2706,35 +2777,35 @@ public class StorageDialogportenDataMergerTest
                 .WithDataTypes(
                     AltinnDataTypeBuilder.NewDefaultDataType().WithId("Hovedskjema").WithTaskId("Task_1")
                         .WithAppLogic(new ApplicationLogic()).Build())
+                .WithMessageBoxConfig(new MessageBoxConfig
+                {
+                    SyncAdapterSettings = new SyncAdapterSettings { DisableAddTransmissions = transmissionsDisabled }
+                })
                 .Build(),
             ApplicationTexts: new ApplicationTexts { Translations = [] },
             Instance: AltinnInstanceBuilder
                 .NewInProgressInstance()
                 .WithData([
-                    // Default LastChangedBy is the service owner organization number
                     AltinnDataElementBuilder.NewDefaultDataElementBuilder()
                         .WithId("019bd57e-ce5e-74ed-8130-3a1ac8af3d91")
                         .WithDataType("Hovedskjema")
                         .WithCreated(new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc))
+                        .WithLastChangedBy(lastChangedBy)
                         .WithReferences([])
                         .Build()
                 ])
                 .Build(),
             Events: new InstanceEventList
             {
-                InstanceEvents =
-                [
-                    AltinnInstanceEventBuilder.NewCreatedByPlatformUserInstanceEvent(UserId1).Build(),
-                    AltinnInstanceEventBuilder.NewSubmittedByPlatformUserInstanceEvent(UserId1).WithCreated(submittedAt).Build()
-                ]
+                InstanceEvents = submitted
+                    ?
+                    [
+                        AltinnInstanceEventBuilder.NewCreatedByPlatformUserInstanceEvent(UserId1).Build(),
+                        AltinnInstanceEventBuilder.NewSubmittedByPlatformUserInstanceEvent(UserId1).WithCreated(submittedAt).Build()
+                    ]
+                    : [AltinnInstanceEventBuilder.NewCreatedByPlatformUserInstanceEvent(UserId1).Build()]
             },
             IsMigration: false);
-
-        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
-
-        actualDialogDto.Attachments.Should().BeEmpty();
-        var transmission = actualDialogDto.Transmissions.Should().ContainSingle().Subject;
-        transmission.Attachments.Select(x => x.Name).Should().BeEquivalentTo(["Hovedskjema"]);
     }
 
     private static Reference GeneratedFrom(string taskId) => new()

@@ -175,11 +175,14 @@ internal sealed class StorageDialogportenDataMerger
             ? SystemLabel.Archive
             : SystemLabel.Default;
 
-        var (party, activities, serviceOwnerOrgNumber) = await (
+        var (party, activities) = await (
             GetPartyUrnOrThrow(dto.Instance.InstanceOwner.PartyId, cancellationToken),
-            _activityDtoTransformer.GetActivities(dto.Events, dto.Instance.InstanceOwner, cancellationToken),
-            GetServiceOwnerOrgNumber(dto, cancellationToken)
+            _activityDtoTransformer.GetActivities(dto.Events, dto.Instance.InstanceOwner, cancellationToken)
         );
+
+        var serviceOwnerOrgNumber = RequiresServiceOwnerOrgNumber(dto, activities)
+            ? await GetServiceOwnerOrgNumber(dto, cancellationToken)
+            : null;
 
         var (attachments, transmissions) = GetAttachmentAndTransmissions(dto, activities, serviceOwnerOrgNumber, currentAttempt);
 
@@ -267,26 +270,45 @@ internal sealed class StorageDialogportenDataMerger
     }
 
     /// <summary>
-    /// Resolves the organization number of the service owner owning the application.
-    /// Returns null when it cannot be resolved, in which case all data elements are treated as user data.
+    /// The service owner organization number is only needed to keep service owner data out of submission
+    /// transmissions. Skip the lookup when nothing could end up in one, so that unrelated syncs do not
+    /// depend on AltinnOrgs being available. A nine digit LastChangedBy only decides whether a lookup is
+    /// needed; ownership is still decided by an exact match against the resolved organization number.
     /// </summary>
-    private async Task<string?> GetServiceOwnerOrgNumber(MergeDto dto, CancellationToken cancellationToken)
+    private bool RequiresServiceOwnerOrgNumber(MergeDto dto, List<ActivityDto> activities) =>
+        !TransmissionsDisabled(dto)
+        && activities.Any(x => x.Type is DialogActivityType.FormSubmitted)
+        && (dto.Instance.Data ?? []).Any(x => CouldBeOrgNumber(x.LastChangedBy));
+
+    private static bool CouldBeOrgNumber(string? value) =>
+        value is { Length: 9 } && value.All(char.IsAsciiDigit);
+
+    private bool TransmissionsDisabled(MergeDto dto) =>
+        dto.Application.GetSyncAdapterSettings().DisableAddTransmissions
+        || !_settings.DialogportenAdapter.Adapter.FeatureFlag.EnableSubmissionTransmissions;
+
+    /// <summary>
+    /// Resolves the organization number of the service owner owning the application. Throws when it cannot
+    /// be resolved, so that the sync is retried rather than misclassifying service owner data as user data.
+    /// </summary>
+    private async Task<string> GetServiceOwnerOrgNumber(MergeDto dto, CancellationToken cancellationToken)
     {
         var orgCode = !string.IsNullOrWhiteSpace(dto.Application.Org)
             ? dto.Application.Org
             : dto.Instance.Org;
 
-        if (string.IsNullOrWhiteSpace(orgCode))
+        // An incomplete response deserializes with null collections and entries despite the record declarations
+        var orgs = await _altinnOrgs.GetAltinnOrgs(cancellationToken);
+        if (orgs?.Orgs is not { } orgsByCode)
         {
-            return null;
+            throw new AltinnOrgsUnavailableException();
         }
 
-        var orgs = await _altinnOrgs.GetAltinnOrgs(cancellationToken);
-        return orgs?.Orgs is { } orgsByCode
+        return !string.IsNullOrWhiteSpace(orgCode)
             && orgsByCode.TryGetValue(orgCode, out var org)
-            && !string.IsNullOrWhiteSpace(org.OrgNr)
+            && !string.IsNullOrWhiteSpace(org?.OrgNr)
                 ? org.OrgNr
-                : null;
+                : throw new ServiceOwnerOrgNumberNotFoundException(orgCode);
     }
 
     private (List<AttachmentDto> attachments, List<TransmissionDto> transmissions) GetAttachmentAndTransmissions(
@@ -298,7 +320,7 @@ internal sealed class StorageDialogportenDataMerger
         var realCreatedData = RealCreate(dto).ToList();
         var attachmentVisibility = ReceiptAttachmentVisibilityDecider.Create(dto.Application);
 
-        if (TransmissionsDisabled())
+        if (TransmissionsDisabled(dto))
         {
             return (realCreatedData.Where(x => IsNotPdfReceipt(x.dataElement)).Select(x => CreateAttachmentDto(x.dataElement)).ToList(), []);
         }
@@ -337,10 +359,6 @@ internal sealed class StorageDialogportenDataMerger
         bool IsPerformedBySo(DataElement element) =>
             serviceOwnerOrgNumber is not null && element.LastChangedBy == serviceOwnerOrgNumber;
         bool IsNotPdfReceipt(DataElement element) => element.DataType != PdfType;
-
-        bool TransmissionsDisabled() => dto.Application.GetSyncAdapterSettings().DisableAddTransmissions ||
-            !_settings.DialogportenAdapter.Adapter.FeatureFlag
-                .EnableSubmissionTransmissions;
 
         string GetFileName(DataElement dataElement)
         {
