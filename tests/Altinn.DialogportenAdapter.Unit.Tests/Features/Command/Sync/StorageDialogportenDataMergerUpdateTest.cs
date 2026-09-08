@@ -25,6 +25,19 @@ public class StorageDialogportenDataMergerUpdateTest
     private const int UserId2 = 2;
     private AdapterFeatureFlagSettings _featureFlags = new() { EnableSubmissionTransmissions = true };
 
+    private static readonly AltinnOrgData DefaultAltinnOrgData = new(new Dictionary<string, Org>
+    {
+        [AltinnApplicationBuilder.DefaultServiceOwnerOrg] = new(
+            Name: new Dictionary<string, string> { ["nb"] = "ttd" },
+            OrgNr: "123456789",
+            Environments: [],
+            Logo: null,
+            Emblem: null,
+            HomePage: null,
+            Contact: null
+        )
+    });
+
     public StorageDialogportenDataMergerUpdateTest()
     {
         var options = Substitute.For<IOptionsSnapshot<Settings>>();
@@ -209,6 +222,7 @@ public class StorageDialogportenDataMergerUpdateTest
                 Activities = [],
                 Deleted = false
             },
+            AltinnOrgData: DefaultAltinnOrgData,
             IsMigration: false
         );
 
@@ -345,6 +359,7 @@ public class StorageDialogportenDataMergerUpdateTest
                 Activities = [],
                 Deleted = false
             },
+            AltinnOrgData: DefaultAltinnOrgData,
             IsMigration: false
         );
 
@@ -571,6 +586,7 @@ public class StorageDialogportenDataMergerUpdateTest
                 Activities = [],
                 Deleted = false
             },
+            AltinnOrgData: DefaultAltinnOrgData,
             IsMigration: false
         );
 

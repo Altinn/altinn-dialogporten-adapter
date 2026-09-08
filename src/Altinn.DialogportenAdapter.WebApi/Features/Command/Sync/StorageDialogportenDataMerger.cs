@@ -18,7 +18,9 @@ internal sealed record MergeDto(
     ApplicationTexts ApplicationTexts,
     Instance Instance,
     InstanceEventList Events,
-    bool IsMigration);
+    AltinnOrgData AltinnOrgData,
+    bool IsMigration
+);
 
 internal sealed class StorageDialogportenDataMerger
 {
@@ -274,7 +276,7 @@ internal sealed class StorageDialogportenDataMerger
             return (realCreatedData.Where(x => IsNotPdfReceipt(x.dataElement)).Select(x => CreateAttachmentDto(x.dataElement)).ToList(), []);
         }
         var soDataElements = realCreatedData
-            .Where(x => IsPerformedBySo(x.dataElement))
+            .Where(x => IsPerformedBySo(dto, x.dataElement))
             .ToList();
 
         // Only user data elements should be included as attachments to transmissions,
@@ -305,7 +307,12 @@ internal sealed class StorageDialogportenDataMerger
 
         return (attachments, transmissions);
 
-        bool IsPerformedBySo(DataElement element) => element.LastChangedBy.Length == 9;
+        bool IsPerformedBySo(MergeDto mergeDto, DataElement element)
+        {
+            if (!mergeDto.AltinnOrgData.Orgs.TryGetValue(mergeDto.Application.Org, out var soOrg)) return false;
+            return soOrg.OrgNr == element.CreatedBy;
+        }
+
         bool IsNotPdfReceipt(DataElement element) => element.DataType != PdfType;
 
         bool TransmissionsDisabled() => dto.Application.GetSyncAdapterSettings().DisableAddTransmissions ||

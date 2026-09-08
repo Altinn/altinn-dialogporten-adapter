@@ -24,6 +24,20 @@ public class StorageDialogportenDataMergerTest
     private const int UserId1 = 1;
     private const int UserId2 = 2;
     private const int UserUnknown = 999;
+
+    private static readonly AltinnOrgData DefaultAltinnOrgData = new(new Dictionary<string, Org>
+    {
+        [AltinnApplicationBuilder.DefaultServiceOwnerOrg] = new(
+            Name: new Dictionary<string, string> { ["nb"] = AltinnApplicationBuilder.DefaultServiceOwnerOrg },
+            OrgNr: "3218768902",
+            Environments: [],
+            Logo: null,
+            Emblem: null,
+            HomePage: null,
+            Contact: null
+        )
+    });
+
     private AdapterFeatureFlagSettings _featureFlags = new() { EnableSubmissionTransmissions = true };
 
     public StorageDialogportenDataMergerTest()
@@ -130,7 +144,9 @@ public class StorageDialogportenDataMergerTest
                 ])
                 .Build(),
             Events: new InstanceEventList { InstanceEvents = [] },
-            IsMigration: false);
+            AltinnOrgData: DefaultAltinnOrgData,
+            IsMigration: false
+        );
 
         var allPdfsGenerated = StorageDialogportenDataMerger.AllPdfsGenerated(mergeDto);
 
@@ -163,6 +179,7 @@ public class StorageDialogportenDataMergerTest
             },
             Instance: AltinnInstanceBuilder.NewInProgressInstance().Build(),
             ExistingDialog: null,
+            AltinnOrgData: DefaultAltinnOrgData,
             IsMigration: false
         );
 
@@ -247,6 +264,7 @@ public class StorageDialogportenDataMergerTest
                 })
                 .Build(),
             ExistingDialog: null,
+            AltinnOrgData: DefaultAltinnOrgData,
             IsMigration: false
         );
 
@@ -421,6 +439,7 @@ public class StorageDialogportenDataMergerTest
                 ])
                 .Build(),
             ExistingDialog: null,
+            AltinnOrgData: DefaultAltinnOrgData,
             IsMigration: false
         );
 
@@ -510,6 +529,7 @@ public class StorageDialogportenDataMergerTest
                 }
             }).Build(),
             ExistingDialog: null,
+            AltinnOrgData: DefaultAltinnOrgData,
             IsMigration: false);
 
         var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
@@ -607,6 +627,7 @@ public class StorageDialogportenDataMergerTest
                 })
                 .Build(),
             ExistingDialog: null,
+            AltinnOrgData: DefaultAltinnOrgData,
             IsMigration: false
         );
 
@@ -690,6 +711,7 @@ public class StorageDialogportenDataMergerTest
                 .WithVisibleAfter(new DateTime(900, 1, 1, 1, 1, 4)).Build()
             ,
             ExistingDialog: null,
+            AltinnOrgData: DefaultAltinnOrgData,
             IsMigration: false
         );
 
@@ -750,6 +772,7 @@ public class StorageDialogportenDataMergerTest
                 .WithVisibleAfter(new DateTime(9999, 1, 1, 1, 1, 4)).Build()
             ,
             ExistingDialog: null,
+            AltinnOrgData: DefaultAltinnOrgData,
             IsMigration: false
         );
 
@@ -907,6 +930,7 @@ public class StorageDialogportenDataMergerTest
             },
             Instance: AltinnInstanceBuilder.NewInProgressInstance().Build(),
             ExistingDialog: null,
+            AltinnOrgData: DefaultAltinnOrgData,
             IsMigration: false
         );
 
@@ -1400,6 +1424,7 @@ public class StorageDialogportenDataMergerTest
                 .Build()
             ,
             ExistingDialog: null,
+            AltinnOrgData: DefaultAltinnOrgData,
             IsMigration: false
         );
 
@@ -1856,6 +1881,7 @@ public class StorageDialogportenDataMergerTest
                 .Build()
             ,
             ExistingDialog: null,
+            AltinnOrgData: DefaultAltinnOrgData,
             IsMigration: false
         );
         var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
@@ -2218,6 +2244,7 @@ public class StorageDialogportenDataMergerTest
                 .Build()
             ,
             ExistingDialog: null,
+            AltinnOrgData: DefaultAltinnOrgData,
             IsMigration: false
         );
 
@@ -2534,7 +2561,9 @@ public class StorageDialogportenDataMergerTest
                 ])
                 .Build(),
             ExistingDialog: null,
-            IsMigration: false);
+            AltinnOrgData: DefaultAltinnOrgData,
+            IsMigration: false
+        );
 
         var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
 
@@ -2550,5 +2579,43 @@ public class StorageDialogportenDataMergerTest
             "c." + new string('d', 253)
         ]);
         displayNames.Should().AllSatisfy(x => x.Length.Should().BeLessThanOrEqualTo(255));
+    }
+
+    [Fact(DisplayName = "Given DataElements changed by ServiceOwner, DataElements are mapped as attachment on Dialog (not transmissions)")]
+    public async Task Merge_DataElementsChangedByServiceOwner_MapsToAttachmentOnDialogNotTransmissions()
+    {
+        var mergeDto = new MergeDto(
+            Application: AltinnApplicationBuilder
+                .NewDefaultAltinnApplication()
+                .WithDataTypes(AltinnDataTypeBuilder.NewDefaultDataType().Build())
+                .Build(),
+            ApplicationTexts: new ApplicationTexts { Translations = [] },
+            DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
+            Events: new InstanceEventList
+            {
+                InstanceEvents = [AltinnInstanceEventBuilder.NewCreatedByPlatformUserInstanceEvent(UserId1).Build()]
+            },
+            Instance: AltinnInstanceBuilder
+                .NewInProgressInstance()
+                .WithData([
+                    AltinnDataElementBuilder
+                        .NewDefaultDataElementBuilder()
+                        .WithLastChangedBy(AltinnApplicationBuilder.DefaultServiceOwnerOrg)
+                        .Build(),
+                    AltinnDataElementBuilder
+                        .NewDefaultDataElementBuilder()
+                        .WithLastChangedBy(AltinnApplicationBuilder.DefaultServiceOwnerOrg)
+                        .Build(),
+                ])
+                .Build(),
+            ExistingDialog: null,
+            AltinnOrgData: DefaultAltinnOrgData,
+            IsMigration: false
+        );
+
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
+
+        actualDialogDto.Attachments.Count.Should().Be(2);
+        actualDialogDto.Transmissions.Count.Should().Be(0);
     }
 }

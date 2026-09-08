@@ -5,6 +5,7 @@ namespace Altinn.DialogportenAdapter.Test.Common.Builder;
 
 public class AltinnApplicationBuilder
 {
+    public const string DefaultServiceOwnerOrg = "default-service-owner-org";
     private readonly Application _application;
 
     private AltinnApplicationBuilder(Application application)
@@ -22,7 +23,7 @@ public class AltinnApplicationBuilder
         LastChangedBy = "another",
         Id = "application-id",
         VersionId = "1.0",
-        Org = "123456789",
+        Org = DefaultServiceOwnerOrg,
         Title = new Dictionary<string, string>
         {
             ["nb"] = "Test applikasjon",

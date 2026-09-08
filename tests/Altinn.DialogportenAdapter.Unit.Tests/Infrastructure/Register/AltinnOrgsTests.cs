@@ -129,7 +129,7 @@ public class AltinnOrgsTests
             });
         var sut = CreateSut(handler);
 
-        var result = await sut.GetAltinnOrgs(CancellationToken.None);
+        var result = await sut.TryGetAltinnOrgs(CancellationToken.None);
 
         result.Should().BeEquivalentTo(expected);
     }
@@ -145,8 +145,8 @@ public class AltinnOrgsTests
 
         var sut = CreateSut(handler);
 
-        var first = await sut.GetAltinnOrgs(CancellationToken.None);
-        var second = await sut.GetAltinnOrgs(CancellationToken.None);
+        var first = await sut.TryGetAltinnOrgs(CancellationToken.None);
+        var second = await sut.TryGetAltinnOrgs(CancellationToken.None);
 
         Assert.NotNull(first);
         Assert.NotNull(second);
@@ -164,7 +164,7 @@ public class AltinnOrgsTests
 
         var sut = CreateSut(handler);
 
-        var result = await sut.GetAltinnOrgs(CancellationToken.None);
+        var result = await sut.TryGetAltinnOrgs(CancellationToken.None);
         Assert.Null(result);
     }
 
@@ -176,7 +176,7 @@ public class AltinnOrgsTests
 
         var sut = CreateSut(handler);
 
-        var result = await sut.GetAltinnOrgs(CancellationToken.None);
+        var result = await sut.TryGetAltinnOrgs(CancellationToken.None);
         Assert.Null(result);
     }
 
