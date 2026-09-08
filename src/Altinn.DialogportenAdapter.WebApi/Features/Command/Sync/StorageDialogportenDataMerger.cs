@@ -297,7 +297,6 @@ internal sealed class StorageDialogportenDataMerger
             ? dto.Application.Org
             : dto.Instance.Org;
 
-        // An incomplete response deserializes with null collections and entries despite the record declarations
         var orgs = await _altinnOrgs.GetAltinnOrgs(cancellationToken);
         if (orgs?.Orgs is not { } orgsByCode)
         {
