@@ -87,7 +87,7 @@ internal sealed partial class InstanceReceipt(
         if (transmission is null)
             return new GetReceiptResponse.NotFound();
 
-        var orgs = await _altinnOrgs.GetAltinnOrgs(cancellationToken);
+        var orgs = await _altinnOrgs.TryGetAltinnOrgs(cancellationToken);
 
         var langCode = request.LanguageCode ?? DefaultLanguageCode;
 

@@ -119,16 +119,16 @@ internal static class ServiceCollectionExtensions
                 // The service owner organization number is needed to tell service owner data from user data, so we never
                 // sync without it. When the AltinnOrgs CDN is down we treat it like any other upstream outage and keep retrying.
                 opts.Policies
-                    .OnException<AltinnOrgsUnavailableException>()
-                    .OrAnyInner<AltinnOrgsUnavailableException>()
+                    .OnException<AltinnOrgsApiUnavailableException>()
+                    .OrAnyInner<AltinnOrgsApiUnavailableException>()
                     .RetryWithCooldown(clock.Seconds(10), clock.Seconds(20))
                     .Then.ScheduleRetryIndefinitely(clock.Seconds(30), clock.Seconds(60), clock.Minutes(2));
 
                 // A service owner missing from AltinnOrgs is usually a new organization not yet listed, or a stale cache.
                 // Retry long enough for caches to expire, eventually failing to error queue for manual inspection.
                 opts.Policies
-                    .OnException<ServiceOwnerOrgNumberNotFoundException>()
-                    .OrAnyInner<ServiceOwnerOrgNumberNotFoundException>()
+                    .OnException<ServiceOwnerOrgNumberNotFoundInAltinnOrgs>()
+                    .OrAnyInner<ServiceOwnerOrgNumberNotFoundInAltinnOrgs>()
                     .RetryWithJitteredCooldown(clock.Seconds(1), clock.Seconds(5), clock.Seconds(20))
                     .Then.ScheduleRetry(clock.Minutes(1), clock.Minutes(10), clock.Minutes(30))
                     .Then.MoveToErrorQueue();

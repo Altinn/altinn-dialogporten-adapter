@@ -115,7 +115,7 @@ public class InstanceReceiptTests
     {
         var data = CreateHappyPathData();
         var (sut, _, _, _, altinnOrgs, _) = CreateSutFromData(data);
-        altinnOrgs.GetAltinnOrgs(Arg.Any<CancellationToken>())
+        altinnOrgs.TryGetAltinnOrgs(Arg.Any<CancellationToken>())
             .Returns((AltinnOrgData?)null);
 
         var result = await sut.GetReceipt(
@@ -298,7 +298,7 @@ public class InstanceReceiptTests
         created.ApplicationRepository.GetApplicationTexts(data.Instance.AppId, data.Application.VersionId, Arg.Any<CancellationToken>())
             .Returns(new ApplicationTexts { Translations = [] });
 
-        created.AltinnOrgs.GetAltinnOrgs(Arg.Any<CancellationToken>())
+        created.AltinnOrgs.TryGetAltinnOrgs(Arg.Any<CancellationToken>())
             .Returns(data.Orgs);
 
         created.RegisterApi.GetPartiesByUrns(Arg.Any<PartyQueryRequest>(), Arg.Any<CancellationToken>())

@@ -1,8 +1,8 @@
-using Altinn.DialogportenAdapter.WebApi.Common;
 using System.Text.Json.Serialization;
+using Altinn.DialogportenAdapter.WebApi.Common;
+using Altinn.DialogportenAdapter.WebApi.Common.Exceptions;
 using Microsoft.Extensions.Options;
 using ZiggyCreatures.Caching.Fusion;
-
 
 namespace Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 
@@ -24,7 +24,8 @@ public record AltinnOrgData(
 
 internal interface IAltinnOrgs
 {
-    Task<AltinnOrgData?> GetAltinnOrgs(CancellationToken cancellationToken);
+    Task<AltinnOrgData> GetAltinnOrgs(CancellationToken cancellationToken);
+    Task<AltinnOrgData?> TryGetAltinnOrgs(CancellationToken cancellationToken);
 }
 
 internal sealed partial class AltinnOrgs(
@@ -40,14 +41,18 @@ internal sealed partial class AltinnOrgs(
     [LoggerMessage(LogLevel.Warning, "Error occured: {errorMessage}")]
     private partial void LogAltinnOrgsWarning(string errorMessage);
 
-    public async Task<AltinnOrgData?> GetAltinnOrgs(CancellationToken cancellationToken)
+    public async Task<AltinnOrgData> GetAltinnOrgs(CancellationToken cancellationToken)
+    {
+        return await _cache
+            .GetOrSetAsync(key: nameof(AltinnOrgData), factory: FetchAltinnOrgData, token: cancellationToken)
+            .AsTask();
+    }
+
+    public async Task<AltinnOrgData?> TryGetAltinnOrgs(CancellationToken cancellationToken)
     {
         try
         {
-            return await _cache.GetOrSetAsync(
-                key: nameof(AltinnOrgData),
-                factory: FetchAltinnOrgData,
-                token: cancellationToken).AsTask();
+            return await GetAltinnOrgs(cancellationToken);
         }
         catch (Exception)
         {
@@ -56,7 +61,15 @@ internal sealed partial class AltinnOrgs(
         }
     }
 
-    private async Task<AltinnOrgData?> FetchAltinnOrgData(CancellationToken ct) =>
-        await _clientFactory.CreateClient(Constants.AltinnOrgsClient)
-            .GetFromJsonAsync<AltinnOrgData>(_settings.DialogportenAdapter.Altinn.AltinnOrgs, ct);
+    private async Task<AltinnOrgData> FetchAltinnOrgData(CancellationToken ct)
+    {
+        var data = await _clientFactory
+                       .CreateClient(Constants.AltinnOrgsClient)
+                       .GetFromJsonAsync<AltinnOrgData>(_settings.DialogportenAdapter.Altinn.AltinnOrgs, ct)
+                   ?? throw new AltinnOrgsApiUnavailableException("Altinn orgs serialized to null");
+
+        return data.Orgs is not null
+            ? data
+            : throw new AltinnOrgsApiUnavailableException("Altinn orgs serialized without any organizations");
+    }
 }
