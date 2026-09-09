@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Exceptions;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
@@ -313,13 +314,23 @@ internal sealed class StorageDialogportenDataMerger
 
         bool IsPerformedBySo(DataElement element)
         {
-            if (string.IsNullOrEmpty(element.LastChangedBy)) return false;
+            if (string.IsNullOrEmpty(element.LastChangedBy)) throw new UnreachableException(
+                $"LastChangedBy should not be null/empty for element {element.Id} in instance {element.InstanceGuid}"
+            );
             var orgCodeSo = string.IsNullOrEmpty(dto.Application.Org) ? dto.Instance.Org : dto.Application.Org;
-            if (string.IsNullOrEmpty(orgCodeSo)) throw new ServiceOwnerOrgCodeNotFoundException();
+            if (string.IsNullOrEmpty(orgCodeSo)) throw new UnreachableException(
+                $"orgCodeSo should not be null/empty for app {dto.Application.Id} and instance {dto.Instance.Id}"
+            );
+
             if (!dto.AltinnOrgData.Orgs.TryGetValue(orgCodeSo, out var serviceOwner))
             {
-                throw new ServiceOwnerOrgNumberNotFoundInAltinnOrgs(orgCodeSo);
+                throw new ServiceOwnerOrgNumberNotFoundInAltinnOrgs(
+                    $"Organization number for service owner {orgCodeSo} not found in Altinn Orgs"
+                );
             }
+            if (string.IsNullOrEmpty(serviceOwner.OrgNr)) throw new ServiceOwnerOrgNumberNotFoundInAltinnOrgs(
+                $"Organization number was null/empty in altinn orgs for service owner {orgCodeSo}"
+            );
 
             return element.LastChangedBy == serviceOwner.OrgNr;
         }
