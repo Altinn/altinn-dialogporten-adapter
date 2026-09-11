@@ -56,5 +56,10 @@ public static class WireMockRequestExtensions
         {
             return requestBuilder.UsingPost().WithPath("/register/api/v1/dialogporten/parties/query");
         }
+
+        public IRequestBuilder AltinnGetOrgs()
+        {
+            return requestBuilder.UsingGet().WithPath("/orgs/altinn-orgs.json");
+        }
     }
 }

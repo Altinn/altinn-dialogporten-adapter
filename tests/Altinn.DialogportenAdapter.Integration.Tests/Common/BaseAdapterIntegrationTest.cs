@@ -42,7 +42,7 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
             app.StorageApi.LogUnhandledRequests(app.App.Logger, "StorageApi").ResetAllExceptFallbackMapping();
 
             GetSyncJobCompleteSignal().Reset();
-            await app.App.Services.GetRequiredService<IFusionCache>().ClearAsync().AsTask();
+            await app.App.Services.GetRequiredService<IFusionCache>().ClearAsync(allowFailSafe: false).AsTask();
             await DrainLeftoverMessages();
         }
         finally
@@ -286,6 +286,23 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
             .RespondWith(Response.Create()
                 .WithStatusCode(HttpStatusCode.Created)
                 .WithHeader("ETag", Guid.NewGuid().ToString()));
+
+        app.AltinnApi
+            .Given(Request.Create().AltinnGetOrgs())
+            .AtPriority(short.MaxValue - 1)
+            .RespondWith(Response.Create()
+                .WithStatusCode(HttpStatusCode.OK)
+                .WithBody(JsonSerializer.Serialize(new AltinnOrgData(new Dictionary<string, DialogportenAdapter.WebApi.Infrastructure.Register.Org>
+                {
+                    ["ttd"] = new(
+                        Name: new Dictionary<string, string> { ["nb"] = "Testdepartementet" },
+                        OrgNr: "991825827",
+                        Environments: ["tt02", "production"],
+                        Logo: null,
+                        Emblem: null,
+                        HomePage: null
+                    )
+                }))));
 
         return new Arrangement(appId, partyId, instanceCreatedAt, instanceId, dialogId);
     }

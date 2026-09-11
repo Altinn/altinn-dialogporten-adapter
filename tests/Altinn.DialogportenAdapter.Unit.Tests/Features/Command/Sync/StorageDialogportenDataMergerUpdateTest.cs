@@ -18,7 +18,6 @@ namespace Altinn.DialogportenAdapter.Unit.Tests.Features.Command.Sync;
 public class StorageDialogportenDataMergerUpdateTest
 {
     private readonly IRegisterRepository _registerRepositoryMock = Substitute.For<IRegisterRepository>();
-    private readonly IAltinnOrgs _altinnOrgsMock = Substitute.For<IAltinnOrgs>();
     private readonly StorageDialogportenDataMerger _storageDialogportenDataMerger;
     private const string PartyId1 = "party-1";
     private const string PartyId2 = "party-2";
@@ -28,6 +27,17 @@ public class StorageDialogportenDataMergerUpdateTest
     // The default Org of AltinnApplicationBuilder resolves to the default LastChangedBy of AltinnDataElementBuilder
     private const string ServiceOwnerOrgCode = "ttd";
     private const string ServiceOwnerOrgNumber = "123456789";
+    private static readonly AltinnOrgData DefaultAltinnOrgs = new(new Dictionary<string, Org>
+    {
+        [ServiceOwnerOrgCode] = new(
+            Name: new Dictionary<string, string> { ["nb"] = "Testdepartementet" },
+            OrgNr: ServiceOwnerOrgNumber,
+            Environments: ["tt02", "production"],
+            Logo: null,
+            Emblem: null,
+            HomePage: null
+        )
+    });
     private AdapterFeatureFlagSettings _featureFlags = new() { EnableSubmissionTransmissions = true };
 
     public StorageDialogportenDataMergerUpdateTest()
@@ -72,23 +82,10 @@ public class StorageDialogportenDataMergerUpdateTest
                 { $"{UserId2}", "urn:altinn:person:legacy-selfidentified:Per" },
             });
 
-        _altinnOrgsMock.GetAltinnOrgs(Arg.Any<CancellationToken>())
-            .Returns(new AltinnOrgData(new Dictionary<string, Org>
-            {
-                [ServiceOwnerOrgCode] = new Org(
-                    Name: new Dictionary<string, string> { ["nb"] = "Testdepartementet" },
-                    OrgNr: ServiceOwnerOrgNumber,
-                    Environments: ["tt02", "production"],
-                    Logo: null,
-                    Emblem: null,
-                    HomePage: null)
-            }));
-
         _storageDialogportenDataMerger = new StorageDialogportenDataMerger(
             options,
             new ActivityDtoTransformer(_registerRepositoryMock),
-            _registerRepositoryMock,
-            _altinnOrgsMock
+            _registerRepositoryMock
         );
     }
 
@@ -226,6 +223,7 @@ public class StorageDialogportenDataMergerUpdateTest
                 Activities = [],
                 Deleted = false
             },
+            AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false
         );
 
@@ -362,6 +360,7 @@ public class StorageDialogportenDataMergerUpdateTest
                 Activities = [],
                 Deleted = false
             },
+            AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false
         );
 
@@ -588,6 +587,7 @@ public class StorageDialogportenDataMergerUpdateTest
                 Activities = [],
                 Deleted = false
             },
+            AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false
         );
 

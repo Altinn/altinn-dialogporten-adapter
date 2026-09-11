@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Exceptions;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
@@ -18,6 +19,7 @@ internal sealed record MergeDto(
     ApplicationTexts ApplicationTexts,
     Instance Instance,
     InstanceEventList Events,
+    AltinnOrgData AltinnOrgData,
     bool IsMigration);
 
 internal sealed class StorageDialogportenDataMerger
@@ -32,18 +34,15 @@ internal sealed class StorageDialogportenDataMerger
     private readonly Settings _settings;
     private readonly ActivityDtoTransformer _activityDtoTransformer;
     private readonly IRegisterRepository _registerRepository;
-    private readonly IAltinnOrgs _altinnOrgs;
 
     public StorageDialogportenDataMerger(
         IOptionsSnapshot<Settings> settings,
         ActivityDtoTransformer activityDtoTransformer,
-        IRegisterRepository registerRepository,
-        IAltinnOrgs altinnOrgs)
+        IRegisterRepository registerRepository)
     {
         _settings = settings.Value ?? throw new ArgumentNullException(nameof(settings));
         _activityDtoTransformer = activityDtoTransformer ?? throw new ArgumentNullException(nameof(activityDtoTransformer));
         _registerRepository = registerRepository ?? throw new ArgumentNullException(nameof(registerRepository));
-        _altinnOrgs = altinnOrgs ?? throw new ArgumentNullException(nameof(altinnOrgs));
     }
 
     public async Task<DialogDto> Merge(MergeDto dto, int currentAttempt, CancellationToken cancellationToken)
@@ -180,11 +179,7 @@ internal sealed class StorageDialogportenDataMerger
             _activityDtoTransformer.GetActivities(dto.Events, dto.Instance.InstanceOwner, cancellationToken)
         );
 
-        var serviceOwnerOrgNumber = RequiresServiceOwnerOrgNumber(dto, activities)
-            ? await GetServiceOwnerOrgNumber(dto, cancellationToken)
-            : null;
-
-        var (attachments, transmissions) = GetAttachmentAndTransmissions(dto, activities, serviceOwnerOrgNumber, currentAttempt);
+        var (attachments, transmissions) = GetAttachmentAndTransmissions(dto, activities, currentAttempt);
 
         var dialog = new DialogDto
         {
@@ -269,51 +264,13 @@ internal sealed class StorageDialogportenDataMerger
         };
     }
 
-    /// <summary>
-    /// The service owner organization number is only needed to keep service owner data out of submission
-    /// transmissions. Skip the lookup when nothing could end up in one, so that unrelated syncs do not
-    /// depend on AltinnOrgs being available. A nine digit LastChangedBy only decides whether a lookup is
-    /// needed; ownership is still decided by an exact match against the resolved organization number.
-    /// </summary>
-    private bool RequiresServiceOwnerOrgNumber(MergeDto dto, List<ActivityDto> activities) =>
-        !TransmissionsDisabled(dto)
-        && activities.Any(x => x.Type is DialogActivityType.FormSubmitted)
-        && (dto.Instance.Data ?? []).Any(x => CouldBeOrgNumber(x.LastChangedBy));
-
-    private static bool CouldBeOrgNumber(string? value) =>
-        value is { Length: 9 } && value.All(char.IsAsciiDigit);
-
     private bool TransmissionsDisabled(MergeDto dto) =>
         dto.Application.GetSyncAdapterSettings().DisableAddTransmissions
         || !_settings.DialogportenAdapter.Adapter.FeatureFlag.EnableSubmissionTransmissions;
 
-    /// <summary>
-    /// Resolves the organization number of the service owner owning the application. Throws when it cannot
-    /// be resolved, so that the sync is retried rather than misclassifying service owner data as user data.
-    /// </summary>
-    private async Task<string> GetServiceOwnerOrgNumber(MergeDto dto, CancellationToken cancellationToken)
-    {
-        var orgCode = !string.IsNullOrWhiteSpace(dto.Application.Org)
-            ? dto.Application.Org
-            : dto.Instance.Org;
-
-        var orgs = await _altinnOrgs.GetAltinnOrgs(cancellationToken);
-        if (orgs?.Orgs is not { } orgsByCode)
-        {
-            throw new AltinnOrgsUnavailableException();
-        }
-
-        return !string.IsNullOrWhiteSpace(orgCode)
-            && orgsByCode.TryGetValue(orgCode, out var org)
-            && !string.IsNullOrWhiteSpace(org?.OrgNr)
-                ? org.OrgNr
-                : throw new ServiceOwnerOrgNumberNotFoundException(orgCode);
-    }
-
     private (List<AttachmentDto> attachments, List<TransmissionDto> transmissions) GetAttachmentAndTransmissions(
         MergeDto dto,
         List<ActivityDto> activities,
-        string? serviceOwnerOrgNumber,
         int currentAttempt = 1)
     {
         var realCreatedData = RealCreate(dto).ToList();
@@ -355,8 +312,29 @@ internal sealed class StorageDialogportenDataMerger
 
         return (attachments, transmissions);
 
-        bool IsPerformedBySo(DataElement element) =>
-            serviceOwnerOrgNumber is not null && element.LastChangedBy == serviceOwnerOrgNumber;
+        bool IsPerformedBySo(DataElement element)
+        {
+            if (string.IsNullOrEmpty(element.LastChangedBy)) throw new UnreachableException(
+                $"LastChangedBy should not be null/empty for element {element.Id} in instance {element.InstanceGuid}"
+            );
+            var orgCodeSo = string.IsNullOrEmpty(dto.Application.Org) ? dto.Instance.Org : dto.Application.Org;
+            if (string.IsNullOrEmpty(orgCodeSo)) throw new UnreachableException(
+                $"orgCodeSo should not be null/empty for app {dto.Application.Id} and instance {dto.Instance.Id}"
+            );
+
+            if (!dto.AltinnOrgData.Orgs.TryGetValue(orgCodeSo, out var serviceOwner))
+            {
+                throw new ServiceOwnerOrgNumberNotFoundInAltinnOrgs(
+                    $"Organization number for service owner {orgCodeSo} not found in Altinn Orgs"
+                );
+            }
+            if (string.IsNullOrEmpty(serviceOwner.OrgNr)) throw new ServiceOwnerOrgNumberNotFoundInAltinnOrgs(
+                $"Organization number was null/empty in altinn orgs for service owner {orgCodeSo}"
+            );
+
+            return element.LastChangedBy == serviceOwner.OrgNr;
+        }
+
         bool IsNotPdfReceipt(DataElement element) => element.DataType != PdfType;
 
         string GetFileName(DataElement dataElement)

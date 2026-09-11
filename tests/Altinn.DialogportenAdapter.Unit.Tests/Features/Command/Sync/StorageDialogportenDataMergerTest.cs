@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Altinn.ApiClients.Maskinporten.Config;
 using Altinn.DialogportenAdapter.Test.Common.Builder;
 using Altinn.DialogportenAdapter.Unit.Tests.Common.AssertHelpers;
@@ -20,7 +19,6 @@ namespace Altinn.DialogportenAdapter.Unit.Tests.Features.Command.Sync;
 public class StorageDialogportenDataMergerTest
 {
     private readonly IRegisterRepository _registerRepositoryMock = Substitute.For<IRegisterRepository>();
-    private readonly IAltinnOrgs _altinnOrgsMock = Substitute.For<IAltinnOrgs>();
     private readonly StorageDialogportenDataMerger _storageDialogportenDataMerger;
     private const string PartyId1 = "party-1";
     private const string PartyId2 = "party-2";
@@ -31,6 +29,17 @@ public class StorageDialogportenDataMergerTest
     // The default Org of AltinnApplicationBuilder resolves to the default LastChangedBy of AltinnDataElementBuilder
     private const string ServiceOwnerOrgCode = "ttd";
     private const string ServiceOwnerOrgNumber = "123456789";
+    private static readonly AltinnOrgData DefaultAltinnOrgs = new(new Dictionary<string, Org>
+    {
+        [ServiceOwnerOrgCode] = new(
+            Name: new Dictionary<string, string> { ["nb"] = "Testdepartementet" },
+            OrgNr: ServiceOwnerOrgNumber,
+            Environments: ["tt02", "production"],
+            Logo: null,
+            Emblem: null,
+            HomePage: null
+        )
+    });
     private AdapterFeatureFlagSettings _featureFlags = new() { EnableSubmissionTransmissions = true };
 
     public StorageDialogportenDataMergerTest()
@@ -75,23 +84,10 @@ public class StorageDialogportenDataMergerTest
                 { $"{UserId2}", "urn:altinn:person:legacy-selfidentified:Per" },
             });
 
-        _altinnOrgsMock.GetAltinnOrgs(Arg.Any<CancellationToken>())
-            .Returns(new AltinnOrgData(new Dictionary<string, Org>
-            {
-                [ServiceOwnerOrgCode] = new Org(
-                    Name: new Dictionary<string, string> { ["nb"] = "Testdepartementet" },
-                    OrgNr: ServiceOwnerOrgNumber,
-                    Environments: ["tt02", "production"],
-                    Logo: null,
-                    Emblem: null,
-                    HomePage: null)
-            }));
-
         _storageDialogportenDataMerger = new StorageDialogportenDataMerger(
             options,
             new ActivityDtoTransformer(_registerRepositoryMock),
-            _registerRepositoryMock,
-            _altinnOrgsMock
+            _registerRepositoryMock
         );
     }
 
@@ -149,6 +145,7 @@ public class StorageDialogportenDataMergerTest
                 ])
                 .Build(),
             Events: new InstanceEventList { InstanceEvents = [] },
+            AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false);
 
         var allPdfsGenerated = StorageDialogportenDataMerger.AllPdfsGenerated(mergeDto);
@@ -183,6 +180,7 @@ public class StorageDialogportenDataMergerTest
             },
             Instance: AltinnInstanceBuilder.NewInProgressInstance().Build(),
             ExistingDialog: null,
+            AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false
         );
 
@@ -268,6 +266,7 @@ public class StorageDialogportenDataMergerTest
                 })
                 .Build(),
             ExistingDialog: null,
+            AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false
         );
 
@@ -442,6 +441,7 @@ public class StorageDialogportenDataMergerTest
                 ])
                 .Build(),
             ExistingDialog: null,
+            AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false
         );
 
@@ -531,6 +531,7 @@ public class StorageDialogportenDataMergerTest
                 }
             }).Build(),
             ExistingDialog: null,
+            AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false);
 
         var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
@@ -628,6 +629,7 @@ public class StorageDialogportenDataMergerTest
                 })
                 .Build(),
             ExistingDialog: null,
+            AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false
         );
 
@@ -711,6 +713,7 @@ public class StorageDialogportenDataMergerTest
                 .WithVisibleAfter(new DateTime(900, 1, 1, 1, 1, 4)).Build()
             ,
             ExistingDialog: null,
+            AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false
         );
 
@@ -771,6 +774,7 @@ public class StorageDialogportenDataMergerTest
                 .WithVisibleAfter(new DateTime(9999, 1, 1, 1, 1, 4)).Build()
             ,
             ExistingDialog: null,
+            AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false
         );
 
@@ -928,6 +932,7 @@ public class StorageDialogportenDataMergerTest
             },
             Instance: AltinnInstanceBuilder.NewInProgressInstance().Build(),
             ExistingDialog: null,
+            AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false
         );
 
@@ -1421,6 +1426,7 @@ public class StorageDialogportenDataMergerTest
                 .Build()
             ,
             ExistingDialog: null,
+            AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false
         );
 
@@ -1877,6 +1883,7 @@ public class StorageDialogportenDataMergerTest
                 .Build()
             ,
             ExistingDialog: null,
+            AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false
         );
         var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
@@ -2239,6 +2246,7 @@ public class StorageDialogportenDataMergerTest
                 .Build()
             ,
             ExistingDialog: null,
+            AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false
         );
 
@@ -2555,6 +2563,7 @@ public class StorageDialogportenDataMergerTest
                 ])
                 .Build(),
             ExistingDialog: null,
+            AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false);
 
         var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
@@ -2629,6 +2638,7 @@ public class StorageDialogportenDataMergerTest
                         .Build()
                 ]
             },
+            AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false);
 
         var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
@@ -2687,6 +2697,7 @@ public class StorageDialogportenDataMergerTest
                     AltinnInstanceEventBuilder.NewSubmittedByPlatformUserInstanceEvent(UserId1).WithCreated(submittedAt).Build()
                 ]
             },
+            AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false);
 
         var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
@@ -2696,116 +2707,49 @@ public class StorageDialogportenDataMergerTest
         actualDialogDto.Attachments.Should().BeEmpty();
     }
 
-    [Fact(DisplayName = "Given AltinnOrgs cannot be fetched, the sync fails so that it is retried instead of changing attachment ownership")]
-    public async Task Merge_AltinnOrgsUnavailable_Throws()
+    [Fact(DisplayName = "Given the service owner is not listed or has no usable entry in AltinnOrgs, the sync fails so that it is retried instead of changing attachment ownership")]
+    public async Task Merge_ServiceOwnerNotListedInAltinnOrgs_ThrowsNotFound()
     {
-        _altinnOrgsMock.GetAltinnOrgs(Arg.Any<CancellationToken>()).Returns((AltinnOrgData?)null);
-
-        var merge = () => _storageDialogportenDataMerger.Merge(SubmittedInstanceMergeDto(), currentAttempt: 1, CancellationToken.None);
-
-        await merge.Should().ThrowAsync<AltinnOrgsUnavailableException>();
-    }
-
-    [Theory(DisplayName = "Given an AltinnOrgs response without an orgs collection, the sync fails as if AltinnOrgs was unavailable")]
-    [InlineData("{}")]
-    [InlineData("{\"orgs\":null}")]
-    public async Task Merge_AltinnOrgsResponseWithoutOrgs_ThrowsUnavailable(string json)
-    {
-        _altinnOrgsMock.GetAltinnOrgs(Arg.Any<CancellationToken>()).Returns(JsonSerializer.Deserialize<AltinnOrgData>(json));
-
-        var merge = () => _storageDialogportenDataMerger.Merge(SubmittedInstanceMergeDto(), currentAttempt: 1, CancellationToken.None);
-
-        await merge.Should().ThrowAsync<AltinnOrgsUnavailableException>();
-    }
-
-    [Theory(DisplayName = "Given the service owner is not listed or has no usable entry in AltinnOrgs, the sync fails so that it is retried instead of changing attachment ownership")]
-    [InlineData("{\"orgs\":{}}")]
-    [InlineData("{\"orgs\":{\"brg\":null}}")]
-    [InlineData("{\"orgs\":{\"ttd\":null}}")]
-    [InlineData("{\"orgs\":{\"ttd\":{\"name\":{\"nb\":\"Testdepartementet\"}}}}")]
-    public async Task Merge_ServiceOwnerNotListedInAltinnOrgs_ThrowsNotFound(string json)
-    {
-        _altinnOrgsMock.GetAltinnOrgs(Arg.Any<CancellationToken>()).Returns(JsonSerializer.Deserialize<AltinnOrgData>(json));
-
-        var merge = () => _storageDialogportenDataMerger.Merge(SubmittedInstanceMergeDto(), currentAttempt: 1, CancellationToken.None);
-
-        await merge.Should().ThrowAsync<ServiceOwnerOrgNumberNotFoundException>();
-    }
-
-    [Fact(DisplayName = "Given transmissions are disabled, AltinnOrgs is not consulted")]
-    public async Task Merge_TransmissionsDisabled_DoesNotConsultAltinnOrgs()
-    {
-        _altinnOrgsMock.GetAltinnOrgs(Arg.Any<CancellationToken>()).Returns((AltinnOrgData?)null);
-
-        await _storageDialogportenDataMerger.Merge(SubmittedInstanceMergeDto(transmissionsDisabled: true), currentAttempt: 1, CancellationToken.None);
-
-        await _altinnOrgsMock.DidNotReceive().GetAltinnOrgs(Arg.Any<CancellationToken>());
-    }
-
-    [Fact(DisplayName = "Given no submission, AltinnOrgs is not consulted")]
-    public async Task Merge_NoSubmission_DoesNotConsultAltinnOrgs()
-    {
-        _altinnOrgsMock.GetAltinnOrgs(Arg.Any<CancellationToken>()).Returns((AltinnOrgData?)null);
-
-        await _storageDialogportenDataMerger.Merge(SubmittedInstanceMergeDto(submitted: false), currentAttempt: 1, CancellationToken.None);
-
-        await _altinnOrgsMock.DidNotReceive().GetAltinnOrgs(Arg.Any<CancellationToken>());
-    }
-
-    [Fact(DisplayName = "Given no data element last changed by something that could be an organization, AltinnOrgs is not consulted")]
-    public async Task Merge_NoDataElementChangedByPossibleOrganization_DoesNotConsultAltinnOrgs()
-    {
-        _altinnOrgsMock.GetAltinnOrgs(Arg.Any<CancellationToken>()).Returns((AltinnOrgData?)null);
-
-        await _storageDialogportenDataMerger.Merge(SubmittedInstanceMergeDto(lastChangedBy: "1337"), currentAttempt: 1, CancellationToken.None);
-
-        await _altinnOrgsMock.DidNotReceive().GetAltinnOrgs(Arg.Any<CancellationToken>());
-    }
-
-    private static MergeDto SubmittedInstanceMergeDto(
-        string lastChangedBy = ServiceOwnerOrgNumber,
-        bool submitted = true,
-        bool transmissionsDisabled = false)
-    {
-        var submittedAt = new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc);
-
-        return new MergeDto(
-            DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
-            ExistingDialog: null,
-            Application: AltinnApplicationBuilder
-                .NewDefaultAltinnApplication()
-                .WithDataTypes(
-                    AltinnDataTypeBuilder.NewDefaultDataType().WithId("Hovedskjema").WithTaskId("Task_1")
-                        .WithAppLogic(new ApplicationLogic()).Build())
-                .WithMessageBoxConfig(new MessageBoxConfig
+        var merge = () => _storageDialogportenDataMerger.Merge(
+            new MergeDto(
+                DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
+                ExistingDialog: null,
+                Application: AltinnApplicationBuilder
+                    .NewDefaultAltinnApplication()
+                    .WithDataTypes(
+                        AltinnDataTypeBuilder.NewDefaultDataType().WithId("Hovedskjema").WithTaskId("Task_1")
+                            .WithAppLogic(new ApplicationLogic()).Build())
+                    .Build(),
+                ApplicationTexts: new ApplicationTexts { Translations = [] },
+                Instance: AltinnInstanceBuilder
+                    .NewInProgressInstance()
+                    .WithData([
+                        AltinnDataElementBuilder.NewDefaultDataElementBuilder()
+                            .WithId("019bd57e-ce5e-74ed-8130-3a1ac8af3d91")
+                            .WithDataType("Hovedskjema")
+                            .WithCreated(new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc))
+                            .WithLastChangedBy(ServiceOwnerOrgNumber)
+                            .WithReferences([])
+                            .Build()
+                    ])
+                    .Build(),
+                Events: new InstanceEventList
                 {
-                    SyncAdapterSettings = new SyncAdapterSettings { DisableAddTransmissions = transmissionsDisabled }
-                })
-                .Build(),
-            ApplicationTexts: new ApplicationTexts { Translations = [] },
-            Instance: AltinnInstanceBuilder
-                .NewInProgressInstance()
-                .WithData([
-                    AltinnDataElementBuilder.NewDefaultDataElementBuilder()
-                        .WithId("019bd57e-ce5e-74ed-8130-3a1ac8af3d91")
-                        .WithDataType("Hovedskjema")
-                        .WithCreated(new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc))
-                        .WithLastChangedBy(lastChangedBy)
-                        .WithReferences([])
-                        .Build()
-                ])
-                .Build(),
-            Events: new InstanceEventList
-            {
-                InstanceEvents = submitted
-                    ?
+                    InstanceEvents =
                     [
                         AltinnInstanceEventBuilder.NewCreatedByPlatformUserInstanceEvent(UserId1).Build(),
-                        AltinnInstanceEventBuilder.NewSubmittedByPlatformUserInstanceEvent(UserId1).WithCreated(submittedAt).Build()
+                        AltinnInstanceEventBuilder.NewSubmittedByPlatformUserInstanceEvent(UserId1)
+                            .WithCreated(new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc))
+                            .Build()
                     ]
-                    : [AltinnInstanceEventBuilder.NewCreatedByPlatformUserInstanceEvent(UserId1).Build()]
-            },
-            IsMigration: false);
+                },
+                AltinnOrgData: new AltinnOrgData(new Dictionary<string, Org>()),
+                IsMigration: false),
+            currentAttempt: 1,
+            CancellationToken.None
+        );
+
+        await merge.Should().ThrowAsync<ServiceOwnerOrgNumberNotFoundInAltinnOrgs>();
     }
 
     private static Reference GeneratedFrom(string taskId) => new()

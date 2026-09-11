@@ -209,6 +209,7 @@ public class DialogportenAdapterApplication : IAsyncLifetime
         builderConfiguration["ApplicationInsights:Enabled"] = "false";
         builderConfiguration["DialogportenAdapter:Dialogporten:BaseUri"] = DialogportenApi.Url;
         builderConfiguration["DialogportenAdapter:Altinn:BaseUri"] = AltinnApi.Url;
+        builderConfiguration["DialogportenAdapter:Altinn:AltinnOrgs"] = $"{AltinnApi.Url}/orgs/altinn-orgs.json";
         builderConfiguration["DialogportenAdapter:Altinn:InternalStorageEndpoint"] = StorageApi.Url;
         builderConfiguration["DialogportenAdapter:Altinn:InternalRegisterEndpoint"] = RegisterApi.Url;
         builderConfiguration["DialogportenAdapter:Authentication:JwtBearerWellKnown"] = "https://platform.tt02.altinn.no/authentication/api/v1/openid/.well-known/openid-configuration";
