@@ -5,6 +5,7 @@ using Altinn.DialogportenAdapter.WebApi;
 using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
+using Altinn.DialogportenAdapter.WebApi.Infrastructure.AltinnCdn;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
@@ -23,6 +24,17 @@ public class StorageDialogportenDataMergerUpdateTest
     private const string PartyId2 = "party-2";
     private const int UserId1 = 1;
     private const int UserId2 = 2;
+
+    // The default Org of AltinnApplicationBuilder resolves to the default LastChangedBy of AltinnDataElementBuilder
+    private const string ServiceOwnerOrgCode = "ttd";
+    private const string ServiceOwnerOrgNumber = "123456789";
+    private static readonly AltinnOrgData DefaultAltinnOrgs = new(new Dictionary<string, Org>
+    {
+        [ServiceOwnerOrgCode] = new(
+            Name: new Dictionary<string, string> { ["nb"] = "Testdepartementet" },
+            OrgNr: ServiceOwnerOrgNumber
+        )
+    });
     private AdapterFeatureFlagSettings _featureFlags = new() { EnableSubmissionTransmissions = true };
 
     public StorageDialogportenDataMergerUpdateTest()
@@ -40,7 +52,7 @@ public class StorageDialogportenDataMergerUpdateTest
                     InternalStorageEndpoint: new Uri("http://altinn.storage.localhost/"),
                     InternalRegisterEndpoint: new Uri("http://altinn.register.localhost/"),
                     SubscriptionKey: "subscriptionKey",
-                    AltinnOrgs: new Uri("https://altinncdn.no/orgs/altinn-orgs.json")
+                    AltinnCdn: new Uri("https://altinncdn.no/orgs/altinn-orgs.json")
                 ),
                 Dialogporten: new DialogportenSettings(BaseUri: new Uri("http://dialogporten.localhost/")),
                 Adapter: new AdapterSettings(
@@ -66,7 +78,6 @@ public class StorageDialogportenDataMergerUpdateTest
                 { $"{UserId1}", "urn:altinn:displayName:Leif" },
                 { $"{UserId2}", "urn:altinn:person:legacy-selfidentified:Per" },
             });
-
 
         _storageDialogportenDataMerger = new StorageDialogportenDataMerger(
             options,
@@ -209,6 +220,7 @@ public class StorageDialogportenDataMergerUpdateTest
                 Activities = [],
                 Deleted = false
             },
+            AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false
         );
 
@@ -345,6 +357,7 @@ public class StorageDialogportenDataMergerUpdateTest
                 Activities = [],
                 Deleted = false
             },
+            AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false
         );
 
@@ -571,6 +584,7 @@ public class StorageDialogportenDataMergerUpdateTest
                 Activities = [],
                 Deleted = false
             },
+            AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false
         );
 

@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Common.http;
+using Altinn.DialogportenAdapter.WebApi.Infrastructure.AltinnCdn;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
@@ -30,7 +31,7 @@ internal sealed partial class InstanceReceipt(
     IStorageApi storageApi,
     IApplicationRepository applicationRepository,
     IDialogportenApi dialogportenApi,
-    IAltinnOrgs altinnOrgs,
+    IAltinnCdnRepository altinnCdnRepository,
     IRegisterApi registerApi,
     ILogger<InstanceReceipt> logger
     )
@@ -38,7 +39,7 @@ internal sealed partial class InstanceReceipt(
     private readonly IStorageApi _storageApi = storageApi ?? throw new ArgumentNullException(nameof(storageApi));
     private readonly IApplicationRepository _applicationRepository = applicationRepository ?? throw new ArgumentNullException(nameof(applicationRepository));
     private readonly IDialogportenApi _dialogportenApi = dialogportenApi ?? throw new ArgumentNullException(nameof(dialogportenApi));
-    private readonly IAltinnOrgs _altinnOrgs = altinnOrgs ?? throw new ArgumentNullException(nameof(altinnOrgs));
+    private readonly IAltinnCdnRepository _altinnCdnRepository = altinnCdnRepository ?? throw new ArgumentNullException(nameof(altinnCdnRepository));
     private readonly IRegisterApi _registerApi = registerApi ?? throw new ArgumentNullException(nameof(registerApi));
     private readonly ILogger<InstanceReceipt> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
@@ -87,7 +88,7 @@ internal sealed partial class InstanceReceipt(
         if (transmission is null)
             return new GetReceiptResponse.NotFound();
 
-        var orgs = await _altinnOrgs.GetAltinnOrgs(cancellationToken);
+        var orgs = await GetAltinnOrgs(cancellationToken);
 
         var langCode = request.LanguageCode ?? DefaultLanguageCode;
 
@@ -111,6 +112,22 @@ internal sealed partial class InstanceReceipt(
              {summary}
              """;
         return new GetReceiptResponse.Success(receipt);
+    }
+
+    [LoggerMessage(LogLevel.Warning, "Error occured: {errorMessage}")]
+    private partial void LogAltinnOrgsWarning(string errorMessage);
+
+    private async Task<AltinnOrgData?> GetAltinnOrgs(CancellationToken cancellationToken)
+    {
+            try
+            {
+                return await _altinnCdnRepository.GetAltinnOrgs(cancellationToken);
+            }
+            catch (Exception)
+            {
+                LogAltinnOrgsWarning("Failed to get AltinnOrgs from server. Using cached");
+                return null;
+            }
     }
 
     private static string GetCreatedAt(DateTimeOffset transmissionCreatedAt, TimeZoneInfo? timeZoneInfo)
