@@ -5,8 +5,8 @@ using Altinn.DialogportenAdapter.Contracts;
 using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Exceptions;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
+using Altinn.DialogportenAdapter.WebApi.Infrastructure.AltinnCdn;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
-using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Altinn.Platform.Storage.Interface.Models;
 using Constants = Altinn.DialogportenAdapter.WebApi.Common.Constants;
@@ -22,7 +22,7 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
 {
     private readonly IStorageApi _storageApi;
     private readonly IDialogportenApi _dialogportenApi;
-    private readonly IAltinnOrgs _altinnOrgs;
+    private readonly IAltinnCdnRepository _altinnCdnRepository;
     private readonly StorageDialogportenDataMerger _dataMerger;
     private readonly IApplicationRepository _applicationRepository;
     private readonly ILogger<SyncInstanceToDialogService> _logger;
@@ -30,14 +30,14 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
     public SyncInstanceToDialogService(
         IStorageApi storageApi,
         IDialogportenApi dialogportenApi,
-        IAltinnOrgs altinnOrgs,
+        IAltinnCdnRepository altinnCdnRepository,
         StorageDialogportenDataMerger dataMerger,
         IApplicationRepository applicationRepository,
         ILogger<SyncInstanceToDialogService> logger)
     {
         _storageApi = storageApi ?? throw new ArgumentNullException(nameof(storageApi));
         _dialogportenApi = dialogportenApi ?? throw new ArgumentNullException(nameof(dialogportenApi));
-        _altinnOrgs = altinnOrgs ?? throw new ArgumentNullException(nameof(altinnOrgs));
+        _altinnCdnRepository = altinnCdnRepository ?? throw new ArgumentNullException(nameof(altinnCdnRepository));
         _dataMerger = dataMerger ?? throw new ArgumentNullException(nameof(dataMerger));
         _applicationRepository = applicationRepository ?? throw new ArgumentNullException(nameof(applicationRepository));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -63,7 +63,7 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
             _applicationRepository.GetApplication(dto.AppId, cancellationToken),
             _storageApi.GetInstance(dto.PartyId, dto.InstanceId, cancellationToken).ContentOrDefault(),
             _storageApi.GetInstanceEvents(dto.PartyId, dto.InstanceId, Constants.SupportedEventTypes, cancellationToken).ContentOrDefault(),
-            _altinnOrgs.GetAltinnOrgs(cancellationToken)
+            _altinnCdnRepository.GetAltinnOrgs(cancellationToken)
         );
 
         if (application.GetSyncAdapterSettings().EnableUserSuppliedDialogId)

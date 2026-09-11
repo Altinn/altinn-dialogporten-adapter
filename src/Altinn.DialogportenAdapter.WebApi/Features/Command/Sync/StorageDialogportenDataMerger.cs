@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Exceptions;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
+using Altinn.DialogportenAdapter.WebApi.Infrastructure.AltinnCdn;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
@@ -314,13 +315,13 @@ internal sealed class StorageDialogportenDataMerger
 
         bool IsPerformedBySo(DataElement element)
         {
-            if (string.IsNullOrEmpty(element.LastChangedBy)) throw new UnreachableException(
-                $"LastChangedBy should not be null/empty for element {element.Id} in instance {element.InstanceGuid}"
-            );
             var orgCodeSo = string.IsNullOrEmpty(dto.Application.Org) ? dto.Instance.Org : dto.Application.Org;
-            if (string.IsNullOrEmpty(orgCodeSo)) throw new UnreachableException(
-                $"orgCodeSo should not be null/empty for app {dto.Application.Id} and instance {dto.Instance.Id}"
-            );
+            if (string.IsNullOrEmpty(element.LastChangedBy) || string.IsNullOrEmpty(orgCodeSo))
+            {
+                throw new UnreachableException(
+                    $"Unexpected null/empty. orgCodeSo: {orgCodeSo}. LastChangedBy: {element.LastChangedBy} for app {dto.Application.Id} and instance {dto.Instance.Id}"
+                );
+            }
 
             if (!dto.AltinnOrgData.Orgs.TryGetValue(orgCodeSo, out var serviceOwner))
             {

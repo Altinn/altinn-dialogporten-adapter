@@ -5,6 +5,7 @@ using Altinn.DialogportenAdapter.WebApi;
 using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
+using Altinn.DialogportenAdapter.WebApi.Infrastructure.AltinnCdn;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
@@ -55,7 +56,7 @@ public class StorageDialogportenDataMergerUpdateTest
                     InternalStorageEndpoint: new Uri("http://altinn.storage.localhost/"),
                     InternalRegisterEndpoint: new Uri("http://altinn.register.localhost/"),
                     SubscriptionKey: "subscriptionKey",
-                    AltinnOrgs: new Uri("https://altinncdn.no/orgs/altinn-orgs.json")
+                    AltinnCdn: new Uri("https://altinncdn.no/orgs/altinn-orgs.json")
                 ),
                 Dialogporten: new DialogportenSettings(BaseUri: new Uri("http://dialogporten.localhost/")),
                 Adapter: new AdapterSettings(

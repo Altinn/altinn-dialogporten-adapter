@@ -41,6 +41,7 @@ public class DialogportenAdapterApplication : IAsyncLifetime
     public IServiceScope AppScope { get; private set; } = null!;
     public IServiceScope StorageScope { get; private set; } = null!;
     public WireMockServer DialogportenApi { get; private set; } = null!;
+    public WireMockServer AltinnCdnApi { get; private set; } = null!;
     public WireMockServer AltinnApi { get; private set; } = null!;
     public WireMockServer StorageApi { get; private set; } = null!;
     public WireMockServer RegisterApi { get; private set; } = null!;
@@ -120,6 +121,7 @@ public class DialogportenAdapterApplication : IAsyncLifetime
         );
 
         DialogportenApi = WireMockServer.Start().AddCustomFallbackMapping();
+        AltinnCdnApi = WireMockServer.Start().AddCustomFallbackMapping();
         AltinnApi = WireMockServer.Start().AddCustomFallbackMapping();
         StorageApi = WireMockServer.Start().AddCustomFallbackMapping();
         RegisterApi = WireMockServer.Start().AddCustomFallbackMapping();
@@ -157,6 +159,7 @@ public class DialogportenAdapterApplication : IAsyncLifetime
         await Task.WhenAll(cleanup);
         DialogportenApi.Stop();
         AltinnApi.Stop();
+        AltinnCdnApi.Stop();
         StorageApi.Stop();
         RegisterApi.Stop();
         GC.SuppressFinalize(this);
@@ -209,7 +212,7 @@ public class DialogportenAdapterApplication : IAsyncLifetime
         builderConfiguration["ApplicationInsights:Enabled"] = "false";
         builderConfiguration["DialogportenAdapter:Dialogporten:BaseUri"] = DialogportenApi.Url;
         builderConfiguration["DialogportenAdapter:Altinn:BaseUri"] = AltinnApi.Url;
-        builderConfiguration["DialogportenAdapter:Altinn:AltinnOrgs"] = $"{AltinnApi.Url}/orgs/altinn-orgs.json";
+        builderConfiguration["DialogportenAdapter:Altinn:AltinnCdn"] = $"{AltinnCdnApi.Url}";
         builderConfiguration["DialogportenAdapter:Altinn:InternalStorageEndpoint"] = StorageApi.Url;
         builderConfiguration["DialogportenAdapter:Altinn:InternalRegisterEndpoint"] = RegisterApi.Url;
         builderConfiguration["DialogportenAdapter:Authentication:JwtBearerWellKnown"] = "https://platform.tt02.altinn.no/authentication/api/v1/openid/.well-known/openid-configuration";

@@ -214,7 +214,7 @@ public class SyncDialogOnInstanceUpdatedHandlerDlqTest(DialogportenAdapterApplic
         // Arrange
         var arrangement = ArrangeDefaults();
 
-        _app.AltinnApi
+        _app.AltinnCdnApi
             .Given(Request.Create().AltinnGetOrgs())
             .RespondWith(Response.Create()
                 .WithStatusCode(HttpStatusCode.ServiceUnavailable));
@@ -232,7 +232,7 @@ public class SyncDialogOnInstanceUpdatedHandlerDlqTest(DialogportenAdapterApplic
         result.IsSuccess.Should().BeFalse();
         result.DlqMessage.Should().BeNull();
 
-        var altinnOrgsRequests = _app.AltinnApi.FindLogEntries(Request.Create().AltinnGetOrgs()).Count;
+        var altinnOrgsRequests = _app.AltinnCdnApi.FindLogEntries(Request.Create().AltinnGetOrgs()).Count;
         var postDialogRequests = _app.DialogportenApi.FindLogEntries(Request.Create().DpPostDialog()).Count;
 
         altinnOrgsRequests.Should().BeGreaterThan(5);
@@ -242,12 +242,12 @@ public class SyncDialogOnInstanceUpdatedHandlerDlqTest(DialogportenAdapterApplic
     [Theory]
     [InlineData("{}")]
     [InlineData("{\"orgs\":null}")]
-    public async Task GivenAltinnOrgsResponseWithoutOrgsThenRetryIndefinitely(string body)
+    public async Task GivenAltinnOrgsResponseWithoutOrgsThenDql(string body)
     {
         // Arrange
         var arrangement = ArrangeDefaults();
 
-        _app.AltinnApi
+        _app.AltinnCdnApi
             .Given(Request.Create().AltinnGetOrgs())
             .RespondWith(Response.Create()
                 .WithStatusCode(HttpStatusCode.OK)
@@ -264,12 +264,12 @@ public class SyncDialogOnInstanceUpdatedHandlerDlqTest(DialogportenAdapterApplic
 
         // Assert
         result.IsSuccess.Should().BeFalse();
-        result.DlqMessage.Should().BeNull();
+        result.DlqMessage.Should().NotBeNull();
 
-        var altinnOrgsRequests = _app.AltinnApi.FindLogEntries(Request.Create().AltinnGetOrgs()).Count;
+        var altinnOrgsRequests = _app.AltinnCdnApi.FindLogEntries(Request.Create().AltinnGetOrgs()).Count;
         var postDialogRequests = _app.DialogportenApi.FindLogEntries(Request.Create().DpPostDialog()).Count;
 
-        altinnOrgsRequests.Should().BeGreaterThan(5);
+        altinnOrgsRequests.Should().Be(1);
         postDialogRequests.Should().Be(0);
     }
 

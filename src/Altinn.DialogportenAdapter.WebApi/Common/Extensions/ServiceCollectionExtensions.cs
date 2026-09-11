@@ -7,6 +7,7 @@ using Altinn.DialogportenAdapter.WebApi.Common.Exceptions;
 using Altinn.DialogportenAdapter.WebApi.Common.Health;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Delete;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
+using Altinn.DialogportenAdapter.WebApi.Infrastructure.AltinnCdn;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
@@ -115,14 +116,6 @@ internal static class ServiceCollectionExtensions
                     .RetryWithJitteredCooldown(clock.Seconds(1), clock.Seconds(5), clock.Seconds(20))
                     .Then.ScheduleRetry(clock.Minutes(1), clock.Minutes(10), clock.Minutes(30))
                     .Then.MoveToErrorQueue();
-
-                // The service owner organization number is needed to tell service owner data from user data, so we never
-                // sync without it. When the AltinnOrgs CDN is down we treat it like any other upstream outage and keep retrying.
-                opts.Policies
-                    .OnException<AltinnOrgsApiUnavailableException>()
-                    .OrAnyInner<AltinnOrgsApiUnavailableException>()
-                    .RetryWithCooldown(clock.Seconds(10), clock.Seconds(20))
-                    .Then.ScheduleRetryIndefinitely(clock.Seconds(30), clock.Seconds(60), clock.Minutes(2));
 
                 // A service owner missing from AltinnOrgs is usually a new organization not yet listed, or a stale cache.
                 // Retry long enough for caches to expire, eventually failing to error queue for manual inspection.
@@ -310,6 +303,14 @@ internal static class ServiceCollectionExtensions
                 .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(clientKey)
                 .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>();
 
+            services
+                .AddRefitClient<IAltinnCdnApi>()
+                .ConfigureHttpClient(x =>
+                {
+                    x.BaseAddress = settings.DialogportenAdapter.Altinn.AltinnCdn;
+                })
+                .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>();
+
             return services;
         }
 
@@ -365,7 +366,7 @@ internal static class ServiceCollectionExtensions
                 .AddTransient<InstanceService>()
                 .AddTransient<InstanceReceipt>()
                 .AddTransient<AuthorizationValidator>()
-                .AddTransient<IAltinnOrgs, AltinnOrgs>();
+                .AddTransient<IAltinnCdnRepository, AltinnCdnRepository>();
         }
 
         public IServiceCollection ReplaceLocalDevelopmentResources(
