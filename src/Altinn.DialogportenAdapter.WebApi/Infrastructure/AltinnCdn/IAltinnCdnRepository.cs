@@ -10,6 +10,7 @@ internal interface IAltinnCdnRepository
 
 internal sealed class AltinnCdnRepository(IAltinnCdnApi altinnCdnApi, IFusionCache cache) : IAltinnCdnRepository
 {
+    private readonly IAltinnCdnApi _altinnCdnApi = altinnCdnApi ?? throw new ArgumentNullException(nameof(altinnCdnApi));
     private readonly IFusionCache _cache = cache ?? throw new ArgumentNullException(nameof(cache));
 
 
@@ -22,7 +23,7 @@ internal sealed class AltinnCdnRepository(IAltinnCdnApi altinnCdnApi, IFusionCac
 
     private async Task<AltinnOrgData> FetchAltinnOrgData(CancellationToken ct)
     {
-        var content = await altinnCdnApi.GetAltinnOrgs(ct);
+        var content = await _altinnCdnApi.GetAltinnOrgs(ct);
         if (content.Orgs == null) throw new UnreachableException("AltinnOrgData.Orgs serialized to null");
 
         return content;
