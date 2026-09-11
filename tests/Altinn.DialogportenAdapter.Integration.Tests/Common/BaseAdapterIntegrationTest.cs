@@ -298,11 +298,7 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
                 {
                     ["ttd"] = new(
                         Name: new Dictionary<string, string> { ["nb"] = "Testdepartementet" },
-                        OrgNr: "991825827",
-                        Environments: ["tt02", "production"],
-                        Logo: null,
-                        Emblem: null,
-                        HomePage: null
+                        OrgNr: "991825827"
                     )
                 }))));
 

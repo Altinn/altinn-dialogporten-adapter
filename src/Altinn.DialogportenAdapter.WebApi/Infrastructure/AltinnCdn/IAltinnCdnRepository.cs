@@ -7,16 +7,7 @@ namespace Altinn.DialogportenAdapter.WebApi.Infrastructure.AltinnCdn;
 
 public record Org(
     [property: JsonPropertyName("name")] Dictionary<string, string> Name,
-    [property: JsonPropertyName("orgnr")] string OrgNr,
-    [property: JsonPropertyName("environments")] List<string> Environments,
-    [property: JsonPropertyName("logo")] string? Logo,
-    [property: JsonPropertyName("emblem")] string? Emblem,
-    [property: JsonPropertyName("homepage")] string? HomePage,
-    [property: JsonPropertyName("contact")] OrgContact? Contact = null);
-
-public record OrgContact(
-    [property: JsonPropertyName("phone")] string? Phone,
-    [property: JsonPropertyName("url")] string? Url);
+    [property: JsonPropertyName("orgnr")] string OrgNr);
 
 public record AltinnOrgData(
     [property: JsonPropertyName("orgs")] Dictionary<string, Org> Orgs);

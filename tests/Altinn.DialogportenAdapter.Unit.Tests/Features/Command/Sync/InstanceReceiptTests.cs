@@ -384,12 +384,7 @@ public class InstanceReceiptTests
                     ["nn"] = "Digitaliseringsdirektoratet",
                     ["en"] = "Norwegian Digitalisation Agency"
                 },
-                OrgNr: "991825827",
-                Environments: ["tt02", "production"],
-                Logo: "logo",
-                Emblem: "emblem",
-                HomePage: "https://www.digdir.no",
-                Contact: null)
+                OrgNr: "991825827")
         });
 
         return new HappyPathData(dialogId, transmissionId, partyId, instanceGuid, dialog, instance, application, orgs);
