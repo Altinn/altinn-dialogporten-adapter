@@ -330,7 +330,7 @@ internal sealed class StorageDialogportenDataMerger
                 );
             }
             if (string.IsNullOrEmpty(serviceOwner.OrgNr)) throw new ServiceOwnerOrgNumberNotFoundInAltinnOrgs(
-                $"Organization number was null/empty in altinn orgs for service owner {orgCodeSo}"
+                $"Organization number was {serviceOwner.OrgNr} in altinn orgs for service owner {orgCodeSo}"
             );
 
             return element.LastChangedBy == serviceOwner.OrgNr;
