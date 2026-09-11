@@ -117,15 +117,6 @@ internal static class ServiceCollectionExtensions
                     .Then.ScheduleRetry(clock.Minutes(1), clock.Minutes(10), clock.Minutes(30))
                     .Then.MoveToErrorQueue();
 
-                // A service owner missing from AltinnOrgs is usually a new organization not yet listed, or a stale cache.
-                // Retry long enough for caches to expire, eventually failing to error queue for manual inspection.
-                opts.Policies
-                    .OnException<ServiceOwnerOrgNumberNotFoundInAltinnOrgs>()
-                    .OrAnyInner<ServiceOwnerOrgNumberNotFoundInAltinnOrgs>()
-                    .RetryWithJitteredCooldown(clock.Seconds(1), clock.Seconds(5), clock.Seconds(20))
-                    .Then.ScheduleRetry(clock.Minutes(1), clock.Minutes(10), clock.Minutes(30))
-                    .Then.MoveToErrorQueue();
-
                 // We sometimes see Purge returning 404, indicating the dialog has already been purged.
                 // This is probably due to a race where two events in quick succession decide to purge the dialog.
                 // A retry will make the adapter discard the event next run bt the intended way.

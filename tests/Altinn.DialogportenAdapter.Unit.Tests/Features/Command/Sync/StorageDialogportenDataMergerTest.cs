@@ -1,9 +1,9 @@
+using System.Diagnostics;
 using Altinn.ApiClients.Maskinporten.Config;
 using Altinn.DialogportenAdapter.Test.Common.Builder;
 using Altinn.DialogportenAdapter.Unit.Tests.Common.AssertHelpers;
 using Altinn.DialogportenAdapter.WebApi;
 using Altinn.DialogportenAdapter.WebApi.Common;
-using Altinn.DialogportenAdapter.WebApi.Common.Exceptions;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.AltinnCdn;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
@@ -2746,7 +2746,7 @@ public class StorageDialogportenDataMergerTest
             CancellationToken.None
         );
 
-        await merge.Should().ThrowAsync<ServiceOwnerOrgNumberNotFoundInAltinnOrgs>();
+        await merge.Should().ThrowAsync<UnreachableException>();
     }
 
     private static Reference GeneratedFrom(string taskId) => new()

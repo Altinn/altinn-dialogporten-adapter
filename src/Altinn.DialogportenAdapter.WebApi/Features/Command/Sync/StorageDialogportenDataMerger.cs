@@ -325,11 +325,11 @@ internal sealed class StorageDialogportenDataMerger
 
             if (!dto.AltinnOrgData.Orgs.TryGetValue(orgCodeSo, out var serviceOwner))
             {
-                throw new ServiceOwnerOrgNumberNotFoundInAltinnOrgs(
+                throw new UnreachableException(
                     $"Organization number for service owner {orgCodeSo} not found in Altinn Orgs"
                 );
             }
-            if (string.IsNullOrEmpty(serviceOwner.OrgNr)) throw new ServiceOwnerOrgNumberNotFoundInAltinnOrgs(
+            if (string.IsNullOrEmpty(serviceOwner.OrgNr)) throw new UnreachableException(
                 $"Organization number was {serviceOwner.OrgNr} in altinn orgs for service owner {orgCodeSo}"
             );
 
