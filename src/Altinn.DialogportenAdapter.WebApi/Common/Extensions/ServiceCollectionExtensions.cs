@@ -7,6 +7,7 @@ using Altinn.DialogportenAdapter.WebApi.Common.Exceptions;
 using Altinn.DialogportenAdapter.WebApi.Common.Health;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Delete;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
+using Altinn.DialogportenAdapter.WebApi.Infrastructure.AltinnCdn;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
@@ -293,6 +294,14 @@ internal static class ServiceCollectionExtensions
                 .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(clientKey)
                 .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>();
 
+            services
+                .AddRefitClient<IAltinnCdnApi>()
+                .ConfigureHttpClient(x =>
+                {
+                    x.BaseAddress = settings.DialogportenAdapter.Altinn.AltinnCdn;
+                })
+                .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>();
+
             return services;
         }
 
@@ -348,7 +357,7 @@ internal static class ServiceCollectionExtensions
                 .AddTransient<InstanceService>()
                 .AddTransient<InstanceReceipt>()
                 .AddTransient<AuthorizationValidator>()
-                .AddTransient<IAltinnOrgs, AltinnOrgs>();
+                .AddTransient<IAltinnCdnRepository, AltinnCdnRepository>();
         }
 
         public IServiceCollection ReplaceLocalDevelopmentResources(

@@ -1,6 +1,8 @@
+using System.Diagnostics;
 using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Exceptions;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
+using Altinn.DialogportenAdapter.WebApi.Infrastructure.AltinnCdn;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
@@ -18,6 +20,7 @@ internal sealed record MergeDto(
     ApplicationTexts ApplicationTexts,
     Instance Instance,
     InstanceEventList Events,
+    AltinnOrgData AltinnOrgData,
     bool IsMigration);
 
 internal sealed class StorageDialogportenDataMerger
@@ -262,14 +265,19 @@ internal sealed class StorageDialogportenDataMerger
         };
     }
 
+    private bool TransmissionsDisabled(MergeDto dto) =>
+        dto.Application.GetSyncAdapterSettings().DisableAddTransmissions
+        || !_settings.DialogportenAdapter.Adapter.FeatureFlag.EnableSubmissionTransmissions;
+
     private (List<AttachmentDto> attachments, List<TransmissionDto> transmissions) GetAttachmentAndTransmissions(
         MergeDto dto,
-        List<ActivityDto> activities, int currentAttempt = 1)
+        List<ActivityDto> activities,
+        int currentAttempt = 1)
     {
         var realCreatedData = RealCreate(dto).ToList();
         var attachmentVisibility = ReceiptAttachmentVisibilityDecider.Create(dto.Application);
 
-        if (TransmissionsDisabled())
+        if (TransmissionsDisabled(dto))
         {
             return (realCreatedData.Where(x => IsNotPdfReceipt(x.dataElement)).Select(x => CreateAttachmentDto(x.dataElement)).ToList(), []);
         }
@@ -305,12 +313,30 @@ internal sealed class StorageDialogportenDataMerger
 
         return (attachments, transmissions);
 
-        bool IsPerformedBySo(DataElement element) => element.LastChangedBy.Length == 9;
-        bool IsNotPdfReceipt(DataElement element) => element.DataType != PdfType;
+        bool IsPerformedBySo(DataElement element)
+        {
+            var orgCodeSo = string.IsNullOrEmpty(dto.Application.Org) ? dto.Instance.Org : dto.Application.Org;
+            if (string.IsNullOrEmpty(element.LastChangedBy) || string.IsNullOrEmpty(orgCodeSo))
+            {
+                throw new UnreachableException(
+                    $"Unexpected null/empty. orgCodeSo: {orgCodeSo}. LastChangedBy: {element.LastChangedBy} for app {dto.Application.Id} and instance {dto.Instance.Id}"
+                );
+            }
 
-        bool TransmissionsDisabled() => dto.Application.GetSyncAdapterSettings().DisableAddTransmissions ||
-            !_settings.DialogportenAdapter.Adapter.FeatureFlag
-                .EnableSubmissionTransmissions;
+            if (!dto.AltinnOrgData.Orgs.TryGetValue(orgCodeSo, out var serviceOwner))
+            {
+                throw new UnreachableException(
+                    $"Organization number for service owner {orgCodeSo} not found in Altinn Orgs"
+                );
+            }
+            if (string.IsNullOrEmpty(serviceOwner.OrgNr)) throw new UnreachableException(
+                $"Organization number was {serviceOwner.OrgNr} in altinn orgs for service owner {orgCodeSo}"
+            );
+
+            return element.LastChangedBy == serviceOwner.OrgNr;
+        }
+
+        bool IsNotPdfReceipt(DataElement element) => element.DataType != PdfType;
 
         string GetFileName(DataElement dataElement)
         {

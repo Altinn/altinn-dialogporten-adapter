@@ -1,14 +1,15 @@
 using System.Net;
 using Altinn.DialogportenAdapter.Test.Common.Builder;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
+using Altinn.DialogportenAdapter.WebApi.Infrastructure.AltinnCdn;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Altinn.Platform.Storage.Interface.Models;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Refit;
-using IAltinnOrgs = Altinn.DialogportenAdapter.WebApi.Infrastructure.Register.IAltinnOrgs;
 using IApplicationRepository = Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage.IApplicationRepository;
 using IRegisterApi = Altinn.DialogportenAdapter.WebApi.Infrastructure.Register.IRegisterApi;
 using IStorageApi = Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage.IStorageApi;
@@ -116,7 +117,12 @@ public class InstanceReceiptTests
         var data = CreateHappyPathData();
         var (sut, _, _, _, altinnOrgs, _) = CreateSutFromData(data);
         altinnOrgs.GetAltinnOrgs(Arg.Any<CancellationToken>())
-            .Returns((AltinnOrgData?)null);
+            .Throws(await ApiException.Create(
+                new HttpRequestMessage(HttpMethod.Get, "http://localhost"),
+                HttpMethod.Get,
+                new HttpResponseMessage(HttpStatusCode.InternalServerError),
+                new RefitSettings()
+            ));
 
         var result = await sut.GetReceipt(
             new GetReceiptDto(data.DialogId, data.TransmissionId, "nb", null),
@@ -242,19 +248,19 @@ public class InstanceReceiptTests
         IStorageApi StorageApi,
         IApplicationRepository ApplicationRepository,
         IDialogportenApi DialogportenApi,
-        IAltinnOrgs AltinnOrgs,
+        IAltinnCdnRepository AltinnOrgs,
         IRegisterApi RegisterApi)
         CreateSut(
             IStorageApi? storageApi = null,
             IApplicationRepository? applicationRepository = null,
             IDialogportenApi? dialogApi = null,
-            IAltinnOrgs? altinnOrgs = null,
+            IAltinnCdnRepository? altinnOrgs = null,
             IRegisterApi? registerApi = null)
     {
         storageApi ??= Substitute.For<IStorageApi>();
         applicationRepository ??= Substitute.For<IApplicationRepository>();
         dialogApi ??= Substitute.For<IDialogportenApi>();
-        altinnOrgs ??= Substitute.For<IAltinnOrgs>();
+        altinnOrgs ??= Substitute.For<IAltinnCdnRepository>();
         registerApi ??= Substitute.For<IRegisterApi>();
 
         ILogger<InstanceReceipt> logger = Substitute.For<ILogger<InstanceReceipt>>();
@@ -274,14 +280,14 @@ public class InstanceReceiptTests
         IStorageApi StorageApi,
         IApplicationRepository ApplicationRepository,
         IDialogportenApi DialogportenApi,
-        IAltinnOrgs AltinnOrgs,
+        IAltinnCdnRepository AltinnOrgs,
         IRegisterApi RegisterApi)
         CreateSutFromData(
             HappyPathData data,
             IStorageApi? storageApi = null,
             IApplicationRepository? applicationRepository = null,
             IDialogportenApi? dialogApi = null,
-            IAltinnOrgs? altinnOrgs = null,
+            IAltinnCdnRepository? altinnOrgs = null,
             IRegisterApi? registerApi = null)
     {
         var created = CreateSut(storageApi, applicationRepository, dialogApi, altinnOrgs, registerApi);
@@ -378,12 +384,7 @@ public class InstanceReceiptTests
                     ["nn"] = "Digitaliseringsdirektoratet",
                     ["en"] = "Norwegian Digitalisation Agency"
                 },
-                OrgNr: "991825827",
-                Environments: ["tt02", "production"],
-                Logo: "logo",
-                Emblem: "emblem",
-                HomePage: "https://www.digdir.no",
-                Contact: null)
+                OrgNr: "991825827")
         });
 
         return new HappyPathData(dialogId, transmissionId, partyId, instanceGuid, dialog, instance, application, orgs);

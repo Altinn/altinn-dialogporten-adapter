@@ -22,7 +22,7 @@ public class AltinnApplicationBuilder
         LastChangedBy = "another",
         Id = "application-id",
         VersionId = "1.0",
-        Org = "123456789",
+        Org = "ttd",
         Title = new Dictionary<string, string>
         {
             ["nb"] = "Test applikasjon",

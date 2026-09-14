@@ -7,6 +7,7 @@ using Altinn.DialogportenAdapter.Integration.Tests.Common.Extensions;
 using Altinn.DialogportenAdapter.Integration.Tests.Common.Services;
 using Altinn.DialogportenAdapter.Test.Common.Builder;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
+using Altinn.DialogportenAdapter.WebApi.Infrastructure.AltinnCdn;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.Platform.Storage.Interface.Models;
 using Azure.Messaging.ServiceBus;
@@ -38,11 +39,12 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         {
             app.DialogportenApi.LogUnhandledRequests(app.App.Logger, "DialogportenApi").ResetAllExceptFallbackMapping();
             app.RegisterApi.LogUnhandledRequests(app.App.Logger, "RegisterApi").ResetAllExceptFallbackMapping();
+            app.AltinnCdnApi.LogUnhandledRequests(app.App.Logger, "AltinnCdnApi").ResetAllExceptFallbackMapping();
             app.AltinnApi.LogUnhandledRequests(app.App.Logger, "AltinnApi").ResetAllExceptFallbackMapping();
             app.StorageApi.LogUnhandledRequests(app.App.Logger, "StorageApi").ResetAllExceptFallbackMapping();
 
             GetSyncJobCompleteSignal().Reset();
-            await app.App.Services.GetRequiredService<IFusionCache>().ClearAsync().AsTask();
+            await app.App.Services.GetRequiredService<IFusionCache>().ClearAsync(allowFailSafe: false).AsTask();
             await DrainLeftoverMessages();
         }
         finally
@@ -286,6 +288,19 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
             .RespondWith(Response.Create()
                 .WithStatusCode(HttpStatusCode.Created)
                 .WithHeader("ETag", Guid.NewGuid().ToString()));
+
+        app.AltinnCdnApi
+            .Given(Request.Create().AltinnGetOrgs())
+            .AtPriority(short.MaxValue - 1)
+            .RespondWith(Response.Create()
+                .WithStatusCode(HttpStatusCode.OK)
+                .WithBody(JsonSerializer.Serialize(new AltinnOrgData(new Dictionary<string, DialogportenAdapter.WebApi.Infrastructure.AltinnCdn.Org>
+                {
+                    ["ttd"] = new(
+                        Name: new Dictionary<string, string> { ["nb"] = "Testdepartementet" },
+                        OrgNr: "991825827"
+                    )
+                }))));
 
         return new Arrangement(appId, partyId, instanceCreatedAt, instanceId, dialogId);
     }
