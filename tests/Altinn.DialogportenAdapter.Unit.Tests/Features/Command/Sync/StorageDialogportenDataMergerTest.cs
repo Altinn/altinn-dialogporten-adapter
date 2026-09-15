@@ -34,8 +34,11 @@ public class StorageDialogportenDataMergerTest
     {
         [ServiceOwnerOrgCode] = new(
             Name: new Dictionary<string, string> { ["nb"] = "Testdepartementet" },
-            OrgNr: ServiceOwnerOrgNumber
-        )
+            OrgNr:  ""
+        ),
+        ["digdir"] = new(
+            Name: new Dictionary<string, string>{ ["nb"] = "digitaliseringsdirektoratet"},
+            OrgNr: ServiceOwnerOrgNumber) 
     });
     private AdapterFeatureFlagSettings _featureFlags = new() { EnableSubmissionTransmissions = true };
 
