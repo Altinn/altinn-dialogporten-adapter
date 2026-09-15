@@ -323,6 +323,7 @@ internal sealed class StorageDialogportenDataMerger
                 );
             }
 
+            if (orgCodeSo == "ttd") orgCodeSo = "digdir"; // ttd has no orgNr so we use digdir orgNr instead
             if (!dto.AltinnOrgData.Orgs.TryGetValue(orgCodeSo, out var serviceOwner))
             {
                 throw new UnreachableException(
