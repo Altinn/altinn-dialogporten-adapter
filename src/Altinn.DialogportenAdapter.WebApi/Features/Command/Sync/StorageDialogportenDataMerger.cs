@@ -498,7 +498,7 @@ internal sealed class StorageDialogportenDataMerger
     private static IEnumerable<(DataElement dataElement, DateTime? created)> FindCreatedForDateElements(IEnumerable<DataElement> dataElements, InstanceEventList events)
     {
         var createdDateByTaskId = events.InstanceEvents
-            .Where(x => x.EventType == nameof(InstanceEventType.process_EndEvent))
+            .Where(x => x.EventType == nameof(InstanceEventType.process_EndTask))
             .Select(x => (x.ProcessInfo.CurrentTask.ElementId, x.Created))
             .ToDictionary();
 
@@ -514,7 +514,7 @@ internal sealed class StorageDialogportenDataMerger
         if (reference is not null)
         {
             var taskId = reference.Value;
-            if (!createdDateByTaskId.TryGetValue(taskId, out var created) && created is not null)
+            if (createdDateByTaskId.TryGetValue(taskId, out var created) && created is not null)
             {
                 return (dataElement, created);
             }
