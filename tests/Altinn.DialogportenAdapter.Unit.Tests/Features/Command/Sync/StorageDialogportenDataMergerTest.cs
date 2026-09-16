@@ -255,6 +255,7 @@ public class StorageDialogportenDataMergerTest
                 InstanceEvents =
                 [
                     AltinnInstanceEventBuilder.NewCreatedByPlatformUserInstanceEvent(UserId1).Build(),
+                    AltinnInstanceEventBuilder.NewTaskEndEvent(UserId1).WithCreated(submittedAt.AddMinutes(-1)).Build(),
                     AltinnInstanceEventBuilder.NewSubmittedByPlatformUserInstanceEvent(UserId1).WithCreated(submittedAt).Build()
                 ]
             },

@@ -285,7 +285,7 @@ internal sealed class StorageDialogportenDataMerger
 
         // Only user data elements should be included as attachments to transmissions,
         // SO data elements are included as attachments to the dialog itself
-        var userDataElements = new Queue<(DataElement dataElement, DateTime? created)>(dataElementsAndCreatedDate
+        var userDataElements = new Queue<(DataElement dataElement, DateTime created)>(dataElementsAndCreatedDate
             .Except(soDataElements)
             .OrderBy(x => x.created));
 
@@ -495,31 +495,33 @@ internal sealed class StorageDialogportenDataMerger
     /// this is so we can use the task created date to place the attachment in the correct transmission.
     /// <remarks>Fallbacks to the <c>dataElement.Created</c> if there is no event or <c>GeneratedFrom</c> task reference.</remarks>
     /// </summary>
-    private static IEnumerable<(DataElement dataElement, DateTime? created)> FindCreatedForDateElements(IEnumerable<DataElement> dataElements, InstanceEventList events)
+    private static IEnumerable<(DataElement dataElement, DateTime created)> FindCreatedForDateElements(IEnumerable<DataElement> dataElements, InstanceEventList events)
     {
-        var createdDateByTaskId = events.InstanceEvents
-            .Where(x => x.EventType == nameof(InstanceEventType.process_EndTask))
-            .Select(x => (x.ProcessInfo.CurrentTask.ElementId, x.Created))
-            .ToDictionary();
+        
+        // Null is technically a valid TaskId for EndTask event.
+        // as of 16.09.2026 in AT23 and TT02 has 0 EndTask with Null as taskId
+        var endEvents = events.InstanceEvents.Where(x =>
+            x.EventType == nameof(InstanceEventType.process_EndTask) 
+         && x.ProcessInfo.CurrentTask.ElementId is not null);
+        
+        return dataElements.GroupJoin(
+            inner: endEvents,
+            outerKeySelector: GetGeneratedFromTaskId,
+            innerKeySelector: x => x.ProcessInfo.CurrentTask.ElementId,
+            resultSelector: GetTaskEndAtForDataElement);
 
-        return dataElements.Select(x => FindCreatedForDateElement(x, createdDateByTaskId));
-
-
-    }
-
-    private static (DataElement dataElement, DateTime? created) FindCreatedForDateElement(DataElement dataElement, Dictionary<string, DateTime?> createdDateByTaskId)
-    {
-
-        var reference = dataElement.References?.FirstOrDefault(x => x.Relation == RelationType.GeneratedFrom);
-        if (reference is not null)
+        string? GetGeneratedFromTaskId(DataElement dataElement)
         {
-            var taskId = reference.Value;
-            if (createdDateByTaskId.TryGetValue(taskId, out var created) && created is not null)
-            {
-                return (dataElement, created);
-            }
+            return dataElement.References.FirstOrDefault(x => x.Relation == RelationType.GeneratedFrom)?.Value;
         }
-        return (dataElement, dataElement.Created);
+
+        (DataElement dataElement, DateTime) GetTaskEndAtForDataElement(DataElement dataElement, IEnumerable<InstanceEvent> events)
+        {
+            var created = events.Select(x => x.Created).Min() ?? dataElement.Created;
+            return created is not null 
+                ? (dataElement, created.Value) 
+                : throw new InvalidOperationException($"Could not resolve created date for data element: {dataElement.Id}");
+        }
     }
 
 
