@@ -274,20 +274,26 @@ internal sealed class StorageDialogportenDataMerger
         List<ActivityDto> activities,
         int currentAttempt = 1)
     {
-        var realCreatedData = RealCreate(dto).ToList();
+        // We hide the A1 "Signatures.html" from DP/AF
+        var dataElements = dto.Instance.Data.Where(x => !(IsA1Instance(dto.Instance) && x.DataType == "signature-presentation"));
         var attachmentVisibility = ReceiptAttachmentVisibilityDecider.Create(dto.Application);
 
         if (TransmissionsDisabled(dto))
         {
-            return (realCreatedData.Where(x => IsNotPdfReceipt(x.dataElement)).Select(x => CreateAttachmentDto(x.dataElement)).ToList(), []);
+            return (dataElements.Where(IsNotPdfReceipt).Select(CreateAttachmentDto).ToList(), []);
         }
-        var soDataElements = realCreatedData
+        
+        var dataElementsAndCreatedDate = FindCreatedForDateElements(
+                dataElements: dataElements,
+                events: dto.Events)
+            .ToList();
+        var soDataElements = dataElementsAndCreatedDate
             .Where(x => IsPerformedBySo(x.dataElement))
             .ToList();
 
         // Only user data elements should be included as attachments to transmissions,
         // SO data elements are included as attachments to the dialog itself
-        var userDataElements = new Queue<(DataElement dataElement, DateTime? created)>(realCreatedData
+        var userDataElements = new Queue<(DataElement dataElement, DateTime created)>(dataElementsAndCreatedDate
             .Except(soDataElements)
             .OrderBy(x => x.created));
 
@@ -508,40 +514,45 @@ internal sealed class StorageDialogportenDataMerger
                     )
             );
 
-        return  pdfSourceCount <= generatedPdfsCount;
+        return pdfSourceCount <= generatedPdfsCount;
     }
 
-    private static IEnumerable<(DataElement dataElement, DateTime? created)> RealCreate(MergeDto dto)
+    /// <summary>
+    /// Use the created date from the process end event when the dataElement contains a <c>GeneratedFrom</c> task reference
+    /// this is so we can use the task created date to place the attachment in the correct transmission.
+    /// <remarks>Fallbacks to the <c>dataElement.Created</c> if there is no event or <c>GeneratedFrom</c> task reference.</remarks>
+    /// </summary>
+    private static IEnumerable<(DataElement dataElement, DateTime created)> FindCreatedForDateElements(IEnumerable<DataElement> dataElements, InstanceEventList events)
     {
-        var dataElements = dto.Instance.Data.Where(x => !ShouldSkipDataElement(x)).ToList();
-        var dataTypes = dto.Application.DataTypes ?? [];
+        
+        var endEvents = events.InstanceEvents.Where(x =>
+            x.EventType == nameof(InstanceEventType.process_EndTask))
+            .ToList();
 
-        var dataTypesWithTaskId = dataTypes.Where(x => !string.IsNullOrEmpty(x.TaskId)).ToList();
-        foreach (var dataElement in dataElements)
+        // Null is technically a valid TaskId for EndTask event.
+        // as of 16.09.2026 in AT23 and TT02 has 0 EndTask with Null as taskId
+        if (endEvents.Any(x => x.ProcessInfo.CurrentTask.ElementId is null)) throw new UnreachableException("EndTask event contains ProcessInfo.CurrentTask.ElementId Null");
+        
+        return dataElements.GroupJoin(
+            inner: endEvents,
+            outerKeySelector: GetGeneratedFromTaskId,
+            innerKeySelector: x => x.ProcessInfo.CurrentTask.ElementId,
+            resultSelector: GetTaskEndAtForDataElement);
+
+        string? GetGeneratedFromTaskId(DataElement dataElement)
         {
-            var created = dataElement.Created;
-            if (dataElement.References is not null && dataElement.References.Any(x => x.Relation == RelationType.GeneratedFrom))
-            {
-                var idFromTask = GetIdFromTask(dataTypesWithTaskId, dataElement);
-                if (idFromTask is not null)
-                {
-                    created = dataElements.Where(x => x.DataType == idFromTask).Select(x => x.Created).FirstOrDefault();
-                }
-            }
-            yield return (dataElement, created);
+            return dataElement.References.FirstOrDefault(x => x.Relation == RelationType.GeneratedFrom)?.Value;
         }
-        yield break;
 
-        // We hide the A1 "Signatures.html" from DP/AF
-        bool ShouldSkipDataElement(DataElement element) => IsA1Instance(dto.Instance) && element.DataType == "signature-presentation";
+        (DataElement dataElement, DateTime) GetTaskEndAtForDataElement(DataElement dataElement, IEnumerable<InstanceEvent> events)
+        {
+            var created = events.Select(x => x.Created).Min() ?? dataElement.Created;
+            return created is not null 
+                ? (dataElement, created.Value) 
+                : throw new InvalidOperationException($"Could not resolve created date for data element: {dataElement.Id}");
+        }
     }
 
-    private static string? GetIdFromTask(IEnumerable<DataType> dataTypes, DataElement dataElement) =>
-        dataTypes
-            .Where(x => x.TaskId == dataElement.References
-                .Where(x => x.Relation == RelationType.GeneratedFrom).First().Value)
-            .Select(x => x.Id)
-            .FirstOrDefault();
 
     private async Task<string> GetPartyUrnOrThrow(string partyId, CancellationToken cancellationToken)
     {

@@ -41,6 +41,7 @@ internal static class Constants
         InstanceEventType.NotificationSentSms.ToString(),
         InstanceEventType.MessageArchived.ToString(),
         InstanceEventType.MessageRead.ToString(),
+        InstanceEventType.process_EndTask.ToString()
     ];
 
     public static readonly ImmutableArray<(DialogGuiActionPriority Priority, int Limit)> PriorityLimits = [
