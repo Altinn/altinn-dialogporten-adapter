@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Exceptions;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
@@ -504,7 +505,7 @@ internal sealed class StorageDialogportenDataMerger
 
         // Null is technically a valid TaskId for EndTask event.
         // as of 16.09.2026 in AT23 and TT02 has 0 EndTask with Null as taskId
-        if (endEvents.Any(x => x.ProcessInfo.CurrentTask.ElementId is null)) throw new InvalidOperationException("EndTask event contains ProcessInfo.CurrentTask.ElementId Null");
+        if (endEvents.Any(x => x.ProcessInfo.CurrentTask.ElementId is null)) throw new UnreachableException("EndTask event contains ProcessInfo.CurrentTask.ElementId Null");
         
         return dataElements.GroupJoin(
             inner: endEvents,
