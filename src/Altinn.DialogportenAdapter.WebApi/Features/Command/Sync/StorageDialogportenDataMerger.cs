@@ -498,11 +498,13 @@ internal sealed class StorageDialogportenDataMerger
     private static IEnumerable<(DataElement dataElement, DateTime created)> FindCreatedForDateElements(IEnumerable<DataElement> dataElements, InstanceEventList events)
     {
         
+        var endEvents = events.InstanceEvents.Where(x =>
+            x.EventType == nameof(InstanceEventType.process_EndTask))
+            .ToList();
+
         // Null is technically a valid TaskId for EndTask event.
         // as of 16.09.2026 in AT23 and TT02 has 0 EndTask with Null as taskId
-        var endEvents = events.InstanceEvents.Where(x =>
-            x.EventType == nameof(InstanceEventType.process_EndTask) 
-         && x.ProcessInfo.CurrentTask.ElementId is not null);
+        if (endEvents.Any(x => x.ProcessInfo.CurrentTask.ElementId is null)) throw new InvalidOperationException("EndTask event contains ProcessInfo.CurrentTask.ElementId Null");
         
         return dataElements.GroupJoin(
             inner: endEvents,
