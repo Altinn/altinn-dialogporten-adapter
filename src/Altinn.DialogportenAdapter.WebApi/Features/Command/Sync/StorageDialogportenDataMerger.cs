@@ -482,7 +482,8 @@ internal sealed class StorageDialogportenDataMerger
     {
         var dataTypes = dto.Application.DataTypes ?? [];
         var pdfCreatingTasks = dataTypes
-            .Where(x => x.AppLogic is not null && x.EnablePdfCreation)
+            // "is not false" treats an absent flag as enabled whether EnablePdfCreation is bool or bool?
+            .Where(x => x.AppLogic is not null && x.EnablePdfCreation is not false)
             .Select(x => new { x.Id, x.TaskId })
             .ToList();
 

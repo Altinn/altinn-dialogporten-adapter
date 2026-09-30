@@ -152,6 +152,37 @@ public class StorageDialogportenDataMergerTest
 
         allPdfsGenerated.Should().BeTrue();
     }
+
+    [Fact(DisplayName = "Given a data type with app logic that does not set EnablePdfCreation, AllPdfsGenerated expects a PDF for its task")]
+    public void AllPdfsGenerated_EnablePdfCreationNotSet_ExpectsPdf()
+    {
+        var mergeDto = new MergeDto(
+            DialogId: Guid.NewGuid(),
+            ExistingDialog: null,
+            Application: AltinnApplicationBuilder
+                .NewDefaultAltinnApplication()
+                .WithDataTypes(new DataType { Id = "form-data", TaskId = "Task_1", AppLogic = new ApplicationLogic() })
+                .Build(),
+            ApplicationTexts: new ApplicationTexts { Translations = [] },
+            Instance: AltinnInstanceBuilder
+                .NewInProgressInstance()
+                .WithData([
+                    AltinnDataElementBuilder
+                        .NewDefaultDataElementBuilder()
+                        .WithId("form-data-element")
+                        .WithDataType("form-data")
+                        .Build()
+                ])
+                .Build(),
+            Events: new InstanceEventList { InstanceEvents = [] },
+            AltinnOrgData: DefaultAltinnOrgs,
+            IsMigration: false);
+
+        var allPdfsGenerated = StorageDialogportenDataMerger.AllPdfsGenerated(mergeDto);
+
+        allPdfsGenerated.Should().BeFalse();
+    }
+
 [Fact(DisplayName = "Given a PDF receipt generated from a task whose first declared data type has no data element, the PDF receipt and the form data are mapped to the submission transmission")]
     public async Task Merge_PdfReceiptGeneratedFromTaskWhereFirstDataTypeHasNoDataElement_MapsPdfReceiptToTransmission()
     {
