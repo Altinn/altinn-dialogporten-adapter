@@ -2767,6 +2767,7 @@ public class StorageDialogportenDataMergerTest
                 InstanceEvents =
                 [
                     AltinnInstanceEventBuilder.NewCreatedByPlatformUserInstanceEvent(UserId1).Build(),
+                    AltinnInstanceEventBuilder.NewTaskEndEvent(UserId1).Build(),
                     AltinnInstanceEventBuilder.NewSubmittedByPlatformUserInstanceEvent(UserId1)
                         .WithCreated(submittedAt)
                         .WithUser(new PlatformUser { SystemUserOwnerOrgNo = endUserOrgNumber })
