@@ -108,6 +108,15 @@ internal sealed partial class MockDialogportenApi : IDialogportenApi
             error: null);
         return Task.FromResult<IApiResponse>(apiResponse);
     }
+    public Task<IApiResponse> UpdateTransmission(TransmissionDto transmission, Guid? revision, Guid dialogId, Guid transmissionId, bool isSilentUpdate = true, CancellationToken cancellationToken = default)
+    {
+        var apiResponse = new ApiResponse<object>(
+            response: new HttpResponseMessage(HttpStatusCode.NoContent),
+            content: null,
+            settings: _refitSettings,
+            error: null);
+        return Task.FromResult<IApiResponse>(apiResponse);
+    }
 
     private static partial class Log
     {
