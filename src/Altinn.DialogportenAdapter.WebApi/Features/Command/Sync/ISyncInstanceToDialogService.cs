@@ -15,7 +15,7 @@ namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 
 public interface ISyncInstanceToDialogService
 {
-    Task Sync(SyncInstanceCommand dto, int currentAttempt = 1, CancellationToken cancellationToken = default);
+    Task Sync(SyncInstanceCommand dto, CancellationToken cancellationToken = default);
 }
 
 internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialogService
@@ -43,7 +43,7 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public async Task Sync(SyncInstanceCommand dto, int currentAttempt = 1, CancellationToken cancellationToken = default)
+    public async Task Sync(SyncInstanceCommand dto, CancellationToken cancellationToken = default)
     {
         // To avoid performing requests needlessly, we attempt to load the app from cache first to see if
         // sync is disabled in which case we can skip the rest of the processing.
@@ -200,16 +200,8 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
             orgs,
             dto.IsMigration || forceSilentUpsert
         );
-        var updatedDialog = await _dataMerger.Merge(mergeDto, currentAttempt, cancellationToken);
+        var updatedDialog = await _dataMerger.Merge(mergeDto, cancellationToken);
         var revision = await UpsertDialog(updatedDialog, existingDialog, syncAdapterSettings, dto.IsMigration || forceSilentUpsert, cancellationToken);
-        
-        // We throw an exception if PDFs are not generated and a form submission activity is present.
-        // Regardless of the current attempt so it will end up in DLQ
-        if (!StorageDialogportenDataMerger.AllPdfsGenerated(mergeDto) &&
-            updatedDialog.Activities.Any(activity => activity.Type is DialogActivityType.FormSubmitted))
-        {
-            throw new WaitForPdfException();
-        }
         
         if (!syncAdapterSettings.DisableDelete && shouldDeleteAfterCreate && revision.HasValue)
         {
@@ -327,11 +319,9 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
         DialogDto updated, DialogDto? existing, bool isMigration,
         CancellationToken cancellationToken)
     {
-        var activityUpdateRequests = existing?.Activities
-            .Join(updated.Activities, x => x.Id, x => x.Id, (prev, next) => (prev, next))
-            .Where(x => x.prev.Type == DialogActivityType.FormSaved && (x.next.CreatedAt!.Value - x.prev.CreatedAt!.Value) > Epsilon)
-            .Select(x => new { ActivityId = x.next.Id!.Value, NewCreatedAt = x.next.CreatedAt!.Value })
-            .ToArray() ?? [];
+        await UpdateActivities(updated, existing, cancellationToken);
+
+        await UpdateTransmissions(updated, existing, cancellationToken);
 
         PruneExistingImmutableEntities(updated, existing);
 
@@ -341,18 +331,49 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
 
         updated.Revision = updateResult.GetEtagHeader();
 
+        return updated.Revision.Value;
+    }
+    private async Task UpdateTransmissions(DialogDto updated, DialogDto? existing, CancellationToken cancellationToken)
+    {
+        var transmissionUpdateRequests = existing?.Transmissions
+            .Join(inner: updated.Transmissions,
+                outerKeySelector: x => x.Id,
+                innerKeySelector: x => x.Id,
+                resultSelector: (prev, next) => (prev, next))
+            .Where(x => x.prev.Attachments.Count != x.next.Attachments.Count) // We only want to update transmission to add PDF-attachments to transmissions.
+            .Select(x => x.next)
+            .ToArray() ?? [];
+
+        foreach (var updatedTransmission in transmissionUpdateRequests)
+        {
+            var res = await _dialogportenApi.UpdateTransmission(transmission: updatedTransmission,
+                    revision: updated.Revision,
+                    dialogId: updated.Id!.Value,
+                    transmissionId: updatedTransmission.Id!.Value,
+                    cancellationToken: cancellationToken)
+                .EnsureSuccess();
+            updated.Revision = res.GetEtagHeader();
+        }
+    }
+    private async Task UpdateActivities(DialogDto updated, DialogDto? existing, CancellationToken cancellationToken)
+    {
+        var activityUpdateRequests = existing?.Activities
+            .Join(updated.Activities, x => x.Id, x => x.Id, (prev, next) => (prev, next))
+            .Where(x => x.prev.Type == DialogActivityType.FormSaved && (x.next.CreatedAt!.Value - x.prev.CreatedAt!.Value) > Epsilon)
+            .Select(x => new { ActivityId = x.next.Id!.Value, NewCreatedAt = x.next.CreatedAt!.Value })
+            .ToArray() ?? [];
+
         foreach (var activityUpdateRequest in activityUpdateRequests)
         {
             var result = await _dialogportenApi.UpdateFormSavedActivityTime(
-                updated.Id!.Value,
-                activityUpdateRequest.ActivityId,
-                updated.Revision.Value,
-                activityUpdateRequest.NewCreatedAt,
-                cancellationToken: cancellationToken).EnsureSuccess();
+                    updated.Id!.Value,
+                    activityUpdateRequest.ActivityId,
+                    updated.Revision!.Value,
+                    activityUpdateRequest.NewCreatedAt,
+                    cancellationToken: cancellationToken)
+                .EnsureSuccess();
             updated.Revision = result.GetEtagHeader();
         }
-
-        return updated.Revision.Value;
     }
 
     private async Task<Guid> RestoreDialog(

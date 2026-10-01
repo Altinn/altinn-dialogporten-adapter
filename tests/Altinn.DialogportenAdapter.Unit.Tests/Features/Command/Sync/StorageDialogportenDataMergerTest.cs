@@ -48,9 +48,7 @@ public class StorageDialogportenDataMergerTest
         options.Value.Returns(new Settings
         {
             DialogportenAdapter = new DialogportenAdapterSettings(
-                Maskinporten: new MaskinportenSettings
-                {
-                },
+                Maskinporten: new MaskinportenSettings(),
                 Altinn: new AltinnPlatformSettings
                 (
                     BaseUri: new Uri("http://altinn.localhost/"),
@@ -91,67 +89,6 @@ public class StorageDialogportenDataMergerTest
         );
     }
 
-    [Fact(DisplayName = "Given multiple PDF-enabled data types on one task, AllPdfsGenerated counts expected PDFs per task")]
-    public void AllPdfsGenerated_MultiplePdfEnabledDataTypesOnSameTask_CountsExpectedPdfsPerTask()
-    {
-        var mergeDto = new MergeDto(
-            DialogId: Guid.NewGuid(),
-            ExistingDialog: null,
-            Application: AltinnApplicationBuilder
-                .NewDefaultAltinnApplication()
-                .WithDataTypes(
-                    AltinnDataTypeBuilder
-                        .NewDefaultDataType()
-                        .WithId("form-data")
-                        .WithTaskId("Task_1")
-                        .WithAppLogic(new ApplicationLogic())
-                        .WithEnablePdfCreation(true)
-                        .Build(),
-                    AltinnDataTypeBuilder
-                        .NewDefaultDataType()
-                        .WithId("attachment-data")
-                        .WithTaskId("Task_1")
-                        .WithAppLogic(new ApplicationLogic())
-                        .WithEnablePdfCreation(true)
-                        .Build())
-                .Build(),
-            ApplicationTexts: new ApplicationTexts { Translations = [] },
-            Instance: AltinnInstanceBuilder
-                .NewInProgressInstance()
-                .WithData([
-                    AltinnDataElementBuilder
-                        .NewDefaultDataElementBuilder()
-                        .WithId("form-data-element")
-                        .WithDataType("form-data")
-                        .Build(),
-                    AltinnDataElementBuilder
-                        .NewDefaultDataElementBuilder()
-                        .WithId("attachment-data-element")
-                        .WithDataType("attachment-data")
-                        .Build(),
-                    AltinnDataElementBuilder
-                        .NewDefaultDataElementBuilder()
-                        .WithId("generated-pdf")
-                        .WithDataType("ref-data-as-pdf")
-                        .WithReferences([
-                            new Reference
-                            {
-                                Value = "Task_1",
-                                Relation = RelationType.GeneratedFrom,
-                                ValueType = ReferenceType.DataElement
-                            }
-                        ])
-                        .Build()
-                ])
-                .Build(),
-            Events: new InstanceEventList { InstanceEvents = [] },
-            AltinnOrgData: DefaultAltinnOrgs,
-            IsMigration: false);
-
-        var allPdfsGenerated = StorageDialogportenDataMerger.AllPdfsGenerated(mergeDto);
-
-        allPdfsGenerated.Should().BeTrue();
-    }
 [Fact(DisplayName = "Given a PDF receipt generated from a task whose first declared data type has no data element, the PDF receipt and the form data are mapped to the submission transmission")]
     public async Task Merge_PdfReceiptGeneratedFromTaskWhereFirstDataTypeHasNoDataElement_MapsPdfReceiptToTransmission()
     {
@@ -200,9 +137,10 @@ public class StorageDialogportenDataMergerTest
                     AltinnInstanceEventBuilder.NewSubmittedByPlatformUserInstanceEvent(UserId1).WithCreated(submittedAt).Build()
                 ]
             },
+            AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false);
 
-        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
 
         actualDialogDto.Attachments.Should().BeEmpty();
         var transmission = actualDialogDto.Transmissions.Should().ContainSingle().Subject;
@@ -275,9 +213,10 @@ public class StorageDialogportenDataMergerTest
                     AltinnInstanceEventBuilder.NewSubmittedByPlatformUserInstanceEvent(UserId1).WithCreated(submittedAt).Build()
                 ]
             },
+            AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false);
 
-        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
 
         var transmission = actualDialogDto.Transmissions.Should().ContainSingle().Subject;
         transmission.Attachments.Select(x => x.DisplayName.Single().Value)
@@ -317,7 +256,7 @@ public class StorageDialogportenDataMergerTest
             IsMigration: false
         );
 
-        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
 
         actualDialogDto.Should().BeEquivalentTo(new DialogDto
         {
@@ -403,7 +342,7 @@ public class StorageDialogportenDataMergerTest
             IsMigration: false
         );
 
-        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
 
         actualDialogDto.Should().BeEquivalentTo(new DialogDto
         {
@@ -578,8 +517,8 @@ public class StorageDialogportenDataMergerTest
             IsMigration: false
         );
 
-        var actualDialogDto1 = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
-        var actualDialogDto2 = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
+        var actualDialogDto1 = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
+        var actualDialogDto2 = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
 
         actualDialogDto1.Activities.Should().NotBeEmpty();
         actualDialogDto1.Attachments.Should().NotBeEmpty();
@@ -667,7 +606,7 @@ public class StorageDialogportenDataMergerTest
             AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false);
 
-        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
 
         actualDialogDto.Should().BeEquivalentTo(new DialogDto
         {
@@ -766,7 +705,7 @@ public class StorageDialogportenDataMergerTest
             IsMigration: false
         );
 
-        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
 
         actualDialogDto.Should().BeEquivalentTo(new DialogDto
         {
@@ -850,7 +789,7 @@ public class StorageDialogportenDataMergerTest
             IsMigration: false
         );
 
-        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
 
         actualDialogDto.Should().BeEquivalentTo(new DialogDto
         {
@@ -911,7 +850,7 @@ public class StorageDialogportenDataMergerTest
             IsMigration: false
         );
 
-        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
 
         actualDialogDto.Should().BeEquivalentTo(new DialogDto
         {
@@ -1069,7 +1008,7 @@ public class StorageDialogportenDataMergerTest
             IsMigration: false
         );
 
-        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
 
         actualDialogDto.Should().BeEquivalentTo(new DialogDto
         {
@@ -1563,7 +1502,7 @@ public class StorageDialogportenDataMergerTest
             IsMigration: false
         );
 
-        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
 
         actualDialogDto.Should().BeEquivalentTo(new DialogDto
         {
@@ -2019,7 +1958,7 @@ public class StorageDialogportenDataMergerTest
             AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false
         );
-        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
 
         actualDialogDto.Should().BeEquivalentTo(new DialogDto
         {
@@ -2383,7 +2322,7 @@ public class StorageDialogportenDataMergerTest
             IsMigration: false
         );
 
-        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
 
         actualDialogDto.Should().BeEquivalentTo(new DialogDto
         {
@@ -2699,7 +2638,7 @@ public class StorageDialogportenDataMergerTest
             AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false);
 
-        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
 
         var displayNames = actualDialogDto.Attachments
             .Select(x => x.DisplayName.Single().Value)
@@ -2765,6 +2704,7 @@ public class StorageDialogportenDataMergerTest
                 InstanceEvents =
                 [
                     AltinnInstanceEventBuilder.NewCreatedByPlatformUserInstanceEvent(UserId1).Build(),
+                    AltinnInstanceEventBuilder.NewTaskEndEvent(UserId1).Build(),
                     AltinnInstanceEventBuilder.NewSubmittedByPlatformUserInstanceEvent(UserId1)
                         .WithCreated(submittedAt)
                         .WithUser(new PlatformUser { SystemUserOwnerOrgNo = endUserOrgNumber })
@@ -2774,7 +2714,7 @@ public class StorageDialogportenDataMergerTest
             AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false);
 
-        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
 
         actualDialogDto.Attachments.Should().BeEmpty();
         var transmission = actualDialogDto.Transmissions.Should().ContainSingle().Subject;
@@ -2833,7 +2773,7 @@ public class StorageDialogportenDataMergerTest
             AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false);
 
-        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
 
         var transmission = actualDialogDto.Transmissions.Should().ContainSingle().Subject;
         transmission.Attachments.Select(x => x.Name).Should().BeEquivalentTo(["Hovedskjema"]);
@@ -2878,7 +2818,6 @@ public class StorageDialogportenDataMergerTest
                 },
                 AltinnOrgData: new AltinnOrgData(new Dictionary<string, Org>()),
                 IsMigration: false),
-            currentAttempt: 1,
             CancellationToken.None
         );
 

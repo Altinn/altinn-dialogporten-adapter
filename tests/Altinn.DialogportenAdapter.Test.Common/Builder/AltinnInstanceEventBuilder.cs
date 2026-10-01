@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices.JavaScript;
 using Altinn.DialogportenAdapter.Test.Common.Extensions;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
