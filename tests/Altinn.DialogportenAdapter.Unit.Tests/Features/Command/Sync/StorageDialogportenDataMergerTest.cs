@@ -200,6 +200,7 @@ public class StorageDialogportenDataMergerTest
                     AltinnInstanceEventBuilder.NewSubmittedByPlatformUserInstanceEvent(UserId1).WithCreated(submittedAt).Build()
                 ]
             },
+            AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false);
 
         var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
@@ -275,6 +276,7 @@ public class StorageDialogportenDataMergerTest
                     AltinnInstanceEventBuilder.NewSubmittedByPlatformUserInstanceEvent(UserId1).WithCreated(submittedAt).Build()
                 ]
             },
+            AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false);
 
         var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
