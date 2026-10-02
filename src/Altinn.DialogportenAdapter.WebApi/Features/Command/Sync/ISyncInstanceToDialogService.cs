@@ -68,7 +68,7 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
 
         if (application.GetSyncAdapterSettings().EnableUserSuppliedDialogId)
         {
-            (var userSuppliedDialogId, existingDialog) = await GetDialogFromUserSuppliedDialogId(dto, instance, cancellationToken);
+            (var userSuppliedDialogId, existingDialog) = await GetDialog(dto, instance, cancellationToken);
             dialogId = userSuppliedDialogId ?? dialogId;
         }
 
@@ -187,7 +187,7 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
             throw response.Error;
         }
     }
-    private async Task<(Guid? dialogId, DialogDto? existingDialog)> GetDialogFromUserSuppliedDialogId(SyncInstanceCommand dto, Instance? instance, CancellationToken cancellationToken)
+    private async Task<(Guid? dialogId, DialogDto? existingDialog)> GetDialog(SyncInstanceCommand dto, Instance? instance, CancellationToken cancellationToken)
     {
         DialogDto? existingDialog;
         if (instance is null)
