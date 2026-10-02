@@ -68,44 +68,8 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
 
         if (application.GetSyncAdapterSettings().EnableUserSuppliedDialogId)
         {
-            if (instance is not null)
-            {
-                if (instance.DataValues is null
-                 || !instance.DataValues.TryGetValue(Constants.InstanceDataValueDialogIdKey, out var userSuppliedDialogId))
-                {
-                    throw new UserSuppliedDialogIdNotFoundException(instance.Id);
-                }
-
-                if (!Guid.TryParse(userSuppliedDialogId, out dialogId)
-                 || !dialogId.IsUuidV7WithTimestampInPast())
-                {
-                    LogInvalidUserSuppliedDialogIdWarning(dto.InstanceId);
-                    return;
-                }
-
-                existingDialog = await _dialogportenApi.Get(dialogId, cancellationToken).ContentOrDefault();
-
-                // Check if DialogId is already in use by someone else
-                if (existingDialog?.ServiceOwnerContext != null)
-                {
-                    var storageLabels = existingDialog.ServiceOwnerContext.ServiceOwnerLabels.Where(x => x.Value.StartsWith("urn:altinn:integration:storage:", StringComparison.InvariantCulture));
-                    if (storageLabels.Any(x => x.Value != $"urn:altinn:integration:storage:{instance.Id}"))
-                    {
-                        LogInvalidUserSuppliedDialogIdWarning(dto.InstanceId);
-                        return;
-                    }
-                }
-            }
-            else
-            {
-                var dialogSearch = await _dialogportenApi.SearchByServiceOwnerLabels([$"urn:altinn:integration:storage:{dto.PartyId}/{dto.InstanceId}"], cancellationToken).ContentOrDefault();
-                if (dialogSearch == null || dialogSearch.Items.Count != 1)
-                {
-                    LogNoOpWarning(dto.PartyId, dto.InstanceId, dto.InstanceCreatedAt, dto.IsMigration);
-                    return;
-                }
-                existingDialog = dialogSearch.Items.First();
-            }
+            (var userSuppliedDialogId, existingDialog) = await GetDialog(dto, instance, cancellationToken);
+            dialogId = userSuppliedDialogId ?? dialogId;
         }
 
 
@@ -214,6 +178,47 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
             if (response.IsSuccessful) return;
             throw response.Error;
         }
+    }
+    private async Task<(Guid? dialogId, DialogDto? existingDialog)> GetDialog(SyncInstanceCommand dto, Instance? instance, CancellationToken cancellationToken)
+    {
+        DialogDto? existingDialog;
+        if (instance is null)
+        {
+            var dialogSearch = await _dialogportenApi.SearchByServiceOwnerLabels([$"urn:altinn:integration:storage:{dto.PartyId}/{dto.InstanceId}"], cancellationToken).ContentOrDefault();
+            if (dialogSearch == null || dialogSearch.Items.Count != 1)
+            {
+                LogNoOpWarning(dto.PartyId, dto.InstanceId, dto.InstanceCreatedAt, dto.IsMigration);
+                return (null, null);
+            }
+            existingDialog = dialogSearch.Items.First();
+            return (existingDialog.Id, existingDialog);
+        }
+        if (instance.DataValues is null
+         || !instance.DataValues.TryGetValue(Constants.InstanceDataValueDialogIdKey, out var userSuppliedDialogId))
+        {
+            throw new UserSuppliedDialogIdNotFoundException(instance.Id);
+        }
+
+        if (!Guid.TryParse(userSuppliedDialogId, out var dialogId) || !dialogId.IsUuidV7WithTimestampInPast())
+        {
+            LogInvalidUserSuppliedDialogIdWarning(dto.InstanceId);
+            return (null, null);
+        }
+
+        existingDialog = await _dialogportenApi.Get(dialogId, cancellationToken).ContentOrDefault();
+
+        // Check if DialogId is already in use by someone else
+        if (existingDialog?.ServiceOwnerContext == null) return (dialogId, existingDialog);
+
+        var storageLabels = existingDialog.ServiceOwnerContext.ServiceOwnerLabels.Where(x => x.Value.StartsWith("urn:altinn:integration:storage:", StringComparison.InvariantCulture));
+        
+        if (storageLabels.Any(x => x.Value != $"urn:altinn:integration:storage:{instance.Id}"))
+        {
+            LogInvalidUserSuppliedDialogIdWarning(dto.InstanceId);
+            return (null, null);
+        }
+
+        return (dialogId, existingDialog);
     }
 
     private static void EnsureNotNull(
