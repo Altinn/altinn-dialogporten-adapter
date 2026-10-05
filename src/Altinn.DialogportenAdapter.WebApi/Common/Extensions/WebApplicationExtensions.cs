@@ -105,7 +105,7 @@ public static class WebApplicationExtensions
                     [FromServices] AuthorizationValidator validator,
                     CancellationToken cancellationToken) =>
                 {
-                    if (!validator.ValidateDialogToken(authorization, dialogId, ["read"]))
+                    if (!validator.ValidateDialogToken(authorization, dialogId))
                         return Results.Unauthorized();
 
                     var request = new GetReceiptDto(dialogId, transactionId, languageCode, prefer);
