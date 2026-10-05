@@ -486,7 +486,7 @@ internal sealed class StorageDialogportenDataMerger
 
         string? GetGeneratedFromTaskId(DataElement dataElement)
         {
-            return dataElement.References.FirstOrDefault(x => x.Relation == RelationType.GeneratedFrom)?.Value;
+            return dataElement.References?.FirstOrDefault(x => x.Relation == RelationType.GeneratedFrom)?.Value;
         }
 
         (DataElement dataElement, DateTime) GetTaskEndAtForDataElement(DataElement dataElement, IEnumerable<InstanceEvent> events)
