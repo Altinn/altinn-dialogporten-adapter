@@ -89,7 +89,7 @@ public class StorageDialogportenDataMergerTest
         );
     }
 
-[Fact(DisplayName = "Given a PDF receipt generated from a task whose first declared data type has no data element, the PDF receipt and the form data are mapped to the submission transmission")]
+    [Fact(DisplayName = "Given a PDF receipt generated from a task whose first declared data type has no data element, the PDF receipt and the form data are mapped to the submission transmission")]
     public async Task Merge_PdfReceiptGeneratedFromTaskWhereFirstDataTypeHasNoDataElement_MapsPdfReceiptToTransmission()
     {
         const string userId = "1337";
@@ -200,8 +200,8 @@ public class StorageDialogportenDataMergerTest
         attachment.Name.Should().Be("Hovedskjema");
     }
 
-    [Fact(DisplayName = "Given a PDF receipt that cannot be assigned to any submission transmission, the PDF receipt is left out of the dialog attachments")]
-    public async Task Merge_PdfReceiptNotAssignableToAnyTransmission_ExcludesPdfReceiptFromDialogAttachments()
+    [Fact(DisplayName = "Given a PDF receipt referencing a task without an end event, the PDF receipt is mapped to the dialog attachments instead of a submission transmission")]
+    public async Task Merge_PdfReceiptWithoutMatchingTaskEndEvent_MapsPdfReceiptToDialogAttachments()
     {
         const string userId = "1337";
         var submittedAt = new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc);
@@ -238,7 +238,7 @@ public class StorageDialogportenDataMergerTest
                         .WithLastChangedBy(userId)
                         .WithReferences([new Reference { Value = "Task_1", Relation = RelationType.GeneratedFrom, ValueType = ReferenceType.Task }])
                         .Build(),
-                    // The signing task ends after the only submission, so its data belongs to no submission transmission
+                    // The signing task has no end event, so receipt-task-2.pdf cannot be placed in a transmission
                     AltinnDataElementBuilder.NewDefaultDataElementBuilder()
                         .WithId("019bd5eb-4239-7a40-a823-7735059ef136")
                         .WithDataType("signature")
@@ -275,7 +275,7 @@ public class StorageDialogportenDataMergerTest
         transmission.Attachments.Select(x => x.DisplayName.Single().Value)
             .Should().BeEquivalentTo(["hovedskjema.xml", "receipt-task-1.pdf"]);
         actualDialogDto.Attachments.Select(x => x.DisplayName.Single().Value)
-            .Should().BeEquivalentTo(["signature.json"]);
+            .Should().BeEquivalentTo(["signature.json", "receipt-task-2.pdf"]);
     }
     
     [Fact(DisplayName = "Given a minimal MergeDto, should return a DialogDto")]
@@ -2131,6 +2131,30 @@ public class StorageDialogportenDataMergerTest
                         }
                     ]
                 },
+                new AttachmentDto
+                {
+                    Id = Guid.Parse("00dc6b07-88c8-7a40-a823-7735059ef136"),
+                    DisplayName =
+                    [
+                        new LocalizationDto
+                        {
+                            Value = "visible-because-pdf-ref",
+                            LanguageCode = "nb"
+                        }
+                    ],
+                    Name = "ref-data-as-pdf",
+                    Urls =
+                    [
+                        new AttachmentUrlDto
+                        {
+                            Id = Guid.Parse("00dc6b07-88c8-7a40-a823-7735059ef136"),
+                            Url =
+                                "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Fplatform.localhost%3FdontChooseReportee%3Dtrue",
+                            MediaType = "application/pdf",
+                            ConsumerType = AttachmentUrlConsumerType.Gui
+                        }
+                    ]
+                },
             ],
             Transmissions = [],
             GuiActions =
@@ -2875,6 +2899,191 @@ public class StorageDialogportenDataMergerTest
         );
 
         await merge.Should().ThrowAsync<UnreachableException>();
+    }
+
+    [Fact(DisplayName = "Given a PDF receipt whose GeneratedFrom reference is not a task reference, the PDF receipt is mapped to the dialog attachments")]
+    public async Task Merge_PdfReceiptWithNonTaskGeneratedFromReference_MapsPdfReceiptToDialogAttachments()
+    {
+        const string userId = "1337";
+        var submittedAt = new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc);
+
+        var mergeDto = new MergeDto(
+            DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
+            ExistingDialog: null,
+            Application: AltinnApplicationBuilder
+                .NewDefaultAltinnApplication()
+                .WithDataTypes(
+                    AltinnDataTypeBuilder.NewDefaultDataType().WithId("Hovedskjema").WithTaskId("Task_1")
+                        .WithAppLogic(new ApplicationLogic()).WithEnablePdfCreation(true).Build(),
+                    AltinnDataTypeBuilder.NewDefaultDataType().WithId("ref-data-as-pdf").Build())
+                .Build(),
+            ApplicationTexts: new ApplicationTexts { Translations = [] },
+            Instance: AltinnInstanceBuilder
+                .NewInProgressInstance()
+                .WithData([
+                    AltinnDataElementBuilder.NewDefaultDataElementBuilder()
+                        .WithId("019bd57e-ce5e-74ed-8130-3a1ac8af3d91")
+                        .WithDataType("Hovedskjema")
+                        .WithFilename("hovedskjema.xml")
+                        .WithCreated(new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc))
+                        .WithLastChangedBy(userId)
+                        .WithReferences([])
+                        .Build(),
+                    // Created before the submission, so a reference we trusted blindly would place it in
+                    // the transmission. The reference points at a data element, not a task, so we cannot.
+                    AltinnDataElementBuilder.NewDefaultDataElementBuilder()
+                        .WithId("019bd5eb-62e2-711d-b79f-835d26cd1a58")
+                        .WithDataType("ref-data-as-pdf")
+                        .WithFilename("receipt-task-1.pdf")
+                        .WithCreated(submittedAt.AddMinutes(-1))
+                        .WithLastChangedBy(userId)
+                        .WithReferences([
+                            new Reference
+                            {
+                                Value = "Task_1",
+                                Relation = RelationType.GeneratedFrom,
+                                ValueType = ReferenceType.DataElement
+                            }
+                        ])
+                        .Build()
+                ])
+                .Build(),
+            Events: new InstanceEventList
+            {
+                InstanceEvents =
+                [
+                    AltinnInstanceEventBuilder.NewCreatedByPlatformUserInstanceEvent(UserId1).Build(),
+                    AltinnInstanceEventBuilder.NewTaskEndEvent(UserId1).Build(),
+                    AltinnInstanceEventBuilder.NewSubmittedByPlatformUserInstanceEvent(UserId1).WithCreated(submittedAt).Build()
+                ]
+            },
+            AltinnOrgData: DefaultAltinnOrgs,
+            IsMigration: false);
+
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
+
+        var transmission = actualDialogDto.Transmissions.Should().ContainSingle().Subject;
+        transmission.Attachments.Select(x => x.DisplayName.Single().Value)
+            .Should().BeEquivalentTo(["hovedskjema.xml"]);
+        actualDialogDto.Attachments.Select(x => x.DisplayName.Single().Value)
+            .Should().BeEquivalentTo(["receipt-task-1.pdf"]);
+    }
+
+    [Fact(DisplayName = "Given a PDF receipt without any references, the PDF receipt is mapped to the dialog attachments")]
+    public async Task Merge_PdfReceiptWithoutReferences_MapsPdfReceiptToDialogAttachments()
+    {
+        const string userId = "1337";
+        var submittedAt = new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc);
+
+        var mergeDto = new MergeDto(
+            DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
+            ExistingDialog: null,
+            Application: AltinnApplicationBuilder
+                .NewDefaultAltinnApplication()
+                .WithDataTypes(
+                    AltinnDataTypeBuilder.NewDefaultDataType().WithId("Hovedskjema").WithTaskId("Task_1")
+                        .WithAppLogic(new ApplicationLogic()).WithEnablePdfCreation(true).Build(),
+                    AltinnDataTypeBuilder.NewDefaultDataType().WithId("ref-data-as-pdf").Build())
+                .Build(),
+            ApplicationTexts: new ApplicationTexts { Translations = [] },
+            Instance: AltinnInstanceBuilder
+                .NewInProgressInstance()
+                .WithData([
+                    AltinnDataElementBuilder.NewDefaultDataElementBuilder()
+                        .WithId("019bd57e-ce5e-74ed-8130-3a1ac8af3d91")
+                        .WithDataType("Hovedskjema")
+                        .WithFilename("hovedskjema.xml")
+                        .WithCreated(new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc))
+                        .WithLastChangedBy(userId)
+                        .WithReferences([])
+                        .Build(),
+                    AltinnDataElementBuilder.NewDefaultDataElementBuilder()
+                        .WithId("019bd5eb-62e2-711d-b79f-835d26cd1a58")
+                        .WithDataType("ref-data-as-pdf")
+                        .WithFilename("receipt-task-1.pdf")
+                        .WithCreated(submittedAt.AddMinutes(-1))
+                        .WithLastChangedBy(userId)
+                        .WithReferences([])
+                        .Build()
+                ])
+                .Build(),
+            Events: new InstanceEventList
+            {
+                InstanceEvents =
+                [
+                    AltinnInstanceEventBuilder.NewCreatedByPlatformUserInstanceEvent(UserId1).Build(),
+                    AltinnInstanceEventBuilder.NewTaskEndEvent(UserId1).Build(),
+                    AltinnInstanceEventBuilder.NewSubmittedByPlatformUserInstanceEvent(UserId1).WithCreated(submittedAt).Build()
+                ]
+            },
+            AltinnOrgData: DefaultAltinnOrgs,
+            IsMigration: false);
+
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
+
+        var transmission = actualDialogDto.Transmissions.Should().ContainSingle().Subject;
+        transmission.Attachments.Select(x => x.DisplayName.Single().Value)
+            .Should().BeEquivalentTo(["hovedskjema.xml"]);
+        actualDialogDto.Attachments.Select(x => x.DisplayName.Single().Value)
+            .Should().BeEquivalentTo(["receipt-task-1.pdf"]);
+    }
+
+    [Fact(DisplayName = "Given an A2 instance, a PDF receipt without a resolvable task reference is still mapped to the single submission transmission")]
+    public async Task Merge_A2InstanceWithUnresolvablePdfReceiptReference_MapsPdfReceiptToTransmission()
+    {
+        const string userId = "1337";
+        var submittedAt = new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc);
+
+        var mergeDto = new MergeDto(
+            DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
+            ExistingDialog: null,
+            Application: AltinnApplicationBuilder
+                .NewDefaultAltinnApplication()
+                .WithDataTypes(
+                    AltinnDataTypeBuilder.NewDefaultDataType().WithId("Hovedskjema").WithTaskId("Task_1")
+                        .WithAppLogic(new ApplicationLogic()).WithEnablePdfCreation(true).Build(),
+                    AltinnDataTypeBuilder.NewDefaultDataType().WithId("ref-data-as-pdf").Build())
+                .Build(),
+            ApplicationTexts: new ApplicationTexts { Translations = [] },
+            Instance: AltinnInstanceBuilder
+                .NewInProgressInstance()
+                .WithDataValues(new Dictionary<string, string> { ["A2ArchRef"] = "1234" })
+                .WithData([
+                    AltinnDataElementBuilder.NewDefaultDataElementBuilder()
+                        .WithId("019bd57e-ce5e-74ed-8130-3a1ac8af3d91")
+                        .WithDataType("Hovedskjema")
+                        .WithFilename("hovedskjema.xml")
+                        .WithCreated(new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc))
+                        .WithLastChangedBy(userId)
+                        .WithReferences([])
+                        .Build(),
+                    AltinnDataElementBuilder.NewDefaultDataElementBuilder()
+                        .WithId("019bd5eb-62e2-711d-b79f-835d26cd1a58")
+                        .WithDataType("ref-data-as-pdf")
+                        .WithFilename("receipt-task-1.pdf")
+                        .WithCreated(submittedAt.AddMinutes(1))
+                        .WithLastChangedBy(userId)
+                        .WithReferences([])
+                        .Build()
+                ])
+                .Build(),
+            Events: new InstanceEventList
+            {
+                InstanceEvents =
+                [
+                    AltinnInstanceEventBuilder.NewCreatedByPlatformUserInstanceEvent(UserId1).Build(),
+                    AltinnInstanceEventBuilder.NewSubmittedByPlatformUserInstanceEvent(UserId1).WithCreated(submittedAt).Build()
+                ]
+            },
+            AltinnOrgData: DefaultAltinnOrgs,
+            IsMigration: false);
+
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
+
+        actualDialogDto.Attachments.Should().BeEmpty();
+        var transmission = actualDialogDto.Transmissions.Should().ContainSingle().Subject;
+        transmission.Attachments.Select(x => x.DisplayName.Single().Value)
+            .Should().BeEquivalentTo(["hovedskjema.xml", "receipt-task-1.pdf"]);
     }
 
     private static Reference GeneratedFrom(string taskId) => new()
