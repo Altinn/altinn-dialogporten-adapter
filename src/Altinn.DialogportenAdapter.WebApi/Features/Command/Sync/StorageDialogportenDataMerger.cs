@@ -279,7 +279,9 @@ internal sealed class StorageDialogportenDataMerger
 
         if (TransmissionsDisabled(dto))
         {
-            return (dataElements.Where(IsNotPdfReceipt).Select(CreateAttachmentDto).ToList(), []);
+            // With transmissions disabled there is no transmission to carry the PDF receipts,
+            // so they belong to the dialog itself.
+            return (dataElements.Select(CreateAttachmentDto).ToList(), []);
         }
         
         var dataElementsAndCreatedDate = FindCreatedForDateElements(
@@ -287,16 +289,28 @@ internal sealed class StorageDialogportenDataMerger
                 events: dto.Events)
             .ToList();
         var soDataElements = dataElementsAndCreatedDate
-            .Where(x => IsPerformedBySo(x.dataElement))
+            .Where(x => IsPerformedBySo(x.DataElement))
             .ToList();
+
+        // A PDF receipt whose task reference is missing, is not a task reference, or has no matching
+        // process_EndTask event cannot be placed in a transmission with any confidence. Attach it to the
+        // dialog rather than guessing from dataElement.Created and losing it when no transmission matches.
+        // A1/A2 instances are exempt: they funnel every data element into their single transmission.
+        var unplaceablePdfReceipts =
+            IsA1Instance(dto.Instance) || IsA2Instance(dto.Instance)
+                ? []
+                : dataElementsAndCreatedDate
+                    .Except(soDataElements)
+                    .Where(x => !IsNotPdfReceipt(x.DataElement) && !x.HasResolvedTaskEnd)
+                    .ToList();
 
         // Only user data elements should be included as attachments to transmissions,
         // SO data elements are included as attachments to the dialog itself
-        var userDataElements = new Queue<(DataElement dataElement, DateTime created)>(dataElementsAndCreatedDate
+        var userDataElements = new Queue<DataElementPlacement>(dataElementsAndCreatedDate
             .Except(soDataElements)
-            .OrderBy(x => x.created));
+            .Except(unplaceablePdfReceipts)
+            .OrderBy(x => x.Created));
 
-        // Skip creating transmissions while waiting for PDF generation
         var transmissions = activities
             .Where(x => x.Type is DialogActivityType.FormSubmitted)
             .OrderBy(x => x.CreatedAt)
@@ -307,9 +321,11 @@ internal sealed class StorageDialogportenDataMerger
             // any remaining attachments not already included in transmissions
             .Concat(userDataElements)
             // PDF receipts does not belong to the dialog itself, and should
-            // only be included as attachments to transmissions.
-            .Where(x => IsNotPdfReceipt(x.dataElement))
-            .Select(x => CreateAttachmentDto(x.dataElement))
+            // only be included as attachments to transmissions...
+            .Where(x => IsNotPdfReceipt(x.DataElement))
+            // ...unless we could not determine which transmission they belong to.
+            .Concat(unplaceablePdfReceipts)
+            .Select(x => CreateAttachmentDto(x.DataElement))
             .ToList();
 
         return (attachments, transmissions);
@@ -455,21 +471,22 @@ internal sealed class StorageDialogportenDataMerger
                     }
                 },
                 Attachments = userDataElements
-                    .DequeueWhile(e => e.created <= activityDto.CreatedAt || isA2)
-                    .Select(x => CreateTransmissionAttachmentDto(x.dataElement, transmissionId))
+                    .DequeueWhile(e => e.Created <= activityDto.CreatedAt || isA2)
+                    .Select(x => CreateTransmissionAttachmentDto(x.DataElement, transmissionId))
                     .ToList()
             };
         }
     }
 
     /// <summary>
-    /// Use the created date from the process end event when the dataElement contains a <c>GeneratedFrom</c> task reference
-    /// this is so we can use the task created date to place the attachment in the correct transmission.
-    /// <remarks>Fallbacks to the <c>dataElement.Created</c> if there is no event or <c>GeneratedFrom</c> task reference.</remarks>
+    /// Use the created date from the process end event when the dataElement contains a valid <c>GeneratedFrom</c> task
+    /// reference, this is so we can use the task end date to place the attachment in the correct transmission.
+    /// <remarks>Fallbacks to the <c>dataElement.Created</c> if the reference is missing, is not a task reference, or has
+    /// no matching end event. <see cref="DataElementPlacement.HasResolvedTaskEnd"/> reports whether the fallback was
+    /// used.</remarks>
     /// </summary>
-    private static IEnumerable<(DataElement dataElement, DateTime created)> FindCreatedForDateElements(IEnumerable<DataElement> dataElements, InstanceEventList events)
+    private static IEnumerable<DataElementPlacement> FindCreatedForDateElements(IEnumerable<DataElement> dataElements, InstanceEventList events)
     {
-        
         var endEvents = events.InstanceEvents.Where(x =>
             x.EventType == nameof(InstanceEventType.process_EndTask))
             .ToList();
@@ -477,23 +494,28 @@ internal sealed class StorageDialogportenDataMerger
         // Null is technically a valid TaskId for EndTask event.
         // as of 16.09.2026 in AT23 and TT02 has 0 EndTask with Null as taskId
         if (endEvents.Any(x => x.ProcessInfo.CurrentTask.ElementId is null)) throw new UnreachableException("EndTask event contains ProcessInfo.CurrentTask.ElementId Null");
-        
+
         return dataElements.GroupJoin(
             inner: endEvents,
             outerKeySelector: GetGeneratedFromTaskId,
             innerKeySelector: x => x.ProcessInfo.CurrentTask.ElementId,
             resultSelector: GetTaskEndAtForDataElement);
 
-        string? GetGeneratedFromTaskId(DataElement dataElement)
+        static string? GetGeneratedFromTaskId(DataElement dataElement)
         {
-            return dataElement.References.FirstOrDefault(x => x.Relation == RelationType.GeneratedFrom)?.Value;
+            return dataElement.References?
+                .FirstOrDefault(x => x.Relation == RelationType.GeneratedFrom
+                    && x.ValueType == ReferenceType.Task
+                    && !string.IsNullOrWhiteSpace(x.Value))
+                ?.Value;
         }
 
-        (DataElement dataElement, DateTime) GetTaskEndAtForDataElement(DataElement dataElement, IEnumerable<InstanceEvent> events)
+        static DataElementPlacement GetTaskEndAtForDataElement(DataElement dataElement, IEnumerable<InstanceEvent> events)
         {
-            var created = events.Select(x => x.Created).Min() ?? dataElement.Created;
-            return created is not null 
-                ? (dataElement, created.Value) 
+            var taskEndAt = events.Select(x => x.Created).Min();
+            var created = taskEndAt ?? dataElement.Created;
+            return created is not null
+                ? new DataElementPlacement(dataElement, created.Value, HasResolvedTaskEnd: taskEndAt is not null)
                 : throw new InvalidOperationException($"Could not resolve created date for data element: {dataElement.Id}");
         }
     }
@@ -1044,6 +1066,8 @@ internal sealed class StorageDialogportenDataMerger
         return string.Concat(authenticationBaseUri, Uri.EscapeDataString(gotoUrl));
     }
 }
+
+internal sealed record DataElementPlacement(DataElement DataElement, DateTime Created, bool HasResolvedTaskEnd);
 
 internal enum InstanceDerivedStatus
 {

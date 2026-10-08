@@ -186,6 +186,12 @@ public class AltinnInstanceBuilder
         return this;
     }
 
+    public AltinnInstanceBuilder WithDataValues(Dictionary<string, string> dataValues)
+    {
+        _instance.DataValues = dataValues;
+        return this;
+    }
+
     public Instance Build()
     {
         return _instance.DeepClone();
