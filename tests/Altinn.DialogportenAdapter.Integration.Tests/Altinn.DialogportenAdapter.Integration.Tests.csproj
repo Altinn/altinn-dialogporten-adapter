@@ -10,7 +10,7 @@
     <PackageReference Include="Altinn.ApiClients.Dialogporten" Version="1.118.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
     <PackageReference Include="AwesomeAssertions" Version="9.4.0" />
-    <PackageReference Include="NSubstitute" Version="5.3.0" />
+    <PackageReference Include="NSubstitute" Version="6.2.0" />
     <PackageReference Include="Scrutor" Version="7.0.0" />
     <PackageReference Include="Testcontainers.ServiceBus" Version="4.13.0" />
     <PackageReference Include="SSH.NET" Version="2026.0.0" /> <!-- Transient from Testcontainers.ServiceBus. Forced upgrade due to CVE. Remove when patched -->
