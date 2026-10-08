@@ -147,6 +147,59 @@ public class StorageDialogportenDataMergerTest
         transmission.Attachments.Select(x => x.Name).Should().BeEquivalentTo(["Hovedskjema", "ref-data-as-pdf"]);
     }
 
+    [Fact(DisplayName = "Given a data element whose References is null rather than empty, the data element is still placed in a transmission")]
+    public async Task Merge_DataElementWithNullReferences_DoesNotThrowAndPlacesDataElementInTransmission()
+    {
+        var mergeDto = new MergeDto(
+            DialogId: Guid.Parse("902de1ba-6919-4355-99ad-7ad279266a2f"),
+            ExistingDialog: null,
+            Application: AltinnApplicationBuilder
+                .NewDefaultAltinnApplication()
+                .WithDataTypes(
+                    AltinnDataTypeBuilder.NewDefaultDataType().WithId("Hovedskjema").WithTaskId("Task_1")
+                        .WithAppLogic(new ApplicationLogic()).WithEnablePdfCreation(true).Build())
+                .Build(),
+            ApplicationTexts: new ApplicationTexts { Translations = [] },
+            Instance: AltinnInstanceBuilder
+                .NewInProgressInstance()
+                .WithData([
+                    AltinnDataElementBuilder.NewDefaultDataElementBuilder()
+                        .WithId("019bd57e-ce5e-74ed-8130-3a1ac8af3d91")
+                        .WithDataType("Hovedskjema")
+                        .WithCreated(new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc))
+                        .WithLastChangedBy("123")
+                        .WithReferences(null!)
+                        .Build()
+                ])
+                .Build(),
+            Events: new InstanceEventList
+            {
+                InstanceEvents =
+                [
+                    AltinnInstanceEventBuilder
+                        .NewCreatedByPlatformUserInstanceEvent(UserId1)
+                        .Build(),
+                    AltinnInstanceEventBuilder
+                        .NewTaskEndEvent(UserId1)
+                        .WithCreated(new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc))
+                        .Build(),
+                    AltinnInstanceEventBuilder
+                        .NewSubmittedByPlatformUserInstanceEvent(UserId1)
+                        .WithCreated(new DateTime(2001, 2, 1, 1, 1, 1, DateTimeKind.Utc))
+                        .Build()
+                ]
+            },
+            AltinnOrgData: DefaultAltinnOrgs,
+            IsMigration: false);
+
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
+
+        actualDialogDto.Attachments.Should().BeEmpty();
+        var transmission = actualDialogDto.Transmissions.Should().ContainSingle().Subject;
+        var attachment = transmission.Attachments.Should().ContainSingle().Subject;
+        attachment.Name.Should().Be("Hovedskjema");
+    }
+
     [Fact(DisplayName = "Given a PDF receipt referencing a task without an end event, the PDF receipt is mapped to the dialog attachments instead of a submission transmission")]
     public async Task Merge_PdfReceiptWithoutMatchingTaskEndEvent_MapsPdfReceiptToDialogAttachments()
     {
