@@ -301,7 +301,7 @@ internal sealed class StorageDialogportenDataMerger
                 ? []
                 : dataElementsAndCreatedDate
                     .Except(soDataElements)
-                    .Where(x => !IsNotPdfReceipt(x.DataElement) && !x.HasResolvedTaskEnd)
+                    .Where(x => IsPdfReceipt(x.DataElement) && !x.HasResolvedTaskEnd)
                     .ToList();
 
         // Only user data elements should be included as attachments to transmissions,
@@ -322,7 +322,7 @@ internal sealed class StorageDialogportenDataMerger
             .Concat(userDataElements)
             // PDF receipts does not belong to the dialog itself, and should
             // only be included as attachments to transmissions...
-            .Where(x => IsNotPdfReceipt(x.DataElement))
+            .Where(x =>  !IsPdfReceipt(x.DataElement))
             // ...unless we could not determine which transmission they belong to.
             .Concat(unplaceablePdfReceipts)
             .Select(x => CreateAttachmentDto(x.DataElement))
@@ -354,7 +354,7 @@ internal sealed class StorageDialogportenDataMerger
             return element.LastChangedBy == serviceOwner.OrgNr;
         }
 
-        bool IsNotPdfReceipt(DataElement element) => element.DataType != PdfType;
+        bool IsPdfReceipt(DataElement element) => element.DataType == PdfType;
 
         string GetFileName(DataElement dataElement)
         {
