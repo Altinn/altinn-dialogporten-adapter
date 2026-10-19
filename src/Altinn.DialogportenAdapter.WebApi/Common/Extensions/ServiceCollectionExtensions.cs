@@ -221,6 +221,8 @@ internal static class ServiceCollectionExtensions
                 {
                     x.ConnectionString = settings.ApplicationInsights.ConnectionString;
                     x.SamplingRatio = 0.05F;
+                    x.TracesPerSecond = null;
+                    x.EnableTraceBasedLogsSampler = false;
                     x.EnableLiveMetrics = false;
                     x.StorageDirectory = "/tmp/logtelemetry";
                 });
