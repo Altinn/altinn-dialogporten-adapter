@@ -2155,30 +2155,6 @@ public class StorageDialogportenDataMergerTest
                         }
                     ]
                 },
-                new AttachmentDto
-                {
-                    Id = Guid.Parse("00dc6b07-88c8-7a40-a823-7735059ef136"),
-                    DisplayName =
-                    [
-                        new LocalizationDto
-                        {
-                            Value = "visible-because-pdf-ref",
-                            LanguageCode = "nb"
-                        }
-                    ],
-                    Name = "ref-data-as-pdf",
-                    Urls =
-                    [
-                        new AttachmentUrlDto
-                        {
-                            Id = Guid.Parse("00dc6b07-88c8-7a40-a823-7735059ef136"),
-                            Url =
-                                "http://platform.altinn.localhost/authentication/api/v1/authentication?goto=http%3A%2F%2Fplatform.localhost%3FdontChooseReportee%3Dtrue",
-                            MediaType = "application/pdf",
-                            ConsumerType = AttachmentUrlConsumerType.Gui
-                        }
-                    ]
-                },
             ],
             Transmissions = [],
             GuiActions =
