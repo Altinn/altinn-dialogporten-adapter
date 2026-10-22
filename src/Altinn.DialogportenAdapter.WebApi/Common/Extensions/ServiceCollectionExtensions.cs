@@ -151,11 +151,15 @@ internal static class ServiceCollectionExtensions
                 // 5xx errors are usually transient (upstream being down/overloaded), so try a few times with a cooldown before
                 // re-scheduling indefinitely, as is timeouts (TaskCanceledException). HttpRequestExceptions indicates network issues, DNS issues, etc. which are usually
                 // transient, so handle this the same as 5xx errors.
+                // Parallel calls (see TaskExtentions) throw an AggregateException when more than one of them fails, for example
+                // when Storage is unreachable. OrAnyInner matches these exceptions inside an AggregateException and as inner exceptions.
                 opts.Policies
                     .OnException<HttpRequestException>()
+                    .OrAnyInner<HttpRequestException>()
                     .Or<ApiException>(x => (int)x.StatusCode >= 500)
                     .OrAnyInner<ApiException>(x => (int)x.StatusCode >= 500)
                     .Or<TaskCanceledException>()
+                    .OrAnyInner<TaskCanceledException>()
                     .RetryWithCooldown(clock.Seconds(10), clock.Seconds(20))
                     .Then.ScheduleRetryIndefinitely(clock.Seconds(30), clock.Seconds(60), clock.Minutes(2));
 
