@@ -1,8 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <ItemGroup>
-        <PackageReference Include="AsyncKeyedLock" Version="8.0.2" />
-        <PackageReference Include="WolverineFx.AzureServiceBus" Version="5.40.1" />
+        <PackageReference Include="AsyncKeyedLock" Version="8.1.2" />
+        <PackageReference Include="WolverineFx.AzureServiceBus" Version="5.41.0" />
     </ItemGroup>
 
 </Project>
