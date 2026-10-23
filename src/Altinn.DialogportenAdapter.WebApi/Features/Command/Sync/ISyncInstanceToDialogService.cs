@@ -347,11 +347,25 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
         foreach (var updatedTransmission in transmissionUpdateRequests)
         {
             var res = await _dialogportenApi.UpdateTransmission(transmission: updatedTransmission,
-                    revision: updated.Revision,
-                    dialogId: updated.Id!.Value,
-                    transmissionId: updatedTransmission.Id!.Value,
-                    cancellationToken: cancellationToken)
-                .EnsureSuccess();
+                revision: updated.Revision,
+                dialogId: updated.Id!.Value,
+                transmissionId: updatedTransmission.Id!.Value,
+                cancellationToken: cancellationToken);
+
+            // The transmission update endpoint requires the changetransmissions scope, which the adapter does not
+            // request (403), and is not available on all Dialogporten environments (405). Skip the update in those
+            // cases so a failed transmission update does not dead-letter the whole sync.
+            if (res.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.MethodNotAllowed)
+            {
+                LogTransmissionUpdateSkipped(updated.Id!.Value, updatedTransmission.Id!.Value, (int)res.StatusCode);
+                continue;
+            }
+
+            if (!res.IsSuccessful)
+            {
+                throw res.Error!;
+            }
+
             updated.Revision = res.GetEtagHeader();
         }
     }
@@ -423,4 +437,7 @@ internal sealed partial class SyncInstanceToDialogService : ISyncInstanceToDialo
 
     [LoggerMessage(LogLevel.Warning, "Instance id={Id} has invalid user supplied dialog id. NoOp.")]
     partial void LogInvalidUserSuppliedDialogIdWarning(Guid id);
+
+    [LoggerMessage(LogLevel.Warning, "Skipping transmission update for dialog {DialogId}, transmission {TransmissionId}. Dialogporten responded with status {StatusCode}.")]
+    partial void LogTransmissionUpdateSkipped(Guid dialogId, Guid transmissionId, int statusCode);
 }
