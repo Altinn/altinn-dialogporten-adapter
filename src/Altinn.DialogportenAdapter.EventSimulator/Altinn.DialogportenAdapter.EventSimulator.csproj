@@ -13,6 +13,7 @@
       <PackageReference Include="Azure.Identity" Version="1.21.0" />
       <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.6.0" />
       <PackageReference Include="WolverineFx.AzureServiceBus" Version="6.60.0" />
+      <PackageReference Include="WolverineFx.RuntimeCompilation" Version="6.60.0" />
     </ItemGroup>
 
     <ItemGroup>
