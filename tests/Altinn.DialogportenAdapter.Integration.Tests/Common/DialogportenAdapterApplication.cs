@@ -1,9 +1,11 @@
 using System.Globalization;
 using System.Net;
+using Altinn.ApiClients.Dialogporten;
 using Altinn.ApiClients.Maskinporten.Interfaces;
 using Altinn.DialogportenAdapter.Contracts;
 using Altinn.DialogportenAdapter.Integration.Tests.Common.Extensions;
 using Altinn.DialogportenAdapter.Integration.Tests.Common.Services;
+using Altinn.DialogportenAdapter.Integration.Tests.Common.Token;
 using Altinn.DialogportenAdapter.WebApi;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
@@ -17,6 +19,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Testcontainers.MsSql;
 using Testcontainers.ServiceBus;
 using WireMock.ResponseBuilders;
@@ -38,11 +41,13 @@ public class DialogportenAdapterApplication : IAsyncLifetime
     public IServiceScope AppScope { get; private set; } = null!;
     public IServiceScope StorageScope { get; private set; } = null!;
     public WireMockServer DialogportenApi { get; private set; } = null!;
+    public WireMockServer AltinnCdnApi { get; private set; } = null!;
     public WireMockServer AltinnApi { get; private set; } = null!;
     public WireMockServer StorageApi { get; private set; } = null!;
     public WireMockServer RegisterApi { get; private set; } = null!;
     public ServiceBusClient ServiceBusClient { get; private set; } = null!;
     private ServiceBusAdministrationClient ServiceBusAdminClient { get; set; } = null!;
+
     private static bool IsDebug =>
 #if DEBUG
         true;
@@ -116,6 +121,7 @@ public class DialogportenAdapterApplication : IAsyncLifetime
         );
 
         DialogportenApi = WireMockServer.Start().AddCustomFallbackMapping();
+        AltinnCdnApi = WireMockServer.Start().AddCustomFallbackMapping();
         AltinnApi = WireMockServer.Start().AddCustomFallbackMapping();
         StorageApi = WireMockServer.Start().AddCustomFallbackMapping();
         RegisterApi = WireMockServer.Start().AddCustomFallbackMapping();
@@ -153,6 +159,7 @@ public class DialogportenAdapterApplication : IAsyncLifetime
         await Task.WhenAll(cleanup);
         DialogportenApi.Stop();
         AltinnApi.Stop();
+        AltinnCdnApi.Stop();
         StorageApi.Stop();
         RegisterApi.Stop();
         GC.SuppressFinalize(this);
@@ -161,6 +168,8 @@ public class DialogportenAdapterApplication : IAsyncLifetime
     private WebApplication BuildDialogportenAdapterApplication()
     {
         var builder = WebApplication.CreateBuilder();
+
+        builder.Logging.AddConsole();
 
         builder
             .Configuration
@@ -172,9 +181,13 @@ public class DialogportenAdapterApplication : IAsyncLifetime
             .AddSingleton<SyncCompletionSignal>()
             .ConfigureDialogportenAdapterServices(builder.Configuration, builder.Environment, new QuickClock())
             .RemoveAll<IMaskinportenService>().AddTransient<IMaskinportenService, FakeMaskinportenService>()
+            .RemoveAll<IDialogTokenValidator>().AddTransient<IDialogTokenValidator, FakeDialogTokenValidator>()
             .Decorate<ISyncInstanceToDialogService, SyncInstanceToDialogServiceDecorator>();
 
-        return builder.Build();
+        var app = builder
+            .Build()
+            .RegisterRoutes();
+        return app;
     }
 
     private IHost BuildStorageApplication()
@@ -196,10 +209,13 @@ public class DialogportenAdapterApplication : IAsyncLifetime
 
     private void OverrideConfiguration(ConfigurationManager builderConfiguration)
     {
+        builderConfiguration["ApplicationInsights:Enabled"] = "false";
         builderConfiguration["DialogportenAdapter:Dialogporten:BaseUri"] = DialogportenApi.Url;
         builderConfiguration["DialogportenAdapter:Altinn:BaseUri"] = AltinnApi.Url;
+        builderConfiguration["DialogportenAdapter:Altinn:AltinnCdn"] = $"{AltinnCdnApi.Url}";
         builderConfiguration["DialogportenAdapter:Altinn:InternalStorageEndpoint"] = StorageApi.Url;
         builderConfiguration["DialogportenAdapter:Altinn:InternalRegisterEndpoint"] = RegisterApi.Url;
+        builderConfiguration["DialogportenAdapter:Authentication:JwtBearerWellKnown"] = "https://platform.tt02.altinn.no/authentication/api/v1/openid/.well-known/openid-configuration";
         builderConfiguration["WolverineSettings:ServiceBusConnectionString"] = _asbContainer.GetConnectionString();
         builderConfiguration["WolverineSettings:ManagementConnectionString"] = _asbContainer.GetHttpConnectionString();
         builderConfiguration["WolverineSettings:ListenerCount"] = "3";

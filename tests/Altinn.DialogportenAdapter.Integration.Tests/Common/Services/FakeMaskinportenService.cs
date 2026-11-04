@@ -72,7 +72,7 @@ public class FakeMaskinportenService : IMaskinportenService
         });
     }
 
-    public Task<TokenResponse> GetToken(IClientDefinition clientDefinition, MaskinportenTokenRequestContext requestContext,
+    public Task<TokenResponse> GetToken(IClientDefinition clientDefinition, MaskinportenRequestContext requestContext,
         bool disableCaching = false)
     {
         return Task.FromResult(new TokenResponse

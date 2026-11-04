@@ -7,12 +7,18 @@ public sealed class Settings
 {
     public required DialogportenAdapterSettings DialogportenAdapter { get; init; }
     public required WolverineSettings WolverineSettings { get; init; }
+    public required ApplicationInsights ApplicationInsights { get; init; }
 }
 
 public sealed record WolverineSettings(
     string ServiceBusConnectionString,
     string? ManagementConnectionString = null,
     int ListenerCount = 50);
+
+public sealed record ApplicationInsights(
+    bool Enabled,
+    string? ConnectionString = null
+);
 
 public sealed record DialogportenAdapterSettings(
     MaskinportenSettings Maskinporten,
@@ -32,7 +38,7 @@ public sealed record AdapterFeatureFlagSettings(bool EnableSubmissionTransmissio
 
 public sealed record DialogportenSettings(Uri BaseUri);
 
-public sealed record AltinnPlatformSettings(Uri BaseUri, Uri InternalStorageEndpoint, Uri InternalRegisterEndpoint, string SubscriptionKey, Uri AltinnOrgs)
+public sealed record AltinnPlatformSettings(Uri BaseUri, Uri InternalStorageEndpoint, Uri InternalRegisterEndpoint, string SubscriptionKey, Uri AltinnCdn)
 {
     public Uri GetAppUriForOrg(string org, string appId) => new($"{BaseUri.Scheme}://{org}.apps.{BaseUri.Host}/{appId}");
     public Uri GetPlatformUri() => new($"{BaseUri.Scheme}://platform.{BaseUri.Host}");

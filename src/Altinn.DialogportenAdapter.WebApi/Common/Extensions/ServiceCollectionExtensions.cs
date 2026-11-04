@@ -7,6 +7,7 @@ using Altinn.DialogportenAdapter.WebApi.Common.Exceptions;
 using Altinn.DialogportenAdapter.WebApi.Common.Health;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Delete;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
+using Altinn.DialogportenAdapter.WebApi.Infrastructure.AltinnCdn;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
@@ -52,23 +53,9 @@ internal static class ServiceCollectionExtensions
             IClock clock)
         {
             var settings = configuration.Get<Settings>()!;
-            if (configuration.TryGetApplicationInsightsConnectionString(out var appInsightsConnectionString))
+            if (settings.ApplicationInsights.Enabled)
             {
-                services
-                    .AddTransient<HealthCheckFilterProcessor>()
-                    .ConfigureOpenTelemetryTracerProvider((sp, builder) =>
-                        builder.AddProcessor(sp.GetRequiredService<HealthCheckFilterProcessor>()))
-                    .AddOpenTelemetry()
-                    .ConfigureResource(x => x.AddAttributes([
-                        new("service.name", "platform-dialogporten-adapter")
-                    ]))
-                    .UseAzureMonitor(x =>
-                    {
-                        x.ConnectionString = appInsightsConnectionString;
-                        x.SamplingRatio = 0.05F;
-                        x.EnableLiveMetrics = false;
-                        x.StorageDirectory = "/tmp/logtelemetry";
-                    });
+                services.ConfigureTelemetry(settings);
             }
 
             services.AddWolverine(opts =>
@@ -80,6 +67,10 @@ internal static class ServiceCollectionExtensions
                 );
                 opts.Policies.AllListeners(x => x.ProcessInline());
                 opts.Policies.AllSenders(x => x.SendInline());
+
+                // Wolverine 6 forbids service location in generated handlers by default.
+                // SyncInstanceToDialogService is internal, so the handler has to resolve it.
+                opts.CodeGeneration.AlwaysUseServiceLocationFor<ISyncInstanceToDialogService>();
 
                 // Handle 409s, which may be caused by conflicting creates with same IDs. Retry
                 // a few times with jitter before moving to error queue for manual inspection.
@@ -137,15 +128,6 @@ internal static class ServiceCollectionExtensions
                     .OnException<DialogNotFoundForPurgeException>()
                     .OrAnyInner<DialogNotFoundForPurgeException>()
                     .ScheduleRetry(clock.Minutes(1), clock.Minutes(10), clock.Minutes(30))
-                    .Then.MoveToErrorQueue();
-
-                // Wait for all PDFs to generate before creating Transmissions.
-                // Only thrown when FormSubmitted Activity is present
-                // WaitForPdfException won't block the dialog from being created/updated only prevent Transmission creation
-                opts.Policies
-                    .OnException<WaitForPdfException>()
-                    .OrAnyInner<WaitForPdfException>()
-                    .RetryWithJitteredCooldown(clock.Seconds(1), clock.Seconds(5), clock.Seconds(20))
                     .Then.MoveToErrorQueue();
 
                 // UserSuppliedDialogIdNotFound may happen if the sync happens before the instance have been given an ID
@@ -224,6 +206,32 @@ internal static class ServiceCollectionExtensions
             return services;
         }
 
+        private void ConfigureTelemetry(Settings settings)
+        {
+            if (string.IsNullOrEmpty(settings.ApplicationInsights.ConnectionString))
+            {
+                throw new ArgumentException("ApplicationInsights connection string is null or empty");
+            }
+
+            services
+                .AddTransient<HealthCheckFilterProcessor>()
+                .ConfigureOpenTelemetryTracerProvider((sp, builder) =>
+                    builder.AddProcessor(sp.GetRequiredService<HealthCheckFilterProcessor>()))
+                .AddOpenTelemetry()
+                .ConfigureResource(x => x.AddAttributes([
+                    new("service.name", "platform-dialogporten-adapter")
+                ]))
+                .UseAzureMonitor(x =>
+                {
+                    x.ConnectionString = settings.ApplicationInsights.ConnectionString;
+                    x.SamplingRatio = 0.05F;
+                    x.TracesPerSecond = null;
+                    x.EnableTraceBasedLogsSampler = false;
+                    x.EnableLiveMetrics = false;
+                    x.StorageDirectory = "/tmp/logtelemetry";
+                });
+        }
+
         private IServiceCollection AddHttpClients(IConfiguration configuration)
         {
             var settings = configuration.Get<Settings>()!;
@@ -283,6 +291,14 @@ internal static class ServiceCollectionExtensions
                 .AddMaskinportenHttpMessageHandler<SettingsJwkClientDefinition>(clientKey)
                 .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>();
 
+            services
+                .AddRefitClient<IAltinnCdnApi>()
+                .ConfigureHttpClient(x =>
+                {
+                    x.BaseAddress = settings.DialogportenAdapter.Altinn.AltinnCdn;
+                })
+                .AddHttpMessageHandler<FourHundredLoggingDelegatingHandler>();
+
             return services;
         }
 
@@ -338,7 +354,7 @@ internal static class ServiceCollectionExtensions
                 .AddTransient<InstanceService>()
                 .AddTransient<InstanceReceipt>()
                 .AddTransient<AuthorizationValidator>()
-                .AddTransient<IAltinnOrgs, AltinnOrgs>();
+                .AddTransient<IAltinnCdnRepository, AltinnCdnRepository>();
         }
 
         public IServiceCollection ReplaceLocalDevelopmentResources(

@@ -1,6 +1,8 @@
+using System.Diagnostics;
 using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Exceptions;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
+using Altinn.DialogportenAdapter.WebApi.Infrastructure.AltinnCdn;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
@@ -18,6 +20,7 @@ internal sealed record MergeDto(
     ApplicationTexts ApplicationTexts,
     Instance Instance,
     InstanceEventList Events,
+    AltinnOrgData AltinnOrgData,
     bool IsMigration);
 
 internal sealed class StorageDialogportenDataMerger
@@ -43,10 +46,10 @@ internal sealed class StorageDialogportenDataMerger
         _registerRepository = registerRepository ?? throw new ArgumentNullException(nameof(registerRepository));
     }
 
-    public async Task<DialogDto> Merge(MergeDto dto, int currentAttempt, CancellationToken cancellationToken)
+    public async Task<DialogDto> Merge(MergeDto dto, CancellationToken cancellationToken)
     {
         var existing = dto.ExistingDialog.DeepClone();
-        var storageDialog = await ToDialogDto(dto, currentAttempt, cancellationToken);
+        var storageDialog = await ToDialogDto(dto, cancellationToken);
 
         var syncAdapterSettings = dto.Application.GetSyncAdapterSettings();
 
@@ -165,7 +168,7 @@ internal sealed class StorageDialogportenDataMerger
         return existing;
     }
 
-    private async Task<DialogDto> ToDialogDto(MergeDto dto, int currentAttempt, CancellationToken cancellationToken)
+    private async Task<DialogDto> ToDialogDto(MergeDto dto, CancellationToken cancellationToken)
     {
         var (instanceDerivedStatus, dialogStatus) = GetStatus(dto.Instance, dto.Events);
         var systemLabel = dto.Instance.Status.IsArchived && dto.IsMigration
@@ -177,7 +180,7 @@ internal sealed class StorageDialogportenDataMerger
             _activityDtoTransformer.GetActivities(dto.Events, dto.Instance.InstanceOwner, cancellationToken)
         );
 
-        var (attachments, transmissions) = GetAttachmentAndTransmissions(dto, activities, currentAttempt);
+        var (attachments, transmissions) = GetAttachmentAndTransmissions(dto, activities);
 
         var dialog = new DialogDto
         {
@@ -262,55 +265,96 @@ internal sealed class StorageDialogportenDataMerger
         };
     }
 
+    private bool TransmissionsDisabled(MergeDto dto) =>
+        dto.Application.GetSyncAdapterSettings().DisableAddTransmissions
+        || !_settings.DialogportenAdapter.Adapter.FeatureFlag.EnableSubmissionTransmissions;
+
     private (List<AttachmentDto> attachments, List<TransmissionDto> transmissions) GetAttachmentAndTransmissions(
         MergeDto dto,
-        List<ActivityDto> activities, int currentAttempt = 1)
+        List<ActivityDto> activities)
     {
-        var realCreatedData = RealCreate(dto).ToList();
+        // We hide the A1 "Signatures.html" from DP/AF
+        var dataElements = dto.Instance.Data.Where(x => !(IsA1Instance(dto.Instance) && x.DataType == "signature-presentation"));
         var attachmentVisibility = ReceiptAttachmentVisibilityDecider.Create(dto.Application);
 
-        if (TransmissionsDisabled())
+        if (TransmissionsDisabled(dto))
         {
-            return (realCreatedData.Where(x => IsNotPdfReceipt(x.dataElement)).Select(x => CreateAttachmentDto(x.dataElement)).ToList(), []);
+            // With transmissions disabled there is no transmission to carry the PDF receipts,
+            // so they belong to the dialog itself.
+            return (dataElements.Select(CreateAttachmentDto).ToList(), []);
         }
-        var soDataElements = realCreatedData
-            .Where(x => IsPerformedBySo(x.dataElement))
+        
+        var dataElementsAndCreatedDate = FindCreatedForDateElements(
+                dataElements: dataElements,
+                events: dto.Events)
             .ToList();
+        var soDataElements = dataElementsAndCreatedDate
+            .Where(x => IsPerformedBySo(x.DataElement))
+            .ToList();
+
+        // A PDF receipt whose task reference is missing, is not a task reference, or has no matching
+        // process_EndTask event cannot be placed in a transmission with any confidence. Attach it to the
+        // dialog rather than guessing from dataElement.Created and losing it when no transmission matches.
+        // A1/A2 instances are exempt: they funnel every data element into their single transmission.
+        var unplaceablePdfReceipts =
+            IsA1Instance(dto.Instance) || IsA2Instance(dto.Instance)
+                ? []
+                : dataElementsAndCreatedDate
+                    .Except(soDataElements)
+                    .Where(x => IsPdfReceipt(x.DataElement) && !x.HasResolvedTaskEnd)
+                    .ToList();
 
         // Only user data elements should be included as attachments to transmissions,
         // SO data elements are included as attachments to the dialog itself
-        var userDataElements = new Queue<(DataElement dataElement, DateTime? created)>(realCreatedData
+        var userDataElements = new Queue<DataElementPlacement>(dataElementsAndCreatedDate
             .Except(soDataElements)
-            .OrderBy(x => x.created));
+            .Except(unplaceablePdfReceipts)
+            .OrderBy(x => x.Created));
 
-        // Skip creating transmissions while waiting for PDF generation
-        List<TransmissionDto> transmissions = [];
-        if (currentAttempt > 3 || AllPdfsGenerated(dto))
-        {
-            transmissions = activities
-                .Where(x => x.Type is DialogActivityType.FormSubmitted)
-                .OrderBy(x => x.CreatedAt)
-                .Select(ToTransmissionDto)
-                .ToList();
-        }
+        var transmissions = activities
+            .Where(x => x.Type is DialogActivityType.FormSubmitted)
+            .OrderBy(x => x.CreatedAt)
+            .Select(ToTransmissionDto)
+            .ToList();
 
         var attachments = soDataElements
             // any remaining attachments not already included in transmissions
             .Concat(userDataElements)
             // PDF receipts does not belong to the dialog itself, and should
-            // only be included as attachments to transmissions.
-            .Where(x => IsNotPdfReceipt(x.dataElement))
-            .Select(x => CreateAttachmentDto(x.dataElement))
+            // only be included as attachments to transmissions...
+            .Where(x =>  !IsPdfReceipt(x.DataElement))
+            // ...unless we could not determine which transmission they belong to.
+            .Concat(unplaceablePdfReceipts)
+            .Select(x => CreateAttachmentDto(x.DataElement))
             .ToList();
 
         return (attachments, transmissions);
 
-        bool IsPerformedBySo(DataElement element) => element.LastChangedBy.Length == 9;
-        bool IsNotPdfReceipt(DataElement element) => element.DataType != PdfType;
+        bool IsPerformedBySo(DataElement element)
+        {
+            var orgCodeSo = string.IsNullOrEmpty(dto.Application.Org) ? dto.Instance.Org : dto.Application.Org;
+            if (string.IsNullOrEmpty(element.LastChangedBy) || string.IsNullOrEmpty(orgCodeSo))
+            {
+                throw new UnreachableException(
+                    $"Unexpected null/empty. orgCodeSo: {orgCodeSo}. LastChangedBy: {element.LastChangedBy} for app {dto.Application.Id} and instance {dto.Instance.Id}"
+                );
+            }
 
-        bool TransmissionsDisabled() => dto.Application.GetSyncAdapterSettings().DisableAddTransmissions ||
-            !_settings.DialogportenAdapter.Adapter.FeatureFlag
-                .EnableSubmissionTransmissions;
+            if (orgCodeSo == "ttd") orgCodeSo = "digdir"; // ttd has no orgNr so we use digdir orgNr instead
+            if (!dto.AltinnOrgData.Orgs.TryGetValue(orgCodeSo, out var serviceOwner))
+            {
+                throw new UnreachableException(
+                    $"Organization number for service owner {orgCodeSo} not found in Altinn Orgs"
+                );
+            }
+            if (string.IsNullOrEmpty(serviceOwner.OrgNr)) throw new UnreachableException(
+                $"Organization number was {serviceOwner.OrgNr} in altinn orgs for service owner {orgCodeSo}"
+            );
+
+            return element.LastChangedBy == serviceOwner.OrgNr;
+        }
+
+        bool IsPdfReceipt(DataElement element) => element.DataType == PdfType;
 
         string GetFileName(DataElement dataElement)
         {
@@ -427,94 +471,55 @@ internal sealed class StorageDialogportenDataMerger
                     }
                 },
                 Attachments = userDataElements
-                    .DequeueWhile(e => e.created <= activityDto.CreatedAt || isA2)
-                    .Select(x => CreateTransmissionAttachmentDto(x.dataElement, transmissionId))
+                    .DequeueWhile(e => e.Created <= activityDto.CreatedAt || isA2)
+                    .Select(x => CreateTransmissionAttachmentDto(x.DataElement, transmissionId))
                     .ToList()
             };
         }
     }
 
     /// <summary>
-    /// Determines whether all expected PDFs have been generated for the given instance and its data elements.
-    /// This method checks if the data elements configured to allow PDF creation have corresponding PDFs
-    /// already generated and associated appropriately.
+    /// Use the created date from the process end event when the dataElement contains a valid <c>GeneratedFrom</c> task
+    /// reference, this is so we can use the task end date to place the attachment in the correct transmission.
+    /// <remarks>Fallbacks to the <c>dataElement.Created</c> if the reference is missing, is not a task reference, or has
+    /// no matching end event. <see cref="DataElementPlacement.HasResolvedTaskEnd"/> reports whether the fallback was
+    /// used.</remarks>
     /// </summary>
-    /// <remarks>
-    /// PDF generation depends on application configuration and runtime state,
-    /// so the expected count may not match the actual number of generated PDFs.
-    /// </remarks>
-    /// <param name="dto"></param>
-    /// <returns>True if all eligible PDFs have been generated, otherwise false.</returns>
-    public static bool AllPdfsGenerated(MergeDto dto)
+    private static IEnumerable<DataElementPlacement> FindCreatedForDateElements(IEnumerable<DataElement> dataElements, InstanceEventList events)
     {
-        var dataTypes = dto.Application.DataTypes ?? [];
-        var pdfCreatingTasks = dataTypes
-            .Where(x => x.AppLogic is not null && x.EnablePdfCreation)
-            .Select(x => new { x.Id, x.TaskId })
+        var endEvents = events.InstanceEvents.Where(x =>
+            x.EventType == nameof(InstanceEventType.process_EndTask))
             .ToList();
 
-        if (pdfCreatingTasks.Count == 0)
+        // Null is technically a valid TaskId for EndTask event.
+        // as of 16.09.2026 in AT23 and TT02 has 0 EndTask with Null as taskId
+        if (endEvents.Any(x => x.ProcessInfo.CurrentTask.ElementId is null)) throw new UnreachableException("EndTask event contains ProcessInfo.CurrentTask.ElementId Null");
+
+        return dataElements.GroupJoin(
+            inner: endEvents,
+            outerKeySelector: GetGeneratedFromTaskId,
+            innerKeySelector: x => x.ProcessInfo.CurrentTask.ElementId,
+            resultSelector: GetTaskEndAtForDataElement);
+
+        static string? GetGeneratedFromTaskId(DataElement dataElement)
         {
-            return true;
+            return dataElement.References?
+                .FirstOrDefault(x => x.Relation == RelationType.GeneratedFrom
+                    && x.ValueType == ReferenceType.Task
+                    && !string.IsNullOrWhiteSpace(x.Value))
+                ?.Value;
         }
 
-        var dataElements = dto.Instance.Data ?? [];
-        var dataElementTypes = dataElements
-            .Select(dataElement => dataElement.DataType)
-            .ToHashSet();
-
-        // The expected number of PDFs is one per PDF generating task that has source data.
-        var pdfSourceCount = pdfCreatingTasks
-            .Where(task => dataElementTypes.Contains(task.Id))
-            .Select(task => task.TaskId)
-            .Distinct()
-            .Count();
-
-        // Count of data elements of ref-data-as-pdf that are generated from a PDF generating task
-        var generatedPdfsCount = dataElements
-            .Count(dataElement =>
-                dataElement.DataType == PdfType &&
-                dataElement.References is not null &&
-                dataElement.References
-                    .Any(reference => reference.Relation == RelationType.GeneratedFrom &&
-                        pdfCreatingTasks.Any(tasks => tasks.TaskId == reference.Value)
-                    )
-            );
-
-        return  pdfSourceCount <= generatedPdfsCount;
-    }
-
-    private static IEnumerable<(DataElement dataElement, DateTime? created)> RealCreate(MergeDto dto)
-    {
-        var dataElements = dto.Instance.Data.Where(x => !ShouldSkipDataElement(x)).ToList();
-        var dataTypes = dto.Application.DataTypes ?? [];
-
-        var dataTypesWithTaskId = dataTypes.Where(x => !string.IsNullOrEmpty(x.TaskId)).ToList();
-        foreach (var dataElement in dataElements)
+        static DataElementPlacement GetTaskEndAtForDataElement(DataElement dataElement, IEnumerable<InstanceEvent> events)
         {
-            var created = dataElement.Created;
-            if (dataElement.References is not null && dataElement.References.Any(x => x.Relation == RelationType.GeneratedFrom))
-            {
-                var idFromTask = GetIdFromTask(dataTypesWithTaskId, dataElement);
-                if (idFromTask is not null)
-                {
-                    created = dataElements.Where(x => x.DataType == idFromTask).Select(x => x.Created).FirstOrDefault();
-                }
-            }
-            yield return (dataElement, created);
+            var taskEndAt = events.Select(x => x.Created).Min();
+            var created = taskEndAt ?? dataElement.Created;
+            return created is not null
+                ? new DataElementPlacement(dataElement, created.Value, HasResolvedTaskEnd: taskEndAt is not null)
+                : throw new InvalidOperationException($"Could not resolve created date for data element: {dataElement.Id}");
         }
-        yield break;
-
-        // We hide the A1 "Signatures.html" from DP/AF
-        bool ShouldSkipDataElement(DataElement element) => IsA1Instance(dto.Instance) && element.DataType == "signature-presentation";
     }
 
-    private static string? GetIdFromTask(IEnumerable<DataType> dataTypes, DataElement dataElement) =>
-        dataTypes
-            .Where(x => x.TaskId == dataElement.References
-                .Where(x => x.Relation == RelationType.GeneratedFrom).First().Value)
-            .Select(x => x.Id)
-            .FirstOrDefault();
 
     private async Task<string> GetPartyUrnOrThrow(string partyId, CancellationToken cancellationToken)
     {
@@ -1061,6 +1066,8 @@ internal sealed class StorageDialogportenDataMerger
         return string.Concat(authenticationBaseUri, Uri.EscapeDataString(gotoUrl));
     }
 }
+
+internal sealed record DataElementPlacement(DataElement DataElement, DateTime Created, bool HasResolvedTaskEnd);
 
 internal enum InstanceDerivedStatus
 {
