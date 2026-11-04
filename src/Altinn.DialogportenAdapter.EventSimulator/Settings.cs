@@ -6,12 +6,19 @@ namespace Altinn.DialogportenAdapter.EventSimulator;
 
 public sealed record Settings(
     DialogportenAdapterSettings DialogportenAdapter,
-    WolverineSettings WolverineSettings);
+    WolverineSettings WolverineSettings,
+    ApplicationInsights ApplicationInsights
+) ;
 
 public sealed record WolverineSettings(
     string ServiceBusConnectionString,
     string? ManagementConnectionString = null,
     int ListenerCount = 50);
+
+public sealed record ApplicationInsights(
+    bool Enabled,
+    string? ConnectionString = null
+);
 
 public sealed record DialogportenAdapterSettings(
     MaskinportenSettings Maskinporten,

@@ -1,14 +1,15 @@
 using System.Net;
 using Altinn.DialogportenAdapter.Test.Common.Builder;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
+using Altinn.DialogportenAdapter.WebApi.Infrastructure.AltinnCdn;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
 using Altinn.Platform.Storage.Interface.Models;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Refit;
-using IAltinnOrgs = Altinn.DialogportenAdapter.WebApi.Infrastructure.Register.IAltinnOrgs;
 using IApplicationRepository = Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage.IApplicationRepository;
 using IRegisterApi = Altinn.DialogportenAdapter.WebApi.Infrastructure.Register.IRegisterApi;
 using IStorageApi = Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage.IStorageApi;
@@ -25,7 +26,7 @@ public class InstanceReceiptTests
         var (sut, _, _, _, _, _) = CreateSut();
 
         var result = await sut.GetReceipt(
-            new GetReceiptDto(Guid.NewGuid(), Guid.NewGuid(), "de"),
+            new GetReceiptDto(Guid.NewGuid(), Guid.NewGuid(), "de", null),
             CancellationToken.None);
 
         Assert.IsType<GetReceiptResponse.InvalidLanguageCode>(result);
@@ -41,7 +42,7 @@ public class InstanceReceiptTests
         var (sut, _, _, _, _, _) = CreateSut(dialogApi: dialogApi);
 
         var result = await sut.GetReceipt(
-            new GetReceiptDto(Guid.NewGuid(), Guid.NewGuid(), "nb"),
+            new GetReceiptDto(Guid.NewGuid(), Guid.NewGuid(), "nb", null),
             CancellationToken.None);
 
         Assert.IsType<GetReceiptResponse.NotFound>(result);
@@ -59,7 +60,7 @@ public class InstanceReceiptTests
         var (sut, _, _, _, _, _) = CreateSutFromData(data);
 
         var result = await sut.GetReceipt(
-            new GetReceiptDto(data.DialogId, data.TransmissionId, "nb"),
+            new GetReceiptDto(data.DialogId, data.TransmissionId, "nb", null),
             CancellationToken.None);
 
         Assert.IsType<GetReceiptResponse.NotFound>(result);
@@ -75,7 +76,7 @@ public class InstanceReceiptTests
                 ApiNotFound<Instance>()));
 
         var result = await sut.GetReceipt(
-            new GetReceiptDto(data.DialogId, data.TransmissionId, "nb"),
+            new GetReceiptDto(data.DialogId, data.TransmissionId, "nb", null),
             CancellationToken.None);
 
         Assert.IsType<GetReceiptResponse.NotFound>(result);
@@ -90,7 +91,7 @@ public class InstanceReceiptTests
             .Returns((Application?)null);
 
         var result = await sut.GetReceipt(
-            new GetReceiptDto(data.DialogId, data.TransmissionId, "nb"),
+            new GetReceiptDto(data.DialogId, data.TransmissionId, "nb", null),
             CancellationToken.None);
 
         Assert.IsType<GetReceiptResponse.NotFound>(result);
@@ -104,7 +105,7 @@ public class InstanceReceiptTests
         var (sut, _, _, _, _, _) = CreateSutFromData(data);
 
         var result = await sut.GetReceipt(
-            new GetReceiptDto(data.DialogId, missingTransmissionId, "nb"),
+            new GetReceiptDto(data.DialogId, missingTransmissionId, "nb", null),
             CancellationToken.None);
 
         Assert.IsType<GetReceiptResponse.NotFound>(result);
@@ -116,10 +117,15 @@ public class InstanceReceiptTests
         var data = CreateHappyPathData();
         var (sut, _, _, _, altinnOrgs, _) = CreateSutFromData(data);
         altinnOrgs.GetAltinnOrgs(Arg.Any<CancellationToken>())
-            .Returns((AltinnOrgData?)null);
+            .Throws(await ApiException.Create(
+                new HttpRequestMessage(HttpMethod.Get, "http://localhost"),
+                HttpMethod.Get,
+                new HttpResponseMessage(HttpStatusCode.InternalServerError),
+                new RefitSettings()
+            ));
 
         var result = await sut.GetReceipt(
-            new GetReceiptDto(data.DialogId, data.TransmissionId, "nb"),
+            new GetReceiptDto(data.DialogId, data.TransmissionId, "nb", null),
             CancellationToken.None);
 
         var success = Assert.IsType<GetReceiptResponse.Success>(result);
@@ -131,13 +137,57 @@ public class InstanceReceiptTests
     }
 
     [Fact]
+    public async Task GetReceipt_HappyPathWithTimezone_ReturnsMarkdown()
+    {
+        var data = CreateHappyPathData();
+        var (sut, _, _, _, _, _) = CreateSutFromData(data);
+
+        var result = await sut.GetReceipt(
+            new GetReceiptDto(data.DialogId, data.TransmissionId, "nb", "timezone=\"Europe/Oslo\""),
+            CancellationToken.None
+        );
+
+        var success = Assert.IsType<GetReceiptResponse.Success>(result);
+        Assert.Contains("**Dato sendt:** | **20.03.2026 / 11:00**", success.Markdown);
+        Assert.Contains("Avsender:", success.Markdown);
+        Assert.Contains("123456*****-Ola Nordmann", success.Markdown);
+        Assert.Contains("Mottaker", success.Markdown);
+        Assert.Contains("Digitaliseringsdirektoratet", success.Markdown);
+        Assert.Contains("Referansenummer", success.Markdown);
+        Assert.Contains("123456789abc", success.Markdown);
+        Assert.Contains("Det er gjennomført en maskinell kontroll under utfylling", success.Markdown);
+    }
+
+    [Fact]
+    public async Task GetReceipt_HappyPathWithTimezoneNoQuotes_ReturnsMarkdown()
+    {
+        var data = CreateHappyPathData();
+        var (sut, _, _, _, _, _) = CreateSutFromData(data);
+
+        var result = await sut.GetReceipt(
+            new GetReceiptDto(data.DialogId, data.TransmissionId, "nb", "timezone=Europe/Oslo"),
+            CancellationToken.None
+        );
+
+        var success = Assert.IsType<GetReceiptResponse.Success>(result);
+        Assert.Contains("**Dato sendt:** | **20.03.2026 / 11:00**", success.Markdown);
+        Assert.Contains("Avsender:", success.Markdown);
+        Assert.Contains("123456*****-Ola Nordmann", success.Markdown);
+        Assert.Contains("Mottaker", success.Markdown);
+        Assert.Contains("Digitaliseringsdirektoratet", success.Markdown);
+        Assert.Contains("Referansenummer", success.Markdown);
+        Assert.Contains("123456789abc", success.Markdown);
+        Assert.Contains("Det er gjennomført en maskinell kontroll under utfylling", success.Markdown);
+    }
+
+    [Fact]
     public async Task GetReceipt_HappyPath_ReturnsMarkdownNb()
     {
         var data = CreateHappyPathData();
         var (sut, _, _, _, _, _) = CreateSutFromData(data);
 
         var result = await sut.GetReceipt(
-            new GetReceiptDto(data.DialogId, data.TransmissionId, "nb"),
+            new GetReceiptDto(data.DialogId, data.TransmissionId, "nb", null),
             CancellationToken.None);
 
         var success = Assert.IsType<GetReceiptResponse.Success>(result);
@@ -158,7 +208,7 @@ public class InstanceReceiptTests
         var (sut, _, _, _, _, _) = CreateSutFromData(data);
 
         var result = await sut.GetReceipt(
-            new GetReceiptDto(data.DialogId, data.TransmissionId, "nn"),
+            new GetReceiptDto(data.DialogId, data.TransmissionId, "nn", null),
             CancellationToken.None);
 
         var success = Assert.IsType<GetReceiptResponse.Success>(result);
@@ -179,7 +229,7 @@ public class InstanceReceiptTests
         var (sut, _, _, _, _, _) = CreateSutFromData(data);
 
         var result = await sut.GetReceipt(
-            new GetReceiptDto(data.DialogId, data.TransmissionId, "en"),
+            new GetReceiptDto(data.DialogId, data.TransmissionId, "en", null),
             CancellationToken.None);
 
         var success = Assert.IsType<GetReceiptResponse.Success>(result);
@@ -198,19 +248,19 @@ public class InstanceReceiptTests
         IStorageApi StorageApi,
         IApplicationRepository ApplicationRepository,
         IDialogportenApi DialogportenApi,
-        IAltinnOrgs AltinnOrgs,
+        IAltinnCdnRepository AltinnOrgs,
         IRegisterApi RegisterApi)
         CreateSut(
             IStorageApi? storageApi = null,
             IApplicationRepository? applicationRepository = null,
             IDialogportenApi? dialogApi = null,
-            IAltinnOrgs? altinnOrgs = null,
+            IAltinnCdnRepository? altinnOrgs = null,
             IRegisterApi? registerApi = null)
     {
         storageApi ??= Substitute.For<IStorageApi>();
         applicationRepository ??= Substitute.For<IApplicationRepository>();
         dialogApi ??= Substitute.For<IDialogportenApi>();
-        altinnOrgs ??= Substitute.For<IAltinnOrgs>();
+        altinnOrgs ??= Substitute.For<IAltinnCdnRepository>();
         registerApi ??= Substitute.For<IRegisterApi>();
 
         ILogger<InstanceReceipt> logger = Substitute.For<ILogger<InstanceReceipt>>();
@@ -230,14 +280,14 @@ public class InstanceReceiptTests
         IStorageApi StorageApi,
         IApplicationRepository ApplicationRepository,
         IDialogportenApi DialogportenApi,
-        IAltinnOrgs AltinnOrgs,
+        IAltinnCdnRepository AltinnOrgs,
         IRegisterApi RegisterApi)
         CreateSutFromData(
             HappyPathData data,
             IStorageApi? storageApi = null,
             IApplicationRepository? applicationRepository = null,
             IDialogportenApi? dialogApi = null,
-            IAltinnOrgs? altinnOrgs = null,
+            IAltinnCdnRepository? altinnOrgs = null,
             IRegisterApi? registerApi = null)
     {
         var created = CreateSut(storageApi, applicationRepository, dialogApi, altinnOrgs, registerApi);
@@ -334,12 +384,7 @@ public class InstanceReceiptTests
                     ["nn"] = "Digitaliseringsdirektoratet",
                     ["en"] = "Norwegian Digitalisation Agency"
                 },
-                OrgNr: "991825827",
-                Environments: ["tt02", "production"],
-                Logo: "logo",
-                Emblem: "emblem",
-                HomePage: "https://www.digdir.no",
-                Contact: null)
+                OrgNr: "991825827")
         });
 
         return new HappyPathData(dialogId, transmissionId, partyId, instanceGuid, dialog, instance, application, orgs);

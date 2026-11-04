@@ -18,6 +18,38 @@ public class AltinnInstanceEventBuilder
         return new AltinnInstanceEventBuilder(instanceEvent.DeepClone());
     }
 
+    public static AltinnInstanceEventBuilder NewTaskEndEvent(int userId)
+    {
+        return new AltinnInstanceEventBuilder(
+            new InstanceEvent
+            {
+                Id = Guid.Parse("7488c4f3-1012-4487-b575-d38b01688da0"),
+                InstanceId = "instance-id",
+                Created = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+                EventType = nameof(InstanceEventType.process_EndTask),
+                InstanceOwnerPartyId = "instance-owner-party-id",
+                User = new PlatformUser
+                {
+                    UserId = userId,
+                    AuthenticationLevel = 4,
+                    NationalIdentityNumber = "01879399439",
+                },
+                ProcessInfo = new ProcessState
+                {
+                    Started = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+                    StartEvent = "start_event",
+                    CurrentTask = new ProcessElementInfo
+                    {
+                        Flow = 10,
+                        Started = new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc),
+                        ElementId = "Task_1",
+                        Name = "Task_1",
+                        AltinnTaskType = "Task_1",
+                        FlowType = "CompleteCurrentMoveToNext"
+                    },
+                }
+            });
+    }
     public static AltinnInstanceEventBuilder NewCreatedByPlatformUserInstanceEvent(int userId) => new(
         new InstanceEvent
         {

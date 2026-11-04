@@ -5,6 +5,7 @@ using Altinn.DialogportenAdapter.WebApi;
 using Altinn.DialogportenAdapter.WebApi.Common;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
 using Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
+using Altinn.DialogportenAdapter.WebApi.Infrastructure.AltinnCdn;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
@@ -23,6 +24,20 @@ public class StorageDialogportenDataMergerUpdateTest
     private const string PartyId2 = "party-2";
     private const int UserId1 = 1;
     private const int UserId2 = 2;
+
+    // The default Org of AltinnApplicationBuilder resolves to the default LastChangedBy of AltinnDataElementBuilder
+    private const string ServiceOwnerOrgCode = "ttd";
+    private const string ServiceOwnerOrgNumber = "123456789";
+    private static readonly AltinnOrgData DefaultAltinnOrgs = new(new Dictionary<string, Org>
+    {
+        [ServiceOwnerOrgCode] = new(
+            Name: new Dictionary<string, string> { ["nb"] = "Testdepartementet" },
+            OrgNr:  ""
+        ),
+        ["digdir"] = new(
+            Name: new Dictionary<string, string>{ ["nb"] = "digitaliseringsdirektoratet"},
+            OrgNr: ServiceOwnerOrgNumber) 
+    });
     private AdapterFeatureFlagSettings _featureFlags = new() { EnableSubmissionTransmissions = true };
 
     public StorageDialogportenDataMergerUpdateTest()
@@ -40,7 +55,7 @@ public class StorageDialogportenDataMergerUpdateTest
                     InternalStorageEndpoint: new Uri("http://altinn.storage.localhost/"),
                     InternalRegisterEndpoint: new Uri("http://altinn.register.localhost/"),
                     SubscriptionKey: "subscriptionKey",
-                    AltinnOrgs: new Uri("https://altinncdn.no/orgs/altinn-orgs.json")
+                    AltinnCdn: new Uri("https://altinncdn.no/orgs/altinn-orgs.json")
                 ),
                 Dialogporten: new DialogportenSettings(BaseUri: new Uri("http://dialogporten.localhost/")),
                 Adapter: new AdapterSettings(
@@ -49,7 +64,8 @@ public class StorageDialogportenDataMergerUpdateTest
                 ),
                 Authentication: new AuthenticationSettings(JwtBearerWellKnown: "http://well.known.localhost")
             ),
-            WolverineSettings = new WolverineSettings("http://service.bus.localhost", null, 0)
+            WolverineSettings = new WolverineSettings("http://service.bus.localhost", null, 0),
+            ApplicationInsights = new ApplicationInsights(false)
         });
 
         _registerRepositoryMock.GetActorUrnByPartyId(Arg.Any<IEnumerable<string>>(), Arg.Any<CancellationToken>())
@@ -65,7 +81,6 @@ public class StorageDialogportenDataMergerUpdateTest
                 { $"{UserId1}", "urn:altinn:displayName:Leif" },
                 { $"{UserId2}", "urn:altinn:person:legacy-selfidentified:Per" },
             });
-
 
         _storageDialogportenDataMerger = new StorageDialogportenDataMerger(
             options,
@@ -208,10 +223,11 @@ public class StorageDialogportenDataMergerUpdateTest
                 Activities = [],
                 Deleted = false
             },
+            AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false
         );
 
-        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
 
         actualDialogDto.Should().BeEquivalentTo(new DialogDto
         {
@@ -344,10 +360,11 @@ public class StorageDialogportenDataMergerUpdateTest
                 Activities = [],
                 Deleted = false
             },
+            AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false
         );
 
-        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
         var apiActionId = dialogId.CreateDeterministicSubUuidV7(Constants.ApiAction.Read);
 
         actualDialogDto.Should().BeEquivalentTo(new DialogDto
@@ -570,10 +587,11 @@ public class StorageDialogportenDataMergerUpdateTest
                 Activities = [],
                 Deleted = false
             },
+            AltinnOrgData: DefaultAltinnOrgs,
             IsMigration: false
         );
 
-        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, currentAttempt: 1, CancellationToken.None);
+        var actualDialogDto = await _storageDialogportenDataMerger.Merge(mergeDto, CancellationToken.None);
 
         actualDialogDto.Should().BeEquivalentTo(new DialogDto
         {

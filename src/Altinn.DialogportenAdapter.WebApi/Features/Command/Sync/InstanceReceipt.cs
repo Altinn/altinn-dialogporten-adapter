@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Altinn.DialogportenAdapter.WebApi.Common.Extensions;
+using Altinn.DialogportenAdapter.WebApi.Common.http;
+using Altinn.DialogportenAdapter.WebApi.Infrastructure.AltinnCdn;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Storage;
@@ -12,7 +14,9 @@ namespace Altinn.DialogportenAdapter.WebApi.Features.Command.Sync;
 internal sealed record GetReceiptDto(
     Guid DialogId,
     Guid TransmissionId,
-    string? LanguageCode);
+    string? LanguageCode,
+    string? Prefer
+);
 
 public abstract record GetReceiptResponse
 {
@@ -27,7 +31,7 @@ internal sealed partial class InstanceReceipt(
     IStorageApi storageApi,
     IApplicationRepository applicationRepository,
     IDialogportenApi dialogportenApi,
-    IAltinnOrgs altinnOrgs,
+    IAltinnCdnRepository altinnCdnRepository,
     IRegisterApi registerApi,
     ILogger<InstanceReceipt> logger
     )
@@ -35,12 +39,12 @@ internal sealed partial class InstanceReceipt(
     private readonly IStorageApi _storageApi = storageApi ?? throw new ArgumentNullException(nameof(storageApi));
     private readonly IApplicationRepository _applicationRepository = applicationRepository ?? throw new ArgumentNullException(nameof(applicationRepository));
     private readonly IDialogportenApi _dialogportenApi = dialogportenApi ?? throw new ArgumentNullException(nameof(dialogportenApi));
-    private readonly IAltinnOrgs _altinnOrgs = altinnOrgs ?? throw new ArgumentNullException(nameof(altinnOrgs));
+    private readonly IAltinnCdnRepository _altinnCdnRepository = altinnCdnRepository ?? throw new ArgumentNullException(nameof(altinnCdnRepository));
     private readonly IRegisterApi _registerApi = registerApi ?? throw new ArgumentNullException(nameof(registerApi));
     private readonly ILogger<InstanceReceipt> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
     private const string DefaultLanguageCode = "nb";
-    private const string InstanceReceiptSummaryKey = "receipt-transmission-summary";
+    public const string InstanceReceiptSummaryKey = "receipt-transmission-summary";
 
     private static readonly List<string> LanguageCodes = ["nb", "nn", "en"];
 
@@ -53,6 +57,9 @@ internal sealed partial class InstanceReceipt(
     {
         if (request.LanguageCode is not null && !LanguageCodes.Contains(request.LanguageCode))
             return new GetReceiptResponse.InvalidLanguageCode();
+
+        var preferences = HttpPreferences.FromHeader(request.Prefer);
+        var timeZone  = preferences.GetTimeZoneOrDefault();
 
         var dialog = await _dialogportenApi.Get(request.DialogId, cancellationToken).ContentOrDefault();
         if (dialog is null)
@@ -81,13 +88,11 @@ internal sealed partial class InstanceReceipt(
         if (transmission is null)
             return new GetReceiptResponse.NotFound();
 
-        var orgs = await _altinnOrgs.GetAltinnOrgs(cancellationToken);
+        var orgs = await GetAltinnOrgs(cancellationToken);
 
         var langCode = request.LanguageCode ?? DefaultLanguageCode;
-        // Time always in Oslo timezone
-        var createdAt = transmission.CreatedAt
-            .ToLocalTime()
-            .ToString("dd.MM.yyyy / HH:mm", CultureInfo.InvariantCulture);
+
+        var createdAt = GetCreatedAt(transmission.CreatedAt, timeZone);
         var sender = await GetSender(dialog.Party, cancellationToken);
         // Return dialog.Org if AltinnOrgs is not responding
         var receiver = orgs is null ? dialog.Org : GetReceiverName(orgs, dialog.Org, langCode);
@@ -107,6 +112,31 @@ internal sealed partial class InstanceReceipt(
              {summary}
              """;
         return new GetReceiptResponse.Success(receipt);
+    }
+
+    [LoggerMessage(LogLevel.Warning, "Error occured: {errorMessage}")]
+    private partial void LogAltinnOrgsWarning(string errorMessage);
+
+    private async Task<AltinnOrgData?> GetAltinnOrgs(CancellationToken cancellationToken)
+    {
+            try
+            {
+                return await _altinnCdnRepository.GetAltinnOrgs(cancellationToken);
+            }
+            catch (Exception)
+            {
+                LogAltinnOrgsWarning("Failed to get AltinnOrgs from server. Using cached");
+                return null;
+            }
+    }
+
+    private static string GetCreatedAt(DateTimeOffset transmissionCreatedAt, TimeZoneInfo? timeZoneInfo)
+    {
+        var time = timeZoneInfo == null
+            ? transmissionCreatedAt
+            : TimeZoneInfo.ConvertTime(transmissionCreatedAt, timeZoneInfo);
+
+        return time.ToString("dd.MM.yyyy / HH:mm", CultureInfo.InvariantCulture);
     }
 
     private static string GetReceiverName(AltinnOrgData orgs, string orgCode, string languageCode)
