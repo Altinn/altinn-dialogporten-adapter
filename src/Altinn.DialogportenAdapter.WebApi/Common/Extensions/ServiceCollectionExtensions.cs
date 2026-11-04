@@ -68,6 +68,10 @@ internal static class ServiceCollectionExtensions
                 opts.Policies.AllListeners(x => x.ProcessInline());
                 opts.Policies.AllSenders(x => x.SendInline());
 
+                // Wolverine 6 forbids service location in generated handlers by default.
+                // SyncInstanceToDialogService is internal, so the handler has to resolve it.
+                opts.CodeGeneration.AlwaysUseServiceLocationFor<ISyncInstanceToDialogService>();
+
                 // Handle 409s, which may be caused by conflicting creates with same IDs. Retry
                 // a few times with jitter before moving to error queue for manual inspection.
                 // This may happen during migrations when the same instance is attempted created

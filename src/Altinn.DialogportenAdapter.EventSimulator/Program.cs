@@ -74,6 +74,11 @@ static Task BuildAndRun(string[] args)
             .ListenerCount(settings.WolverineSettings.ListenerCount)
             .ProcessInline());
         opts.Policies.AllSenders(x => x.SendInline());
+
+        // Wolverine 6 forbids service location in generated handlers by default.
+        // IStorageApi is a Refit client created by a factory lambda, so the handler has to resolve it.
+        opts.CodeGeneration.AlwaysUseServiceLocationFor<IStorageApi>();
+
         opts.OnException<HttpRequestException>()
             .ScheduleRetry(TimeSpan.FromMinutes(5))
             .Then.MoveToErrorQueue();
