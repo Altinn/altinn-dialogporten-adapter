@@ -15,7 +15,7 @@
     <PackageReference Include="Testcontainers.ServiceBus" Version="4.13.0" />
     <PackageReference Include="SSH.NET" Version="2026.0.0" /> <!-- Transient from Testcontainers.ServiceBus. Forced upgrade due to CVE. Remove when patched -->
     <PackageReference Include="WireMock.Net" Version="2.14.0" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="4.0.1" />
     <PackageReference Include="coverlet.collector" Version="10.0.1" />
     <PackageReference Include="xunit.v3" Version="3.2.2" />
     <PackageReference Include="Azure.Messaging.ServiceBus" Version="7.20.1" />
