@@ -8,7 +8,8 @@ public sealed class FakeDialogTokenValidator : IDialogTokenValidator
     public IValidationResult Validate(
         ReadOnlySpan<char> token,
         Guid? dialogId = null, string[]? requiredActions = null,
-        DialogTokenValidationParameters? options = null
+        DialogTokenValidationParameters? options = null,
+        string? requiredEntityReference = null
     )
     {
         return new ValidationResult();

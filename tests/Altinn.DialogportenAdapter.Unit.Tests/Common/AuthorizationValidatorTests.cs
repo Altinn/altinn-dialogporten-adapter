@@ -50,7 +50,8 @@ public class AuthorizationValidatorTests
             ReadOnlySpan<char> token,
             Guid? dialogId = null,
             string[]? requiredActions = null,
-            DialogTokenValidationParameters? options = null)
+            DialogTokenValidationParameters? options = null,
+            string? requiredEntityReference = null)
         {
             CapturedToken = token.ToString();
             CapturedDialogId = dialogId;
