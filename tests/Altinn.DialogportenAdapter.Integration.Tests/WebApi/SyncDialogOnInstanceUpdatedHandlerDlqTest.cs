@@ -3,8 +3,10 @@ using System.Text.Json;
 using Altinn.DialogportenAdapter.Contracts;
 using Altinn.DialogportenAdapter.Integration.Tests.Common;
 using Altinn.DialogportenAdapter.Integration.Tests.Common.Extensions;
+using Altinn.DialogportenAdapter.Test.Common.Builder;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Dialogporten;
 using Altinn.DialogportenAdapter.WebApi.Infrastructure.Register;
+using Altinn.Platform.Storage.Interface.Models;
 using AwesomeAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using WireMock.RequestBuilders;
@@ -335,5 +337,81 @@ public class SyncDialogOnInstanceUpdatedHandlerDlqTest(DialogportenAdapterApplic
         result.DlqMessage.DeadLetterErrorDescription.Should().Contain(traceId);
         purgeRequests.Should().Be(4); // 3 retries + 1 requests
         postRequests.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task GivenDeleteDialogReturnsGoneThenDiscardWithoutRetry()
+    {
+        // Arrange
+        var arrangement = ArrangeDefaults();
+        var dialogId = arrangement.DialogId;
+
+        _app.DialogportenApi
+            .Given(Request.Create().DpGetDialog(dialogId))
+            .RespondWith(Response.Create()
+                .WithStatusCode(HttpStatusCode.OK)
+                .WithBody(JsonSerializer.Serialize(new DialogDto
+                {
+                    Revision = Guid.NewGuid()
+                })));
+
+        _app.StorageApi
+            .Given(Request.Create().StorageGetInstance(arrangement.PartyId, arrangement.InstanceId))
+            .RespondWith(Response.Create()
+                .WithStatusCode(HttpStatusCode.OK)
+                .WithBody(JsonSerializer.Serialize(AltinnInstanceBuilder
+                    .NewInProgressInstance()
+                    .WithCreatedBy(TestContext.Current.Test!.TestDisplayName)
+                    .WithInstanceOwner(new InstanceOwner
+                    {
+                        PartyId = $"{arrangement.PartyId}",
+                    })
+                    .WithStatus(new InstanceStatus
+                    {
+                        IsSoftDeleted = true,
+                    })
+                    .Build())));
+
+        _app.DialogportenApi
+            .Given(Request.Create().DpDeleteDialog(dialogId))
+            .RespondWith(Response.Create()
+                .WithStatusCode(HttpStatusCode.Gone));
+
+        // Act
+        var result = await SendAndWait(new SyncInstanceCommand(
+            AppId: arrangement.AppId,
+            PartyId: $"{arrangement.PartyId}",
+            InstanceId: arrangement.InstanceId,
+            InstanceCreatedAt: arrangement.InstanceCreatedAt,
+            IsMigration: false
+        ));
+
+        // A message that was neither completed nor dead-lettered would be redelivered when the
+        // emulator's 15 second lock expires (see AzureServiceBusEmulator/Config.json), and its
+        // second delivery would DELETE again before anything else happened to it. Keep watching
+        // until 20 seconds after the first DELETE, however long the first delivery took.
+        var firstDeleteAt = _app.DialogportenApi
+            .FindLogEntries(Request.Create().DpDeleteDialog(dialogId))
+            .Select(x => x.RequestMessage?.DateTime)
+            .Min();
+        if (firstDeleteAt is not null)
+        {
+            // WireMock stamps requests with DateTime.UtcNow
+            var remaining = firstDeleteAt.Value + TimeSpan.FromSeconds(20) - DateTime.UtcNow;
+            if (remaining > TimeSpan.Zero)
+            {
+                await Task.Delay(remaining, TestContext.Current.CancellationToken);
+            }
+        }
+
+        // Assert
+        var deleteRequests = _app.DialogportenApi.FindLogEntries(Request.Create().DpDeleteDialog(dialogId)).Count;
+        var postRequests = _app.DialogportenApi.FindLogEntries(Request.Create().DpPostDialog()).Count;
+
+        result.IsSuccess.Should().BeFalse();
+        result.DlqMessage.Should().BeNull();
+        deleteRequests.Should().Be(1); // Discarded after the first 410: no retry, no redelivery
+        postRequests.Should().Be(0);
+        MarkEventDiscarded();
     }
 }
