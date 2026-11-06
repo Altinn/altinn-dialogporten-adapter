@@ -70,7 +70,11 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
     /// </summary>
     protected void MarkEventDiscarded()
     {
-        _unhandledEvents.TryDequeue(out var discardedEvent);
+        if (!_unhandledEvents.TryDequeue(out var discardedEvent))
+        {
+            Assert.Fail("MarkEventDiscarded was called, but no sent event was pending.");
+        }
+
         Log($"Debug: An event was discarded {discardedEvent}");
     }
 
