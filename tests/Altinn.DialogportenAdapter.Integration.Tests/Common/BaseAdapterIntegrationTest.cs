@@ -63,6 +63,17 @@ public abstract class BaseAdapterIntegrationTest(DialogportenAdapterApplication 
         return await eventProcessingResult;
     }
 
+    /// <summary>
+    /// Marks the sent event as handled when the test has shown that the adapter completed it without
+    /// a successful sync or a DLQ entry, for example by discarding it. Otherwise DisposeAsync waits for
+    /// the event to reach the DLQ, and fails when it never does.
+    /// </summary>
+    protected void MarkEventDiscarded()
+    {
+        _unhandledEvents.TryDequeue(out var discardedEvent);
+        Log($"Debug: An event was discarded {discardedEvent}");
+    }
+
     private async Task<ServiceBusReceivedMessage?> WaitForDlqMessage(
         TimeSpan? timeout = null,
         CancellationToken cancellationToken = default
