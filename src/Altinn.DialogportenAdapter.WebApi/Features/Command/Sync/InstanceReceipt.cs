@@ -103,11 +103,17 @@ internal sealed partial class InstanceReceipt(
         var summary = await GetReceiptSummary(instance, application.VersionId, langCode, cancellationToken);
         var receipt =
             $"""
-             | **{GetFieldText(langCode, FieldTexts.DateSent)}:** | **{createdAt}** |
-             |:-|:-|
-             | **{GetFieldText(langCode, FieldTexts.Sender)}:** | {sender} |
-             | **{GetFieldText(langCode, FieldTexts.Receiver)}:** | {receiver} |
-             | **{GetFieldText(langCode, FieldTexts.ReferenceNumber)}:** | {referenceNumber} |
+             {GetFieldText(langCode, FieldTexts.DateSent)}
+             : {createdAt}
+
+             {GetFieldText(langCode, FieldTexts.Sender)}
+             : {sender}
+
+             {GetFieldText(langCode, FieldTexts.Receiver)}
+             : {receiver}
+
+             {GetFieldText(langCode, FieldTexts.ReferenceNumber)}
+             : {referenceNumber}
 
              {summary}
              """;

@@ -148,8 +148,11 @@ public class InstanceReceiptTests
         );
 
         var success = Assert.IsType<GetReceiptResponse.Success>(result);
-        Assert.Contains("**Dato sendt:** | **20.03.2026 / 11:00**", success.Markdown);
-        Assert.Contains("Avsender:", success.Markdown);
+        Assert.Contains("""
+                        Dato sendt
+                        : 20.03.2026 / 11:00
+                        """, success.Markdown);
+        Assert.Contains("Avsender", success.Markdown);
         Assert.Contains("123456*****-Ola Nordmann", success.Markdown);
         Assert.Contains("Mottaker", success.Markdown);
         Assert.Contains("Digitaliseringsdirektoratet", success.Markdown);
@@ -170,8 +173,11 @@ public class InstanceReceiptTests
         );
 
         var success = Assert.IsType<GetReceiptResponse.Success>(result);
-        Assert.Contains("**Dato sendt:** | **20.03.2026 / 11:00**", success.Markdown);
-        Assert.Contains("Avsender:", success.Markdown);
+        Assert.Contains("""
+                        Dato sendt
+                        : 20.03.2026 / 11:00
+                        """, success.Markdown);
+        Assert.Contains("Avsender", success.Markdown);
         Assert.Contains("123456*****-Ola Nordmann", success.Markdown);
         Assert.Contains("Mottaker", success.Markdown);
         Assert.Contains("Digitaliseringsdirektoratet", success.Markdown);
@@ -191,14 +197,21 @@ public class InstanceReceiptTests
             CancellationToken.None);
 
         var success = Assert.IsType<GetReceiptResponse.Success>(result);
-        Assert.Contains("Dato sendt", success.Markdown);
-        Assert.Contains("Avsender:", success.Markdown);
-        Assert.Contains("123456*****-Ola Nordmann", success.Markdown);
-        Assert.Contains("Mottaker", success.Markdown);
-        Assert.Contains("Digitaliseringsdirektoratet", success.Markdown);
-        Assert.Contains("Referansenummer", success.Markdown);
-        Assert.Contains("123456789abc", success.Markdown);
-        Assert.Contains("Det er gjennomført en maskinell kontroll under utfylling", success.Markdown);
+        Assert.Equal("""
+                     Dato sendt
+                     : 20.03.2026 / 10:00
+
+                     Avsender
+                     : 123456*****-Ola Nordmann
+
+                     Mottaker
+                     : Digitaliseringsdirektoratet
+
+                     Referansenummer
+                     : 123456789abc
+
+                     Det er gjennomført en maskinell kontroll under utfylling, men vi tar forbehold om at det kan bli oppdaget feil under saksbehandlingen og at annen dokumentasjon kan være nødvendig. Vennligst oppgi referansenummer ved eventuelle henvendelser til etaten.
+                     """, success.Markdown);
     }
 
     [Fact]
@@ -212,14 +225,21 @@ public class InstanceReceiptTests
             CancellationToken.None);
 
         var success = Assert.IsType<GetReceiptResponse.Success>(result);
-        Assert.Contains("Dato sendt", success.Markdown);
-        Assert.Contains("Avsendar:", success.Markdown);
-        Assert.Contains("123456*****-Ola Nordmann", success.Markdown);
-        Assert.Contains("Mottakar", success.Markdown);
-        Assert.Contains("Digitaliseringsdirektoratet", success.Markdown);
-        Assert.Contains("Referansenummer", success.Markdown);
-        Assert.Contains("123456789abc", success.Markdown);
-        Assert.Contains("Det er gjennomført ein maskinell kontroll under utfylling", success.Markdown);
+        Assert.Equal("""
+                     Dato sendt
+                     : 20.03.2026 / 10:00
+
+                     Avsendar
+                     : 123456*****-Ola Nordmann
+
+                     Mottakar
+                     : Digitaliseringsdirektoratet
+
+                     Referansenummer
+                     : 123456789abc
+
+                     Det er gjennomført ein maskinell kontroll under utfylling, men vi tek atterhald om at det kan bli oppdaga feil under sakshandsaminga og at annan dokumentasjon kan vere naudsynt. Ver venleg oppgi referansenummer ved eventuelle førespurnadar til etaten.
+                     """, success.Markdown);
     }
 
     [Fact]
@@ -233,14 +253,21 @@ public class InstanceReceiptTests
             CancellationToken.None);
 
         var success = Assert.IsType<GetReceiptResponse.Success>(result);
-        Assert.Contains("Date sent", success.Markdown);
-        Assert.Contains("Sender:", success.Markdown);
-        Assert.Contains("123456*****-Ola Nordmann", success.Markdown);
-        Assert.Contains("Receiver", success.Markdown);
-        Assert.Contains("Norwegian Digitalisation Agency", success.Markdown);
-        Assert.Contains("Reference number", success.Markdown);
-        Assert.Contains("123456789abc", success.Markdown);
-        Assert.Contains("A mechanical check has been completed while filling in", success.Markdown);
+        Assert.Equal("""
+                     Date sent
+                     : 20.03.2026 / 10:00
+
+                     Sender
+                     : 123456*****-Ola Nordmann
+
+                     Receiver
+                     : Norwegian Digitalisation Agency
+
+                     Reference number
+                     : 123456789abc
+
+                     A mechanical check has been completed while filling in, but we reserve the right to detect errors during the processing of the case and that other documentation may be necessary. Please provide the reference number in case of any inquiries to the agency.
+                     """, success.Markdown);
     }
 
     private static (

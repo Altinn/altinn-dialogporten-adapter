@@ -63,11 +63,17 @@ public class GetReceiptTest(DialogportenAdapterApplication app) : BaseAdapterInt
         var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
 
         body.Should().Be("""
-                          | **Date sent:** | **01.01.2020 / 12:30** |
-                          |:-|:-|
-                          | **Sender:** | 029147*****-testName |
-                          | **Receiver:** | 991825827 |
-                          | **Reference number:** | 87e518ebf653 |
+                          Date sent
+                          : 01.01.2020 / 12:30
+
+                          Sender
+                          : 029147*****-testName
+
+                          Receiver
+                          : 991825827
+
+                          Reference number
+                          : 87e518ebf653
 
                           A mechanical check has been completed while filling in, but we reserve the right to detect errors during the processing of the case and that other documentation may be necessary. Please provide the reference number in case of any inquiries to the agency.
                           """);
@@ -95,11 +101,17 @@ public class GetReceiptTest(DialogportenAdapterApplication app) : BaseAdapterInt
         var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
 
         body.Should().Be("""
-                          | **Date sent:** | **01.01.2020 / 13:30** |
-                          |:-|:-|
-                          | **Sender:** | 029147*****-testName |
-                          | **Receiver:** | 991825827 |
-                          | **Reference number:** | 87e518ebf653 |
+                          Date sent
+                          : 01.01.2020 / 13:30
+
+                          Sender
+                          : 029147*****-testName
+
+                          Receiver
+                          : 991825827
+
+                          Reference number
+                          : 87e518ebf653
 
                           A mechanical check has been completed while filling in, but we reserve the right to detect errors during the processing of the case and that other documentation may be necessary. Please provide the reference number in case of any inquiries to the agency.
                           """);
@@ -127,11 +139,17 @@ public class GetReceiptTest(DialogportenAdapterApplication app) : BaseAdapterInt
         var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
 
         body.Should().Be("""
-                          | **Date sent:** | **01.06.2020 / 14:30** |
-                          |:-|:-|
-                          | **Sender:** | 029147*****-testName |
-                          | **Receiver:** | 991825827 |
-                          | **Reference number:** | 87e518ebf653 |
+                          Date sent
+                          : 01.06.2020 / 14:30
+
+                          Sender
+                          : 029147*****-testName
+
+                          Receiver
+                          : 991825827
+
+                          Reference number
+                          : 87e518ebf653
 
                           A mechanical check has been completed while filling in, but we reserve the right to detect errors during the processing of the case and that other documentation may be necessary. Please provide the reference number in case of any inquiries to the agency.
                           """);
@@ -159,11 +177,17 @@ public class GetReceiptTest(DialogportenAdapterApplication app) : BaseAdapterInt
         var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
 
         body.Should().Be("""
-                         | **Date sent:** | **01.01.2020 / 12:30** |
-                         |:-|:-|
-                         | **Sender:** | 029147*****-testName |
-                         | **Receiver:** | 991825827 |
-                         | **Reference number:** | 87e518ebf653 |
+                         Date sent
+                         : 01.01.2020 / 12:30
+
+                         Sender
+                         : 029147*****-testName
+
+                         Receiver
+                         : 991825827
+
+                         Reference number
+                         : 87e518ebf653
 
                          A mechanical check has been completed while filling in, but we reserve the right to detect errors during the processing of the case and that other documentation may be necessary. Please provide the reference number in case of any inquiries to the agency.
                          """);
