@@ -386,10 +386,11 @@ public class SyncDialogOnInstanceUpdatedHandlerDlqTest(DialogportenAdapterApplic
             IsMigration: false
         ));
 
-        // A message that was neither completed nor dead-lettered would be redelivered when the
-        // emulator's 15 second lock expires (see AzureServiceBusEmulator/Config.json), and its
-        // second delivery would DELETE again before anything else happened to it. Keep watching
-        // until 20 seconds after the first DELETE, however long the first delivery took.
+        // A message that was neither completed nor dead-lettered would be redelivered when its lock
+        // expires, and its second delivery would DELETE again before anything else happened to it.
+        // Keep watching until the queue's lock has passed, counted from the first DELETE. The lock
+        // is the one the queue actually has, not the 15 seconds in the emulator's Config.json.
+        var lockDuration = await _app.GetQueueLockDuration(Constants.AdapterQueueName);
         var firstDeleteAt = _app.DialogportenApi
             .FindLogEntries(Request.Create().DpDeleteDialog(dialogId))
             .Select(x => x.RequestMessage?.DateTime)
@@ -397,7 +398,7 @@ public class SyncDialogOnInstanceUpdatedHandlerDlqTest(DialogportenAdapterApplic
         if (firstDeleteAt is not null)
         {
             // WireMock stamps requests with DateTime.UtcNow
-            var remaining = firstDeleteAt.Value + TimeSpan.FromSeconds(20) - DateTime.UtcNow;
+            var remaining = firstDeleteAt.Value + lockDuration + TimeSpan.FromSeconds(5) - DateTime.UtcNow;
             if (remaining > TimeSpan.Zero)
             {
                 await Task.Delay(remaining, TestContext.Current.CancellationToken);

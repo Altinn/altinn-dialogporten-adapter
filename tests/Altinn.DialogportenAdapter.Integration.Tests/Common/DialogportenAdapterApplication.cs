@@ -243,4 +243,21 @@ public class DialogportenAdapterApplication : IAsyncLifetime
 
         await Task.WhenAll(tasks);
     }
+
+    /// <summary>
+    /// The lock duration the queue actually has. ClearBus deletes the queues from the emulator's
+    /// Config.json, and Wolverine recreates them with Service Bus' default lock of 1 minute.
+    /// </summary>
+    public async Task<TimeSpan> GetQueueLockDuration(string queueName)
+    {
+        await foreach (var queue in ServiceBusAdminClient.GetQueuesAsync())
+        {
+            if (queue.Name == queueName)
+            {
+                return queue.LockDuration;
+            }
+        }
+
+        throw new InvalidOperationException($"Queue {queueName} does not exist");
+    }
 }
