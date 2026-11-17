@@ -55,6 +55,34 @@ public class ServiceCollectionExtensionsTests
         rule.Should().BeSameAs(transientRule);
     }
 
+    // OrAnyInner also matches the exception when another exception wraps it as its InnerException.
+    [Fact]
+    public async Task ConfigureDialogportenAdapterServices_WrappedHttpRequestException_UsesTheTransientRule()
+    {
+        await using var provider = BuildServiceProvider();
+        var failures = provider.GetRequiredService<WolverineOptions>().Policies.Failures;
+
+        var transientRule = RuleFor(failures, new HttpRequestException("Name or service not known"));
+        var rule = RuleFor(failures, new InvalidOperationException("Wrapper",
+            new HttpRequestException("Name or service not known")));
+
+        transientRule.Should().NotBeNull();
+        rule.Should().BeSameAs(transientRule);
+    }
+
+    [Fact]
+    public async Task ConfigureDialogportenAdapterServices_WrappedTaskCanceledException_UsesTheTransientRule()
+    {
+        await using var provider = BuildServiceProvider();
+        var failures = provider.GetRequiredService<WolverineOptions>().Policies.Failures;
+
+        var transientRule = RuleFor(failures, new TaskCanceledException());
+        var rule = RuleFor(failures, new InvalidOperationException("Wrapper", new TaskCanceledException()));
+
+        transientRule.Should().NotBeNull();
+        rule.Should().BeSameAs(transientRule);
+    }
+
     // Matching no rule moves the message to the error queue on the first attempt.
     [Fact]
     public async Task ConfigureDialogportenAdapterServices_AggregatedNonTransientExceptions_MatchNoRule()
