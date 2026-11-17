@@ -38,7 +38,7 @@ internal interface IDialogportenApi
         [Body] DateTimeOffset newCreatedAt,
         CancellationToken cancellationToken = default);
     
-    [Post("/api/v1/serviceowner/dialogs/{dialogId}/transmissions/{transmissionId}")]
+    [Put("/api/v1/serviceowner/dialogs/{dialogId}/transmissions/{transmissionId}")]
     Task<IApiResponse> UpdateTransmission([Body]TransmissionDto transmission,[Header(IfMatchHeader)] Guid? revision, Guid dialogId, Guid transmissionId, [Query] bool isSilentUpdate = true, CancellationToken cancellationToken = default);
 }
 

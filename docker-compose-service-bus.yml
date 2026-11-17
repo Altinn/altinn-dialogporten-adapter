@@ -3,7 +3,7 @@ services:
   emulator:
     container_name: "servicebus-emulator"
     platform: linux/amd64
-    image: "mcr.microsoft.com/azure-messaging/servicebus-emulator@sha256:a00c9626c8960f6b9be6178aa91a7ac8f1a102c0d9deda7603a1ba0ac9d9ab51"
+    image: "mcr.microsoft.com/azure-messaging/servicebus-emulator@sha256:5a96d893b245031740f7d46e0fe5ff282d24b78c4b7d761dd57590f3f010a9b3"
     pull_policy: "always"
     ports:
       - "5672:5672"
@@ -23,7 +23,7 @@ services:
   mssql:
     container_name: "mssql"
     platform: linux/amd64
-    image: "mcr.microsoft.com/mssql/server@sha256:cee0f4db03b5192de777d37a22455949d1c2c230bb48c0a732b88b0933117a72"
+    image: "mcr.microsoft.com/mssql/server@sha256:86cc6144ef39bb0fbed2329e1ad79b13ee82e7b2e4739213a0db0800e668a74a"
     ports:
       - "1433:1433"
     networks:
